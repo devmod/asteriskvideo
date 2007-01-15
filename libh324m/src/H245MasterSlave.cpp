@@ -1,0 +1,259 @@
+#include "H245MasterSlave.h"
+
+#define Debug printf
+
+H245MasterSlave::H245MasterSlave(H245Connection &con):H245Negotiator(con) 
+{
+	//Set initial values
+	state = e_Idle;
+	determinationNumber = 1+(int) ((2^24)*rand()/(RAND_MAX+1.0));
+	terminalType = e_Slave;
+}
+
+H245MasterSlave::~H245MasterSlave() {
+}
+
+BOOL H245MasterSlave::Request()
+{
+	Debug("H245 Request MasterSlaveDetermination\n");
+
+	//If already processing
+	if (state!=e_Idle)
+		//Restart
+		return TRUE;
+	
+	//Determination request
+	state = e_Outgoing;
+	retryCount = 1;
+
+	//Build pdu
+	H324ControlPDU pdu;
+
+	//Build Master slave request
+	pdu.BuildMasterSlaveDetermination(terminalType, determinationNumber);
+
+	//Send
+	return connection.WriteControlPDU(pdu);
+}
+
+BOOL H245MasterSlave::HandleIncoming(const H245_MasterSlaveDetermination & pdu)
+{
+	//Debug
+	Debug("H245 MasterSlaveDetermination\n");
+
+	H324ControlPDU reply;
+
+	//Determine the master and slave
+	MasterSlaveStatus newStatus = DetermineStatus(pdu.m_terminalType,pdu.m_statusDeterminationNumber);
+
+	//Depending on the state
+	switch(state)
+	{
+		//case e_Incoming:
+		case e_Idle:
+            		//If it's not indeterminate
+			if (newStatus != e_Indeterminate)
+			{
+				//Save new status
+				status = newStatus;
+
+				//Incoming state
+				state = e_Incoming;
+
+				//Build ACK
+				reply.BuildMasterSlaveDeterminationAck(newStatus==e_DeterminedMaster);				
+
+				//Send msg
+				connection.WriteControlPDU(reply);
+
+				//Send
+				return connection.OnEvent(Event(e_Indication,status));
+			} else {
+				//Build reject
+				reply.BuildMasterSlaveDeterminationReject(H245_MasterSlaveDeterminationReject_cause::e_identicalNumbers);
+				//Send 
+				return connection.OnEvent(Event(e_Indication,status));
+			}
+			break;
+		case e_Incoming:
+			//Error
+			return FALSE;
+		case e_Outgoing:
+			//If it's not indeterminate
+			if (newStatus != e_Indeterminate)
+			{
+				//Save new status
+				status = newStatus;
+
+				//Incoming state
+				state = e_Incoming;
+
+				//Build ACK
+				reply.BuildMasterSlaveDeterminationAck(newStatus==e_DeterminedMaster);				
+
+				//Send 
+				connection.OnEvent(Event(e_Indication,status));
+
+				//Send event
+				return connection.OnEvent(Event(e_Indication,status));
+
+			} else {
+				//Check retries
+				if (retryCount>100)
+				{
+					//Reset 
+					retryCount = 0;
+					//Idle
+					state = e_Idle;
+					//Error
+					return FALSE;
+				}
+
+				//Generate another rnd
+				determinationNumber = 1+(int) ((2^24)*rand()/(RAND_MAX+1.0));
+				//Inc counter
+				retryCount++;
+				//Build Master slave request
+				reply.BuildMasterSlaveDetermination(terminalType, determinationNumber);
+				//Send 
+				return connection.OnEvent(Event(e_Indication,status));
+			}
+				
+			break;
+	}
+		
+	//Exit
+	return false;
+}
+
+BOOL H245MasterSlave::HandleAck(const H245_MasterSlaveDeterminationAck & pdu)
+{
+	Debug("H245 MasterSlave Ack\n");
+
+	MasterSlaveStatus newStatus;
+
+	//Get new status
+	if(pdu.m_decision.GetTag()==H245_MasterSlaveDeterminationAck_decision::e_master)
+		//Master
+		newStatus = e_DeterminedMaster;
+	else
+		//Slave
+		newStatus = e_DeterminedSlave;
+
+	//Depending on the state
+	switch(state)
+	{
+		case e_Outgoing:
+			//Save good state
+			status = newStatus;
+			//Send event
+			connection.OnEvent(Event(e_Confirm,status));
+			break;
+		case e_Idle:
+			return FALSE;
+		case e_Incoming:
+			//Id it's correct
+			if (newStatus != status)
+				return connection.OnError(H245Connection::e_MasterSlaveDetermination,"Master/Slave mismatch");
+			//Good
+			connection.OnEvent(Event(e_Confirm,status));
+	}
+
+	//Return to idle
+	state = e_Idle;
+
+	//Exit
+	return TRUE;
+	
+}
+
+BOOL H245MasterSlave::HandleReject(const H245_MasterSlaveDeterminationReject & pdu)
+{
+	
+	Debug("H245 Received MasterSlaveDeterminationReject\n");
+
+	//Reply
+	H324ControlPDU reply;
+
+	//Depending on the state
+	switch (state) 
+	{
+		case e_Idle :
+			return TRUE;
+		case e_Outgoing :
+			//Check retries
+			if (retryCount>100)
+			{
+				//Reset 
+				retryCount = 0;
+				//Idle
+				state = e_Idle;
+				//Error
+				return FALSE;
+			}
+
+			//Generate another rnd
+			determinationNumber = 1+(int) ((2^24)*rand()/(RAND_MAX+1.0));
+			//Inc counter
+			retryCount++;
+			
+			//Build Master slave request
+			reply.BuildMasterSlaveDetermination(terminalType, determinationNumber);
+			//Send
+			return connection.WriteControlPDU(reply);
+		case e_Incoming:
+			//Error
+			return FALSE;
+	}
+
+	//Exit
+	return TRUE;
+}
+
+
+BOOL H245MasterSlave::HandleRelease(const H245_MasterSlaveDeterminationRelease & /*pdu*/)
+{
+	Debug("H245 Received MasterSlaveDeterminationRelease\n");
+
+	if (state == e_Idle)
+		return TRUE;
+
+	state = e_Idle;
+
+	return connection.OnError(H245Connection::e_MasterSlaveDetermination,"Aborted");
+}
+
+H245MasterSlave::MasterSlaveStatus H245MasterSlave::getStatus() 
+{
+	return status;
+}
+
+H245MasterSlave::MasterSlaveStatus H245MasterSlave::DetermineStatus(DWORD type,DWORD number)
+{
+	//Compare terminal tipes
+	if (type = (DWORD)terminalType)
+	{
+		//Get Modulo
+		DWORD moduloDiff = (number - determinationNumber)&0xffffff;
+
+		//Check
+		if (moduloDiff == 0 || moduloDiff == 0x800000) 
+		{
+			//Indeterminate
+			return  e_Indeterminate;
+		} else if (moduloDiff < 0x800000) {
+			//Master
+			return e_DeterminedMaster;
+		} else {
+			//Slave
+			return e_DeterminedSlave;
+		}
+	} else if (type < (DWORD)terminalType) {
+		//Master
+		return e_DeterminedMaster;
+	} else {
+		//Slave
+		return e_DeterminedSlave;
+	}
+}
+
