@@ -38,6 +38,15 @@ void H324CCSRLayer::SendClosingFlag()
 	if (sdu.GetSize()<3)
 		return;
 
+	//The header
+	BYTE header = sdu[0];
+
+	//The sequence number
+	BYTE sn;
+
+	//The last field
+	BYTE lsField;
+
 	//The crc
 	CRC16 crc;
 
@@ -53,15 +62,6 @@ void H324CCSRLayer::SendClosingFlag()
 	//Check it's good crc
 	if (crcA!=crcB)
 		goto clean;
-		
-	//The header
-	BYTE header = sdu[0];
-
-	//The sequence number
-	BYTE sn;
-
-	//The last field
-	BYTE lsField;
 
 	//Depending on the type
 	switch(header)

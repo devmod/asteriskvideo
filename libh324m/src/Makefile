@@ -1,5 +1,4 @@
-CXXFLAGS = -DP_USE_PRAGMA -g -D_REENTRANT
-CXXFLAGS = -g -O0
+CXXFLAGS = -DP_USE_PRAGMA -g -D_REENTRANT -O0
 
 SRC = bits.c \
         golay.c \
@@ -15,7 +14,6 @@ SRC = bits.c \
 	H235ALReceiver.cpp \
 	H245Capabilities.cpp \
 	H245ChannelsFactory.cpp \
-	H245LogicalChannels.cpp \
 	H245MaintenanceLoop.cpp \
 	H245MasterSlave.cpp \
 	H245MuxTable.cpp \
@@ -34,6 +32,7 @@ SRC = bits.c \
 	H245_3.cpp \
 	H324pdu.cpp
 
+ #H245LogicalChannels.cpp \ 
 
 
 OBJS1 = $(SRC:.cpp=.o)

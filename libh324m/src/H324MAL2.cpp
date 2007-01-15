@@ -26,13 +26,17 @@ void H223AL2Receiver::SendClosingFlag()
 	//Crc
 	CRC8 crc;
 
+	//Data
+	BYTE *data;
+	int dataLen;
+
 	//Check minimum size
 	if (sdu.Length()<1+useSN)
 		goto clean;
 
 	//Get data
-	BYTE *data = sdu.GetPointer();
-	int dataLen = sdu.Length();
+	data = sdu.GetPointer();
+	dataLen = sdu.Length();
 
 	//Set data
 	crc.Add(data,dataLen-useSN-1);

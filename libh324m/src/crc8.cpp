@@ -56,3 +56,4 @@ BYTE CRC8::Calc()
 {
 	return crc ^ 0xFF;
 }
+
