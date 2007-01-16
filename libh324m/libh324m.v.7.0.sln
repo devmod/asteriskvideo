@@ -1,12 +1,12 @@
-Microsoft Visual Studio Solution File, Format Version 8.00
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libh324m", "libh324m.7.10.vcproj", "{1D844EB3-7797-4608-A243-7A33E7AFE04C}"
-	ProjectSection(ProjectDependencies) = postProject
-	EndProjectSection
+Microsoft Visual Studio Solution File, Format Version 7.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libh324m", "libh324m.7.0.vcproj", "{1D844EB3-7797-4608-A243-7A33E7AFE04C}"
 EndProject
 Global
 	GlobalSection(SolutionConfiguration) = preSolution
-		Debug = Debug
-		Release = Release
+		ConfigName.0 = Debug
+		ConfigName.1 = Release
+	EndGlobalSection
+	GlobalSection(ProjectDependencies) = postSolution
 	EndGlobalSection
 	GlobalSection(ProjectConfiguration) = postSolution
 		{1D844EB3-7797-4608-A243-7A33E7AFE04C}.Debug.ActiveCfg = Debug|Win32

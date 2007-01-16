@@ -36,7 +36,6 @@ int H324MSession::Init(void)
 	//Init audio
 	audioChannel.Init();
 
-
 	//Call Setup
 	return CallSetup();
 }

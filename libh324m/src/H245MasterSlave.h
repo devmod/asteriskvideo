@@ -3,8 +3,6 @@
 
 #include "H245Negotiator.h"
 
-
-
 class H245MasterSlave:
 	public H245Negotiator 
 {
