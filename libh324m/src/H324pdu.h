@@ -281,6 +281,7 @@ class H324ControlPDU : public H245_MultimediaSystemControlMessage
   PCLASSINFO(H324ControlPDU, H245_MultimediaSystemControlMessage);
 
   public:
+
     H245_RequestMessage    & Build(H245_RequestMessage   ::Choices request);
     H245_ResponseMessage   & Build(H245_ResponseMessage  ::Choices response);
     H245_CommandMessage    & Build(H245_CommandMessage   ::Choices command);

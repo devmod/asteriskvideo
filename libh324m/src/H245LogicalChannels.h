@@ -1,10 +1,8 @@
 #ifndef _H245_LOGICALCHANNELS_H_
 #define _H245_LOGICALCHANNELS_H_
-
+#include <map>
 #include "H245Negotiator.h"
 #include "H245ChannelsFactory.h"
-#include <map>
-using namespace std;
 
 class H245LogicalChannels : public H245Negotiator
 {
@@ -34,7 +32,7 @@ public:
 
 public:
 	H245LogicalChannels(H245Connection &con,H245ChannelsFactory & factory);
-	~H245LogicalChannels();
+	virtual ~H245LogicalChannels();
 
     int EstablishRequest(int channelNumber);
 	int EstablishResponse(int channelNumber,int accept);
@@ -62,7 +60,7 @@ private:
 		e_Released
 	};
 
-	typedef map<int,States> StateMap;
+	typedef std::map<int,States> StateMap;
 
 private:
 	H245ChannelsFactory & channels;

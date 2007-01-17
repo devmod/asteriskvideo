@@ -1,32 +1,35 @@
+/* H324M library
+ *
+ * Copyright (C) 2006 Sergio Garcia Murillo
+ *
+ * sergio.garcia@fontventa.com
+ * http://sip.fontventa.com
+ * 
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
 #include "crc16.h"
 
-/*****************************************************************/
-/*
+/*****************************************************************
+ *
  * Table for the CCITT/ITU/CRC-16 16-bit CRC
  *
  * Polynomial is
  *
  *     x^16 + x^12 + x^5 + 1
- */
-
-/*                                                               */
-/* CRC LOOKUP TABLE                                              */
-/* ================                                              */
-/* The following CRC lookup table was generated automagically    */
-/* by the Rocksoft^tm Model CRC Algorithm Table Generation       */
-/* Program V1.0 using the following model parameters:            */
-/*                                                               */
-/*    Width   : 2 bytes.                                         */
-/*    Poly    : 0x1021                                           */
-/*    Reverse : TRUE.                                           */
-/*                                                               */
-/* For more information on the Rocksoft^tm Model CRC Algorithm,  */
-/* see the document titled "A Painless Guide to CRC Error        */
-/* Detection Algorithms" by Ross Williams                        */
-/* (ross@xxxxxxxxxxxxxxxxxxxxxx). This document is likely to be  */
-/* in the FTP archive "ftp.adelaide.edu.au/pub/rocksoft".        */
-/*                                                               */
-/*****************************************************************/
+ *
+ *****************************************************************/
 
 static const WORD crc16_table[256] =
 {

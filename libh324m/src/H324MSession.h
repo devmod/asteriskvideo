@@ -5,16 +5,8 @@
 #include "H223Muxer.h"
 #include "H324MControlChannel.h"
 #include "H324MMediaChannel.h"
-#include "H245MasterSlave.h"
-#include "H245TerminalCapability.h"
-#include "H245RoundTrip.h"
-#include "H245MuxTable.h"
-#include "H245LogicalChannels.h"
-#include "H245MaintenanceLoop.h"
-#include "H245ChannelsFactory.h"
 
-class H324MSession :
-	public H324MControlChannel
+class H324MSession 
 {
 public:
 	//Enums
@@ -32,13 +24,8 @@ public:
 	int End();
 	
 	//Mux & demux
-	int ReadControlFrane(BYTE *input,int length);
+	int Read(BYTE *input,int length);
 	int Write(BYTE *input,int length);
-	
-protected:
-	//Overrides
-	virtual int OnCallSetup();
-	virtual int OnMediaSetup();
 	
 private:
 	H223Muxer			muxer;
@@ -48,6 +35,7 @@ private:
 	CallState			state;
 	H324MAudioChannel 	audioChannel;
 	H324MVideoChannel 	videoChannel;
+	H324MControlChannel controlChannel;
 };
 
 #endif

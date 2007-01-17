@@ -17,28 +17,20 @@ class H324MControlChannel :
 {
 public:
 	H324MControlChannel();
-	~H324MControlChannel();
-
-	//Methods
-	int CallSetup();
-	int MediaSetup(H324MMediaChannel *audio,H324MMediaChannel *video);
-	
-	//Events
-	virtual int OnCallSetup() = 0;
-	virtual int OnMediaSetup() = 0;
+	virtual ~H324MControlChannel();
 	
 public:
-	//Method overrides
+	//Method overrides from ccsrl
+	virtual int OnControlPDU(H324ControlPDU &pdu);
+
+	//Method overrrides from h245connection
 	virtual int WriteControlPDU(H324ControlPDU & pdu);
 	virtual int OnError(ControlProtocolSource source, const void *);
 	virtual int OnEvent(const H245Connection::Event &event);
-		
-private:
-	//Event from Negotiators
-	virtual int OnMasterSlaveDetermination(const H245MasterSlave::Event & event);
-	virtual int OnCapabilityExchange(const H245TerminalCapability::Event & event);
-	virtual int OnMultiplexTable(const H245MuxTable::Event &event);
-	virtual int OnLogicalChannel(const H245LogicalChannels::Event &event);
+	virtual int OnH245Request(H245_RequestMessage& req);
+	virtual int OnH245Response(H245_ResponseMessage& rep);
+	virtual int OnH245Command(H245_CommandMessage& cmd);
+	virtual int OnH245Indication(H245_IndicationMessage& ind);
 
 private:
 	H245MasterSlave* ms;
@@ -48,9 +40,6 @@ private:
 	H245LogicalChannels* lc;
 	H245ChannelsFactory* channels;
 	H245MaintenanceLoop* loop;
-	H324MMediaChannel *audio;
-	H324MMediaChannel *video;
-	
 };
 
 #endif

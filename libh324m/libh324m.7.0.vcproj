@@ -15,12 +15,14 @@
 			OutputDirectory="Debug"
 			IntermediateDirectory="Debug"
 			ConfigurationType="2"
+			UseOfATL="1"
 			CharacterSet="0"
 			WholeProgramOptimization="FALSE">
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;LIBH324M_EXPORTS,PTRACING"
+				IgnoreStandardIncludePath="FALSE"
 				MinimalRebuild="TRUE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -182,6 +184,9 @@
 			</File>
 			<File
 				RelativePath=".\src\H245ChannelsFactory.h">
+			</File>
+			<File
+				RelativePath="src\H245Connection.cpp">
 			</File>
 			<File
 				RelativePath=".\src\H245Connection.h">

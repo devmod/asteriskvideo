@@ -8,7 +8,6 @@
 #include "H223Header.h"
 
 #include <map>
-using namespace std;
 
 class H223Demuxer
 {
@@ -35,7 +34,7 @@ private:
 	H223Header			header;
 
 	//Al channel users
-	map<int,H223ALReceiver*>	al;
+	std::map<int,H223ALReceiver*>	al;
 	
 	int state;
 	int counter;

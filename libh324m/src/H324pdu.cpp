@@ -511,7 +511,7 @@
 #include <ptlib.h>
 
 #ifdef __GNUC__
-#pragma implementation "h324pdu.h"
+#pragma implementation "H324pdu.h"
 #endif
 
 #include "H324pdu.h"

@@ -14,7 +14,7 @@ class H324CCSRLayer :
 {
 public:
 	H324CCSRLayer();
-	~H324CCSRLayer();
+	virtual ~H324CCSRLayer();
 
 	//H223ALReceiver interface
 	virtual void Send(BYTE b);

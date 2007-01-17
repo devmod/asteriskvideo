@@ -1,3 +1,24 @@
+/* H324M library
+ *
+ * Copyright (C) 2006 Sergio Garcia Murillo
+ *
+ * sergio.garcia@fontventa.com
+ * http://sip.fontventa.com
+ * 
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
 #include "H324MControlChannel.h"
 #include <iostream>
 #include <fstream>
@@ -33,105 +54,6 @@ H324MControlChannel::~H324MControlChannel()
 	delete loop;
 }
 
-int H324MControlChannel::CallSetup()
-{
-	//Send our request
-	tc->TransferRequest();
-	//ms->Request();
-	//Exit
-	return TRUE;
-}
-
-int H324MControlChannel::OnMasterSlaveDetermination(const H245MasterSlave::Event & event)
-{
-	//Depending on the type
-	switch(event.confirm)
-	{
-		case H245MasterSlave::e_Confirm:
-			//Send event
-			OnCallSetup();	
-			return TRUE;
-		case H245MasterSlave::e_Indication:
-			return TRUE;
-	}
-
-	//Exit
-	return FALSE;
-}
-int H324MControlChannel::OnCapabilityExchange(const H245TerminalCapability::Event & event)
-{
-	//Depending on the type
-	switch(event.type)
-	{
-		case H245TerminalCapability::e_TransferConfirm:
-			return TRUE;
-		case H245TerminalCapability::e_TransferIndication:
-			//Accept
-			tc->TransferResponse();
-			//Start master Slave
-			ms->Request();
-			//Exit
-			return TRUE;
-	}
-
-	//Exit
-	return FALSE;
-}
-
-
-int H324MControlChannel::MediaSetup(H324MMediaChannel *a,H324MMediaChannel *v)
-{
-	//Save channels
-	audio = a;
-	video = v;
-
-	//Create channel
-	//channels->CreateChannel(audio->localChannel,audio,0);
-
-	//Create channel
-	//channels->CreateChannel(video->localChannel,video,0);
-
-	//Opne audio
-	//lc->EstablishRequest(video->localChannel);
-
-	
-
-	return true; 
-}
-
-int H324MControlChannel::OnMultiplexTable(const H245MuxTable::Event &event)
-{
-	return true;
-}
-
-int H324MControlChannel::OnLogicalChannel(const H245LogicalChannels::Event &event)
-{
-	Debug("-OnLogicalChannel\n");
-	switch(event.type)
-	{
-		case H245LogicalChannels::e_EstablishIndication:
-			lc->EstablishResponse(event.channel,true);
-			Debug("OpenLogicalChannel\n");
-			//lc->EstablishRequest(video->localChannel);
-			return true;
-		case H245LogicalChannels::e_EstablishConfirm:
-		{
-			//Send table
-			H223MuxTable table;
-			table.SetEntry(1,"","1");
-			//Send
-			mt->Send(table);
-			return true;
-		}
-		case H245LogicalChannels::e_ReleaseIndication:
-		case H245LogicalChannels::e_ReleaseConfirm:
-		case H245LogicalChannels::e_ErrorIndication:
-			return true;
-	}
-
-	//Exit
-	return true;
-}
 
 int H324MControlChannel::OnError(ControlProtocolSource source, const void *str)
 {
@@ -165,13 +87,13 @@ int H324MControlChannel::OnEvent(const H245Connection::Event &event)
 	switch(event.source)
 	{
 		case H245Connection::e_MasterSlaveDetermination:
-			return OnMasterSlaveDetermination((const H245MasterSlave::Event &)event);
+			//return OnMasterSlaveDetermination((const H245MasterSlave::Event &)event);
 		case H245Connection::e_CapabilityExchange:
-			return OnCapabilityExchange((const H245TerminalCapability::Event &)event);
+			//return OnCapabilityExchange((const H245TerminalCapability::Event &)event);
 		case H245Connection::e_MultiplexTable:
-			return OnMultiplexTable((const H245MuxTable::Event &)event);
+			//return OnMultiplexTable((const H245MuxTable::Event &)event);
 		case H245Connection::e_LogicalChannel:
-			return OnLogicalChannel((const H245LogicalChannels::Event &)event);
+			//return OnLogicalChannel((const H245LogicalChannels::Event &)event);
 		case H245Connection::e_ModeRequest:
 		case H245Connection::e_RoundTripDelay:
 			break;

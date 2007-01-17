@@ -1,9 +1,11 @@
-CXXFLAGS = -DP_USE_PRAGMA -g -D_REENTRANT -O0
+CXXFLAGS = -DP_USE_PRAGMA -g -D_REENTRANT -O0 -Wall -fPIC -DPIC -DPTRACING
+CFLAGS = -DP_USE_PRAGMA -g -D_REENTRANT -O0 -Wall -fPIC -DPIC -DPTRACING
 
 SRC = bits.c \
         golay.c \
 	crc8.cpp \
 	crc16.cpp \
+	Timer.cpp \
 	H223Demuxer.cpp \
 	H223Flag.cpp \
 	H223Header.cpp \
@@ -13,6 +15,7 @@ SRC = bits.c \
 	H223Session.cpp \
 	H235ALReceiver.cpp \
 	H245Capabilities.cpp \
+	H245LogicalChannels.cpp \
 	H245ChannelsFactory.cpp \
 	H245MaintenanceLoop.cpp \
 	H245MasterSlave.cpp \
@@ -31,9 +34,6 @@ SRC = bits.c \
 	H245_2.cpp \
 	H245_3.cpp \
 	H324pdu.cpp
-
- #H245LogicalChannels.cpp \ 
-
 
 OBJS1 = $(SRC:.cpp=.o)
 OBJS = $(OBJS1:.c=.o)
