@@ -28,7 +28,7 @@ public:
 
 public:
 	//Constructor
-	H245TerminalCapability(H245Connection &con,H245ChannelsFactory & factory);
+	H245TerminalCapability(H245Connection &con,H245ChannelsFactory &factory);
 	virtual ~H245TerminalCapability();
 	
 	//Methods

@@ -2,24 +2,31 @@
 
 int main()
 {
-	int id;
+	int idA;
+	int idB;
 	int i = 0;
 	unsigned char aux[160];
 
 
-	id = H324MSessionCreate();
+	idA = H324MSessionCreate();
+	idB = H324MSessionCreate();
 
-	H324MSessionInit(id);
+	H324MSessionInit(idA);
+	H324MSessionInit(idB);
 
-	while(i++<100)	
+	while(1)	
 	{
-		H324MSessionRead(id,aux,160);
-		H324MSessionWrite(id,aux,160);
+		H324MSessionWrite(idB,aux,20);
+		H324MSessionRead(idA,aux,20);
+		H324MSessionWrite(idA,aux,20);
+		H324MSessionRead(idB,aux,20);
 	}
 
-	H324MSessionEnd(id);
+	H324MSessionEnd(idA);
+	H324MSessionEnd(idB);
 
-	H324MSessionDestroy(id);
+	H324MSessionDestroy(idA);
+	H324MSessionDestroy(idB);
 
 	return 0;
 }

@@ -4,7 +4,7 @@
 #include "H223Demuxer.h"
 #include "H223Muxer.h"
 #include "H324MControlChannel.h"
-#include "H324MMediaChannel.h"
+#include "H245ChannelsFactory.h"
 
 class H324MSession 
 {
@@ -18,6 +18,9 @@ public:
 		e_Stablished,
 		e_Hangup
 	};
+
+	H324MSession();
+	virtual ~H324MSession();
 
 	//Init functions
 	int Init();
@@ -33,9 +36,11 @@ private:
 	H223MuxTable		tableMux;
 	H223MuxTable		tableDemux;
 	CallState			state;
-	H324MAudioChannel 	audioChannel;
-	H324MVideoChannel 	videoChannel;
-	H324MControlChannel controlChannel;
+	H245ChannelsFactory channels;
+	H324MControlChannel *controlChannel;
+	int	audio;
+	int	video;
+	
 };
 
 #endif

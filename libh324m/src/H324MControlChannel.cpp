@@ -25,20 +25,20 @@
 
 const unsigned vID[] = {1,37,111,116,111,114,111,108,97,95,49,0}; //Motorola
 
-H324MControlChannel::H324MControlChannel() 
+H324MControlChannel::H324MControlChannel(H245ChannelsFactory* channels) 
 {
-	//Create the logical channels 
-	channels = new H245ChannelsFactory();
+	//Save the logical channels factory
+	cf = channels;
 	//Create the master slave negotiator
 	ms = new H245MasterSlave(*this);
 	//Create the terminal capabilities exchanger
-	tc = new H245TerminalCapability(*this,*channels);
+	tc = new H245TerminalCapability(*this,*cf);
 	//Create round trip
 	rt = new H245RoundTripDelay(*this);
 	//Create Multiplex table handler
 	mt = new H245MuxTable(*this);
 	//Create the logical channel negotiator 
-	lc = new H245LogicalChannels(*this,*channels);
+	lc = new H245LogicalChannels(*this,*cf);
 	//Maintenance loop
 	loop = new H245MaintenanceLoop(*this);
 }
@@ -54,10 +54,22 @@ H324MControlChannel::~H324MControlChannel()
 	delete loop;
 }
 
+int H324MControlChannel::CallSetup()
+{
+	//Send our first request
+	tc->TransferRequest();
+	//ms->Request();
+	//Exit
+	return TRUE;
+}
+
+int H324MControlChannel::Disconnect()
+{
+	return true;
+}
 
 int H324MControlChannel::OnError(ControlProtocolSource source, const void *str)
 {
-
 	switch(source)
 	{
 		case H245Connection::e_MasterSlaveDetermination:
@@ -75,36 +87,114 @@ int H324MControlChannel::OnError(ControlProtocolSource source, const void *str)
 		case H245Connection::e_ModeRequest:
 			Debug("ModeRequest error %s",(char *) str);
 			break;
+		case H245Connection::e_MultiplexTable:
+			Debug("Multiplex error %s",(char *) str);
+			break;
 	}
 
 	//Exit
 	return 1;
 }
 
+int H324MControlChannel::OnMasterSlaveDetermination(const H245MasterSlave::Event & event)
+{
+	//Depending on the type
+	switch(event.confirm)
+	{
+		case H245MasterSlave::e_Confirm:
+			//Debug
+			Debug("-MasterSlave confirmed [%d]\n", event.state);
+			return TRUE;
+		case H245MasterSlave::e_Indication:
+			return TRUE;
+	}
+	//Exit
+	return FALSE;
+}
+
+int H324MControlChannel::OnCapabilityExchange(const H245TerminalCapability::Event & event)
+{
+	//Depending on the type
+	switch(event.type)
+	{
+		case H245TerminalCapability::e_TransferConfirm:
+			return TRUE;
+		case H245TerminalCapability::e_TransferIndication:
+			//Accept
+			tc->TransferResponse();
+			//Start master Slave
+			ms->Request();
+			//Exit
+			return TRUE;
+		case H245TerminalCapability::e_RejectIndication:
+			Debug("TerminalCapability rejected\n");
+			return FALSE;
+	}
+	//Exit
+	return FALSE;
+}
+
+int H324MControlChannel::OnMultiplexTable(const H245MuxTable::Event &event)
+{
+	return true;
+}
+
+int H324MControlChannel::OnLogicalChannel(const H245LogicalChannels::Event &event)
+{
+	Debug("-OnLogicalChannel\n");
+	switch(event.type)
+	{
+		case H245LogicalChannels::e_EstablishIndication:
+			lc->EstablishResponse(event.channel,true);
+			Debug("OpenLogicalChannel\n");
+			//lc->EstablishRequest(video->localChannel);
+			return true;
+		case H245LogicalChannels::e_EstablishConfirm:
+		{
+			//Send table
+			H223MuxTable table;
+			table.SetEntry(1,"","1");
+			//Send
+			mt->Send(table);
+			return true;
+		}
+		case H245LogicalChannels::e_ReleaseIndication:
+		case H245LogicalChannels::e_ReleaseConfirm:
+		case H245LogicalChannels::e_ErrorIndication:
+			return true;
+	}
+
+	//Exit
+	return true;
+}
+
 int H324MControlChannel::OnEvent(const H245Connection::Event &event)
 {
+	Debug("-Event!!\n");
 	//Depending on the event
 	switch(event.source)
 	{
 		case H245Connection::e_MasterSlaveDetermination:
-			//return OnMasterSlaveDetermination((const H245MasterSlave::Event &)event);
+			return OnMasterSlaveDetermination((const H245MasterSlave::Event &)event);
 		case H245Connection::e_CapabilityExchange:
-			//return OnCapabilityExchange((const H245TerminalCapability::Event &)event);
+			return OnCapabilityExchange((const H245TerminalCapability::Event &)event);
 		case H245Connection::e_MultiplexTable:
-			//return OnMultiplexTable((const H245MuxTable::Event &)event);
+			return OnMultiplexTable((const H245MuxTable::Event &)event);
 		case H245Connection::e_LogicalChannel:
-			//return OnLogicalChannel((const H245LogicalChannels::Event &)event);
+			return OnLogicalChannel((const H245LogicalChannels::Event &)event);
 		case H245Connection::e_ModeRequest:
 		case H245Connection::e_RoundTripDelay:
 			break;
 	}
 
 	//Exits
-	return FALSE;;
+	return FALSE;
 }
 
 int H324MControlChannel::WriteControlPDU(H324ControlPDU & pdu)
 {
+	cout << "Sending \n" << pdu << "\n";
+
 	//Send pdu to ccsrl layer
 	SendPDU(pdu);
 
@@ -115,6 +205,8 @@ int H324MControlChannel::WriteControlPDU(H324ControlPDU & pdu)
 int H324MControlChannel::OnControlPDU(H324ControlPDU &pdu)
 {
 	Debug("OnControlPDU\n");
+	
+	cout << "Received \n" << pdu << "\n";
 
 	//Depending on the pdu
 	switch(pdu.GetTag())
@@ -150,6 +242,7 @@ int H324MControlChannel::OnControlPDU(H324ControlPDU &pdu)
 
 int H324MControlChannel::OnH245Request(H245_RequestMessage& req)
 {
+	Debug("-OnH245Request\n");
 	//Depending on tue tag
 	switch(req.GetTag())
 	{
@@ -191,6 +284,8 @@ int H324MControlChannel::OnH245Request(H245_RequestMessage& req)
 
 int H324MControlChannel::OnH245Response(H245_ResponseMessage& rep)
 {
+	Debug("-OnH245Response\n");
+
 	//Depending on the tag
 	switch(rep.GetTag())
 	{

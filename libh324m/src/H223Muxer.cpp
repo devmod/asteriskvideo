@@ -89,8 +89,8 @@ int H223Muxer::GetBestMC(int max)
 		//Get channel number
 		int channel = itSenders->first;
 
-		//Does it has a pdu?
-		if(sdus.find(channel)==sdus.end())
+		//Does it has a pdu? and its not null??
+		if(itSenders->second && sdus.find(channel)==sdus.end())
 		{
 			//Request new
 			H223MuxSDU *sdu = itSenders->second->GetNextPDU();

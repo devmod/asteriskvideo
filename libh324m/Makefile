@@ -1,4 +1,4 @@
-CFLAGS=-g
+CFLAGS=-g -O0
 LDFLAGS=`ptlib-config --libs`
 
 all: libh324m test

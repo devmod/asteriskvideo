@@ -25,10 +25,13 @@
 
 H245MasterSlave::H245MasterSlave(H245Connection &con):H245Negotiator(con) 
 {
+	//Initialize seed
+	srand((unsigned)this);
+
 	//Set initial values
 	state = e_Idle;
-	determinationNumber = 1+(int) ((2^24)*rand()/(RAND_MAX+1.0));
-	terminalType = e_Slave;
+	determinationNumber = 1+(DWORD) rand()*(0x1000000/(RAND_MAX+1.0));
+	terminalType = e_MCUOnly;
 }
 
 H245MasterSlave::~H245MasterSlave() {
@@ -77,21 +80,20 @@ BOOL H245MasterSlave::HandleIncoming(const H245_MasterSlaveDetermination & pdu)
 			{
 				//Save new status
 				status = newStatus;
-
 				//Incoming state
 				state = e_Incoming;
-
 				//Build ACK
 				reply.BuildMasterSlaveDeterminationAck(newStatus==e_DeterminedMaster);				
-
 				//Send msg
 				connection.WriteControlPDU(reply);
-
 				//Send
 				return connection.OnEvent(Event(e_Indication,status));
+
 			} else {
 				//Build reject
 				reply.BuildMasterSlaveDeterminationReject(H245_MasterSlaveDeterminationReject_cause::e_identicalNumbers);
+				//Send msg
+				connection.WriteControlPDU(reply);
 				//Send 
 				return connection.OnEvent(Event(e_Indication,status));
 			}
@@ -105,16 +107,12 @@ BOOL H245MasterSlave::HandleIncoming(const H245_MasterSlaveDetermination & pdu)
 			{
 				//Save new status
 				status = newStatus;
-
 				//Incoming state
 				state = e_Incoming;
-
 				//Build ACK
 				reply.BuildMasterSlaveDeterminationAck(newStatus==e_DeterminedMaster);				
-
 				//Send 
-				connection.OnEvent(Event(e_Indication,status));
-
+				connection.WriteControlPDU(reply);
 				//Send event
 				return connection.OnEvent(Event(e_Indication,status));
 
@@ -131,11 +129,13 @@ BOOL H245MasterSlave::HandleIncoming(const H245_MasterSlaveDetermination & pdu)
 				}
 
 				//Generate another rnd
-				determinationNumber = 1+(int) ((2^24)*rand()/(RAND_MAX+1.0));
+				determinationNumber = 1+rand()*((2^24)/(RAND_MAX+1.0));
 				//Inc counter
 				retryCount++;
 				//Build Master slave request
 				reply.BuildMasterSlaveDetermination(terminalType, determinationNumber);
+				//Send msg
+				connection.WriteControlPDU(reply);
 				//Send 
 				return connection.OnEvent(Event(e_Indication,status));
 			}
@@ -214,10 +214,9 @@ BOOL H245MasterSlave::HandleReject(const H245_MasterSlaveDeterminationReject & p
 			}
 
 			//Generate another rnd
-			determinationNumber = 1+(int) ((2^24)*rand()/(RAND_MAX+1.0));
+			determinationNumber = 1+rand()*((2^24)/(RAND_MAX+1.0));
 			//Inc counter
 			retryCount++;
-			
 			//Build Master slave request
 			reply.BuildMasterSlaveDetermination(terminalType, determinationNumber);
 			//Send

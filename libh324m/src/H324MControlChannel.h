@@ -15,10 +15,14 @@ class H324MControlChannel :
 	public H324CCSRLayer,
 	public H245Connection
 {
+
 public:
-	H324MControlChannel();
+	H324MControlChannel(H245ChannelsFactory* channels);
 	virtual ~H324MControlChannel();
-	
+
+	int CallSetup();
+	int Disconnect();
+
 public:
 	//Method overrides from ccsrl
 	virtual int OnControlPDU(H324ControlPDU &pdu);
@@ -27,10 +31,17 @@ public:
 	virtual int WriteControlPDU(H324ControlPDU & pdu);
 	virtual int OnError(ControlProtocolSource source, const void *);
 	virtual int OnEvent(const H245Connection::Event &event);
-	virtual int OnH245Request(H245_RequestMessage& req);
-	virtual int OnH245Response(H245_ResponseMessage& rep);
-	virtual int OnH245Command(H245_CommandMessage& cmd);
-	virtual int OnH245Indication(H245_IndicationMessage& ind);
+
+private:
+	int OnH245Request(H245_RequestMessage& req);
+	int OnH245Response(H245_ResponseMessage& rep);
+	int OnH245Command(H245_CommandMessage& cmd);
+	int OnH245Indication(H245_IndicationMessage& ind);
+
+	int OnMasterSlaveDetermination(const H245MasterSlave::Event & event);
+	int OnCapabilityExchange(const H245TerminalCapability::Event & event);
+	int OnMultiplexTable(const H245MuxTable::Event &event);
+	int OnLogicalChannel(const H245LogicalChannels::Event &event);
 
 private:
 	H245MasterSlave* ms;
@@ -38,7 +49,7 @@ private:
 	H245RoundTripDelay* rt;
 	H245MuxTable* mt;
 	H245LogicalChannels* lc;
-	H245ChannelsFactory* channels;
+	H245ChannelsFactory* cf;
 	H245MaintenanceLoop* loop;
 };
 

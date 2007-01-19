@@ -22,110 +22,59 @@
 #include "H324MSession.h"
 
 #define Debug printf 
-int H324MSession::Init(void)
+H324MSession::H324MSession()
 {
-	//Only entry 0 at the beginning is available
+	//Create the control channel
+	controlChannel = new H324MControlChannel(&channels);
+	//Create audio channel
+	audio = channels.CreateChannel(H324MMediaChannel::Audio);
+	//Create video channel
+	video = channels.CreateChannel(H324MMediaChannel::Video);
+}
+
+H324MSession::~H324MSession()
+{
+	//Delete control channels
+	delete controlChannel;
+}
+
+int H324MSession::Init()
+{
+	//Set muxer table
 	tableDemux.SetEntry(0,"","0");
+	tableDemux.SetEntry(1,"","1");
+	tableDemux.SetEntry(2,"","2");
+
+	//Set demuxer table
+	tableMux.SetEntry(0,"","0");
+	tableMux.SetEntry(1,"","1");
+	tableMux.SetEntry(2,"","2");
+
+	//Set demuxer channels
+	demuxer.SetChannel(0,controlChannel);
+	demuxer.SetChannel(audio,channels.GetReceiver(audio));
+	demuxer.SetChannel(video,channels.GetReceiver(video));
+
+	//Set muxer channels
+	muxer.SetChannel(0,controlChannel);
+	muxer.SetChannel(audio,channels.GetSender(audio));
+	muxer.SetChannel(video,channels.GetSender(video));
 	
-	//Init the demuxer
+	//Open demuxer
 	demuxer.Open(&tableDemux);
 
-	//Add the reciever
-	demuxer.SetChannel(0,&controlChannel);
-
-	//Set mcs
-	tableMux.SetEntry(0,"","0");
-
-	//Init the muxer
+	//Open muxer
 	muxer.Open(&tableMux);
-	
-	//Set the control channel
-	muxer.SetChannel(0,&controlChannel);
-
-	//Initial state
-	state = e_Setup;
-
-	//Set  logical channel
-	videoChannel.localChannel = 1;
-
-	//Set  logical channel
-	audioChannel.localChannel = 2;
-	
-	//Init video
-	videoChannel.Init();
-
-	//Init audio
-	audioChannel.Init();
 
 	//Call Setup
-	return true;
+	return controlChannel->CallSetup();
 }
+
 int H324MSession::End()
 {
-	return true;
+	//Disconnect channels
+	return controlChannel->Disconnect();;
 }
-/*
-int H324MSession::OnCallSetup()
-{
-	H245Capabilities c;
-
-	//Check capabilities
-	if (c.audioWithAL1)
-		audioChannel.SetReceiverLayer(1);
-	else if (c.audioWithAL2) 
-		audioChannel.SetReceiverLayer(2);
-	else if (c.audioWithAL3) 
-		audioChannel.SetReceiverLayer(3);
-	else 
-		//No audio (should end??)
-		audioChannel.SetReceiverLayer(2);//Debug("No audio suported\n");
-
-	//Set sender layer
-	audioChannel.SetSenderLayer(2);
-
-	//Check capabilities
-	if (c.videoWithAL1)
-		videoChannel.SetReceiverLayer(1);
-	else if (c.audioWithAL2) 
-		videoChannel.SetReceiverLayer(2);
-	else if (c.audioWithAL3) 
-		videoChannel.SetReceiverLayer(3);
-	else 
-		//No audio (should end??)
-		audioChannel.SetReceiverLayer(2);//Debug("No video suported\n");
-
-	//Video
-	videoChannel.SetReceiverLayer(2);
-	videoChannel.SetSenderLayer(2);
-
-	//Add to muxer & demuxer
-	tableDemux.SetEntry(1,"","2");
-	demuxer.SetChannel(2,videoChannel.GetReceiver());
-	tableMux.SetEntry(2,"","2");
-	muxer.SetChannel(videoChannel.localChannel,videoChannel.GetSender());
-
-	//Save table
-	state=e_SetupMedia;
-
-	//Setup Media
-	return true;
-}
-
-int H324MSession::OnMediaSetup()
-{
-	//Set demuxing channels
-	demuxer.SetChannel(audioChannel.remoteChannel,audioChannel.GetReceiver());
-	demuxer.SetChannel(videoChannel.remoteChannel,videoChannel.GetReceiver());
-	//Set muxer channel
-	muxer.SetChannel(audioChannel.localChannel,audioChannel.GetSender());
-	muxer.SetChannel(videoChannel.localChannel,videoChannel.GetSender());
-
-	//We are open!!
-	state = e_Stablished;
-
-	//Exit
-	return 1;
-}*/
 
 int H324MSession::Read(BYTE *buffer,int length)
 {
@@ -135,6 +84,7 @@ int H324MSession::Read(BYTE *buffer,int length)
 	//Ok
 	return 1;
 }
+
 int H324MSession::Write(BYTE *buffer,int length)
 {
 	//Mux
@@ -143,105 +93,3 @@ int H324MSession::Write(BYTE *buffer,int length)
 	//Ok
 	return 1;
 }
-
-/*
-int H324MControlChannel::CallSetup()
-{
-	//Send our request
-	tc->TransferRequest();
-	//ms->Request();
-	//Exit
-	return TRUE;
-}
-
-int H324MControlChannel::OnMasterSlaveDetermination(const H245MasterSlave::Event & event)
-{
-	//Depending on the type
-	switch(event.confirm)
-	{
-		case H245MasterSlave::e_Confirm:
-			//Send event
-			OnCallSetup();	
-			return TRUE;
-		case H245MasterSlave::e_Indication:
-			return TRUE;
-	}
-
-	//Exit
-	return FALSE;
-}
-int H324MControlChannel::OnCapabilityExchange(const H245TerminalCapability::Event & event)
-{
-	//Depending on the type
-	switch(event.type)
-	{
-		case H245TerminalCapability::e_TransferConfirm:
-			return TRUE;
-		case H245TerminalCapability::e_TransferIndication:
-			//Accept
-			tc->TransferResponse();
-			//Start master Slave
-			ms->Request();
-			//Exit
-			return TRUE;
-	}
-
-	//Exit
-	return FALSE;
-}
-
-
-int H324MControlChannel::MediaSetup(H324MMediaChannel *a,H324MMediaChannel *v)
-{
-	//Save channels
-	audio = a;
-	video = v;
-
-	//Create channel
-	//channels->CreateChannel(audio->localChannel,audio,0);
-
-	//Create channel
-	//channels->CreateChannel(video->localChannel,video,0);
-
-	//Opne audio
-	//lc->EstablishRequest(video->localChannel);
-
-	
-
-	return true; 
-}
-
-int H324MControlChannel::OnMultiplexTable(const H245MuxTable::Event &event)
-{
-	return true;
-}
-
-int H324MControlChannel::OnLogicalChannel(const H245LogicalChannels::Event &event)
-{
-	Debug("-OnLogicalChannel\n");
-	switch(event.type)
-	{
-		case H245LogicalChannels::e_EstablishIndication:
-			lc->EstablishResponse(event.channel,true);
-			Debug("OpenLogicalChannel\n");
-			//lc->EstablishRequest(video->localChannel);
-			return true;
-		case H245LogicalChannels::e_EstablishConfirm:
-		{
-			//Send table
-			H223MuxTable table;
-			table.SetEntry(1,"","1");
-			//Send
-			mt->Send(table);
-			return true;
-		}
-		case H245LogicalChannels::e_ReleaseIndication:
-		case H245LogicalChannels::e_ReleaseConfirm:
-		case H245LogicalChannels::e_ErrorIndication:
-			return true;
-	}
-
-	//Exit
-	return true;
-}
-*/

@@ -310,6 +310,8 @@ BOOL H245LogicalChannels::HandleOpen(const H245_OpenLogicalChannel & pdu)
 			in[channelNumber] = e_AwaitingEstablishment;
 			//Send event
 			return connection.OnEvent(Event(e_EstablishIndication,channelNumber));
+		case e_AwaitingRelease:
+			return FALSE;
 	}
 	
 	//Exit
@@ -356,6 +358,8 @@ BOOL H245LogicalChannels::HandleClose(const H245_CloseLogicalChannel & pdu)
 			reply.BuildCloseLogicalChannelAck(channelNumber);
 			//Send it
 			return connection.WriteControlPDU(reply);
+		case e_AwaitingRelease:
+			return FALSE;
 	}
 	
 	//Exit

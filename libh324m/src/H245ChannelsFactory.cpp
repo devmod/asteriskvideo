@@ -28,10 +28,60 @@ H245ChannelsFactory::H245ChannelsFactory()
 	local.audioWithAL2 = true;
 	local.videoWithAL2 = true;
 	local.videoWithAL3 = true;
+
+	//No channels
+	numChannels = 0;
 }
 
 H245ChannelsFactory::~H245ChannelsFactory()
 {
+}
+
+int H245ChannelsFactory::CreateChannel(H324MMediaChannel::e_Type type)
+{
+	H324MMediaChannel* chan;
+
+	//Dependin on channel type
+	switch(type)
+	{
+		case H324MMediaChannel::Audio:
+			//New audio channel
+			chan = new H324MAudioChannel();
+			break;
+		case H324MMediaChannel::Video:
+			//New audio channel
+			chan = new H324MAudioChannel();
+			break;
+		default:
+			return -1;
+	}
+
+	//Append to map
+	channels[++numChannels] = chan;
+
+	//Set  logical channel
+	chan->localChannel = numChannels;
+
+	//return channel id
+	return numChannels;
+}
+
+H223ALSender* H245ChannelsFactory::GetSender(int id)
+{
+	//If it exist
+	if (channels.find(id)==channels.end())
+		return NULL;
+	//Return sender
+	return channels[id]->GetSender();
+}
+
+H223ALReceiver* H245ChannelsFactory::GetReceiver(int id)
+{
+	//If it exist
+	if (channels.find(id)==channels.end())
+		return NULL;
+	//Return receiver
+	return channels[id]->GetReceiver();
 }
 
 void H245ChannelsFactory::BuildPDU(H245_TerminalCapabilitySet & pdu)
@@ -45,15 +95,58 @@ int H245ChannelsFactory::OnRemoteCapabilities(const H245_TerminalCapabilitySet &
 	//Build capabilities object
 	H245Capabilities remoteCapabilities(pdu);
 
+	//Set layers for channels
+	for(ChannelMap::iterator it = channels.begin(); it != channels.end(); it++)
+	{
+		//Get channel
+		H324MMediaChannel *chan = it->second;
+
+		//IF is audio
+		if (chan->type == H324MMediaChannel::Audio)
+		{
+			//Check capabilities
+			if (remoteCapabilities.audioWithAL1)
+				chan->SetReceiverLayer(1);
+			else if (remoteCapabilities.audioWithAL2) 
+				chan->SetReceiverLayer(2);
+			else if (remoteCapabilities.audioWithAL3) 
+				chan->SetReceiverLayer(3);
+			else 
+				Debug("No audio suported\n");
+			//Set sender layer
+			chan->SetSenderLayer(2);
+
+		} else {
+			//Check capabilities
+			if (remoteCapabilities.videoWithAL1)
+				chan->SetReceiverLayer(1);
+			else if (remoteCapabilities.audioWithAL2) 
+				chan->SetReceiverLayer(2);
+			else if (remoteCapabilities.audioWithAL3) 
+				chan->SetReceiverLayer(3);
+			else 
+				//No audio (should end??)
+				Debug("No video suported\n");
+
+			//Video
+			chan->SetSenderLayer(2);
+		}
+	}
+	
 	return 1;
 }
 
 int H245ChannelsFactory::BuildChannelPDU(H245_OpenLogicalChannel & open,int number)
 {
-	//ÑAPA!!!!!!
-	if (number==1)
+	//Check channel exits
+	if (channels.find(number)==channels.end())
+		//Exit
+		return FALSE;
+	
+	//Depending on the channel type
+	if (channels[number]->type==H324MMediaChannel::Video)
 	{
-		//Set type
+		//Set video type
 		open.m_forwardLogicalChannelParameters.m_dataType.SetTag(H245_DataType::e_videoData);
 		//Set capabilities
 		(H245_VideoCapability &) open.m_forwardLogicalChannelParameters.m_dataType = (H245_VideoCapability&)local.h263Cap.m_capability;
@@ -86,7 +179,7 @@ int H245ChannelsFactory::BuildChannelPDU(H245_OpenLogicalChannel & open,int numb
 		rh223.m_segmentableFlag = true;
 
 	} else {
-		//Set type
+		//Set audio type
 		open.m_forwardLogicalChannelParameters.m_dataType.SetTag(H245_DataType::e_audioData);
 		//Set capabilities
 		(H245_AudioCapability &) open.m_forwardLogicalChannelParameters.m_dataType = (H245_AudioCapability&)local.g723Cap.m_capability;
