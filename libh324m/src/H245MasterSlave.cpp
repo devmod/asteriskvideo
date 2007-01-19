@@ -30,7 +30,7 @@ H245MasterSlave::H245MasterSlave(H245Connection &con):H245Negotiator(con)
 
 	//Set initial values
 	state = e_Idle;
-	determinationNumber = 1+(DWORD) rand()*(0x1000000/(RAND_MAX+1.0));
+	determinationNumber = 1 + (DWORD) rand()*(0x1000000/(RAND_MAX+1.0));
 	terminalType = e_MCUOnly;
 }
 
@@ -129,7 +129,7 @@ BOOL H245MasterSlave::HandleIncoming(const H245_MasterSlaveDetermination & pdu)
 				}
 
 				//Generate another rnd
-				determinationNumber = 1+rand()*((2^24)/(RAND_MAX+1.0));
+				determinationNumber = 1 + (DWORD) rand()*(0x1000000/(RAND_MAX+1.0));
 				//Inc counter
 				retryCount++;
 				//Build Master slave request
@@ -214,7 +214,7 @@ BOOL H245MasterSlave::HandleReject(const H245_MasterSlaveDeterminationReject & p
 			}
 
 			//Generate another rnd
-			determinationNumber = 1+rand()*((2^24)/(RAND_MAX+1.0));
+			determinationNumber = 1 + (DWORD) rand()*(0x1000000/(RAND_MAX+1.0));
 			//Inc counter
 			retryCount++;
 			//Build Master slave request

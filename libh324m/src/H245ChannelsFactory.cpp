@@ -29,8 +29,14 @@ H245ChannelsFactory::H245ChannelsFactory()
 	local.videoWithAL2 = true;
 	local.videoWithAL3 = true;
 
-	//No channels
+	//No media channels
 	numChannels = 0;
+
+	//Set local table with control channel
+	localTable.SetEntry(0,"","0");
+	
+	//Set remote table with control channel
+	remoteTable.SetEntry(0,"","0");
 }
 
 H245ChannelsFactory::~H245ChannelsFactory()
@@ -50,7 +56,7 @@ int H245ChannelsFactory::CreateChannel(H324MMediaChannel::e_Type type)
 			break;
 		case H324MMediaChannel::Video:
 			//New audio channel
-			chan = new H324MAudioChannel();
+			chan = new H324MVideoChannel();
 			break;
 		default:
 			return -1;
@@ -61,6 +67,12 @@ int H245ChannelsFactory::CreateChannel(H324MMediaChannel::e_Type type)
 
 	//Set  logical channel
 	chan->localChannel = numChannels;
+
+	//Create rep part of entry
+	char rep[4];
+	sprintf(rep,"%d",numChannels);
+	//Add to local table
+	localTable.SetEntry(numChannels,"",rep);
 
 	//return channel id
 	return numChannels;
@@ -84,16 +96,44 @@ H223ALReceiver* H245ChannelsFactory::GetReceiver(int id)
 	return channels[id]->GetReceiver();
 }
 
-void H245ChannelsFactory::BuildPDU(H245_TerminalCapabilitySet & pdu)
+H223MuxTable* H245ChannelsFactory::GetLocalTable()
 {
-	//Return local capabilities
-	local.BuildPDU(pdu);
+	return &localTable;
 }
 
-int H245ChannelsFactory::OnRemoteCapabilities(const H245_TerminalCapabilitySet & pdu)
+H223MuxTable* H245ChannelsFactory::GetRemoteTable()
 {
-	//Build capabilities object
-	H245Capabilities remoteCapabilities(pdu);
+	return &remoteTable;
+}
+
+int H245ChannelsFactory::SetRemoteTable(H223MuxTable* table)
+{
+	return true;
+}
+
+
+H245Capabilities* H245ChannelsFactory::GetLocalCapabilities()
+{
+	return &local;
+}
+H245Capabilities* H245ChannelsFactory::GetRemoteCapabilities()
+{
+	return &remote;
+}
+
+int H245ChannelsFactory::SetRemoteCapabilities(H245Capabilities* remoteCapabilities)
+{
+	//Save capabilites
+	remote.audioWithAL1 = remoteCapabilities->audioWithAL1;
+	remote.audioWithAL2 = remoteCapabilities->audioWithAL2;
+	remote.audioWithAL3 = remoteCapabilities->audioWithAL3;
+	remote.audioWithAL1 = remoteCapabilities->audioWithAL1;
+	remote.audioWithAL2 = remoteCapabilities->audioWithAL2;
+	remote.audioWithAL3 = remoteCapabilities->audioWithAL2;
+	remote.h263Cap	= remoteCapabilities->h263Cap;
+	remote.amrCap	= remoteCapabilities->amrCap;
+	remote.g723Cap	= remoteCapabilities->g723Cap;
+	remote.inputCap	= remoteCapabilities->inputCap;
 
 	//Set layers for channels
 	for(ChannelMap::iterator it = channels.begin(); it != channels.end(); it++)
@@ -105,11 +145,11 @@ int H245ChannelsFactory::OnRemoteCapabilities(const H245_TerminalCapabilitySet &
 		if (chan->type == H324MMediaChannel::Audio)
 		{
 			//Check capabilities
-			if (remoteCapabilities.audioWithAL1)
+			if (remote.audioWithAL1)
 				chan->SetReceiverLayer(1);
-			else if (remoteCapabilities.audioWithAL2) 
+			else if (remote.audioWithAL2) 
 				chan->SetReceiverLayer(2);
-			else if (remoteCapabilities.audioWithAL3) 
+			else if (remote.audioWithAL3) 
 				chan->SetReceiverLayer(3);
 			else 
 				Debug("No audio suported\n");
@@ -118,11 +158,11 @@ int H245ChannelsFactory::OnRemoteCapabilities(const H245_TerminalCapabilitySet &
 
 		} else {
 			//Check capabilities
-			if (remoteCapabilities.videoWithAL1)
+			if (remote.videoWithAL1)
 				chan->SetReceiverLayer(1);
-			else if (remoteCapabilities.audioWithAL2) 
+			else if (remote.audioWithAL2) 
 				chan->SetReceiverLayer(2);
-			else if (remoteCapabilities.audioWithAL3) 
+			else if (remote.audioWithAL3) 
 				chan->SetReceiverLayer(3);
 			else 
 				//No audio (should end??)
@@ -138,11 +178,14 @@ int H245ChannelsFactory::OnRemoteCapabilities(const H245_TerminalCapabilitySet &
 
 int H245ChannelsFactory::BuildChannelPDU(H245_OpenLogicalChannel & open,int number)
 {
+	
 	//Check channel exits
 	if (channels.find(number)==channels.end())
 		//Exit
 		return FALSE;
 	
+	Debug("-Building PDU for channel [%d,%d]\n",number,channels[number]->type);
+
 	//Depending on the channel type
 	if (channels[number]->type==H324MMediaChannel::Video)
 	{

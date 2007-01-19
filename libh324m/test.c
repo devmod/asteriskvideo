@@ -14,7 +14,7 @@ int main()
 	H324MSessionInit(idA);
 	H324MSessionInit(idB);
 
-	while(1)	
+	while(i++<100)	
 	{
 		H324MSessionWrite(idB,aux,20);
 		H324MSessionRead(idA,aux,20);

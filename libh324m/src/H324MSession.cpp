@@ -40,16 +40,6 @@ H324MSession::~H324MSession()
 
 int H324MSession::Init()
 {
-	//Set muxer table
-	tableDemux.SetEntry(0,"","0");
-	tableDemux.SetEntry(1,"","1");
-	tableDemux.SetEntry(2,"","2");
-
-	//Set demuxer table
-	tableMux.SetEntry(0,"","0");
-	tableMux.SetEntry(1,"","1");
-	tableMux.SetEntry(2,"","2");
-
 	//Set demuxer channels
 	demuxer.SetChannel(0,controlChannel);
 	demuxer.SetChannel(audio,channels.GetReceiver(audio));
@@ -61,10 +51,10 @@ int H324MSession::Init()
 	muxer.SetChannel(video,channels.GetSender(video));
 	
 	//Open demuxer
-	demuxer.Open(&tableDemux);
+	demuxer.Open(channels.GetLocalTable());
 
 	//Open muxer
-	muxer.Open(&tableMux);
+	muxer.Open(channels.GetRemoteTable());
 
 	//Call Setup
 	return controlChannel->CallSetup();

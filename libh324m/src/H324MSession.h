@@ -33,8 +33,6 @@ public:
 private:
 	H223Muxer			muxer;
 	H223Demuxer			demuxer;
-	H223MuxTable		tableMux;
-	H223MuxTable		tableDemux;
 	CallState			state;
 	H245ChannelsFactory channels;
 	H324MControlChannel *controlChannel;

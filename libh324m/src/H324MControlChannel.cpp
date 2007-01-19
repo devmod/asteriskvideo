@@ -32,7 +32,7 @@ H324MControlChannel::H324MControlChannel(H245ChannelsFactory* channels)
 	//Create the master slave negotiator
 	ms = new H245MasterSlave(*this);
 	//Create the terminal capabilities exchanger
-	tc = new H245TerminalCapability(*this,*cf);
+	tc = new H245TerminalCapability(*this);
 	//Create round trip
 	rt = new H245RoundTripDelay(*this);
 	//Create Multiplex table handler
@@ -56,44 +56,30 @@ H324MControlChannel::~H324MControlChannel()
 
 int H324MControlChannel::CallSetup()
 {
+	//Initial state
+	state = e_None;
+
 	//Send our first request
-	tc->TransferRequest();
-	//ms->Request();
-	//Exit
-	return TRUE;
+	tc->TransferRequest(cf->GetLocalCapabilities());
+	//Start master Slave
+	ms->Request();
+
+	return true;
+}
+
+int H324MControlChannel::MediaSetup()
+{
+	//Start opening channels
+	lc->EstablishRequest(1);
+	lc->EstablishRequest(2);
+	//Transfer mux table
+	mt->Send(*cf->GetLocalTable());
+	return true;
 }
 
 int H324MControlChannel::Disconnect()
 {
 	return true;
-}
-
-int H324MControlChannel::OnError(ControlProtocolSource source, const void *str)
-{
-	switch(source)
-	{
-		case H245Connection::e_MasterSlaveDetermination:
-			Debug("MasterSlaveDetermination error %s",(char *) str);
-			break;
-		case H245Connection::e_CapabilityExchange:
-			Debug("CapabilityExchange error %s",(char *) str);
-			break;
-		case H245Connection::e_RoundTripDelay:
-			Debug("RoundTripDelay error %s",(char *) str);
-			break;
-		case H245Connection::e_LogicalChannel:
-			Debug("LogicalChannel error %s",(char *) str);
-			break;
-		case H245Connection::e_ModeRequest:
-			Debug("ModeRequest error %s",(char *) str);
-			break;
-		case H245Connection::e_MultiplexTable:
-			Debug("Multiplex error %s",(char *) str);
-			break;
-	}
-
-	//Exit
-	return 1;
 }
 
 int H324MControlChannel::OnMasterSlaveDetermination(const H245MasterSlave::Event & event)
@@ -102,10 +88,18 @@ int H324MControlChannel::OnMasterSlaveDetermination(const H245MasterSlave::Event
 	switch(event.confirm)
 	{
 		case H245MasterSlave::e_Confirm:
-			//Debug
-			Debug("-MasterSlave confirmed [%d]\n", event.state);
+			//Save state
+			master = (event.state == H245MasterSlave::e_DeterminedMaster);
+			//Finish ms
+			state |= e_MasterSlaveConfirmed;
+			//If also tc
+			if (state & e_CapabilitiesExchanged)
+				//Continue with media setup
+				MediaSetup();
 			return TRUE;
 		case H245MasterSlave::e_Indication:
+			//Reply
+			ms->Request();
 			return TRUE;
 	}
 	//Exit
@@ -118,13 +112,21 @@ int H324MControlChannel::OnCapabilityExchange(const H245TerminalCapability::Even
 	switch(event.type)
 	{
 		case H245TerminalCapability::e_TransferConfirm:
+			//Finish ce
+			state |= e_CapabilitiesExchanged;
+			//If also ms
+			if (state & e_MasterSlaveConfirmed)
+				//Continue with media setup
+				MediaSetup();
 			return TRUE;
 		case H245TerminalCapability::e_TransferIndication:
-			//Accept
-			tc->TransferResponse();
-			//Start master Slave
-			ms->Request();
-			//Exit
+			//Set channel capabilities
+			if (cf->SetRemoteCapabilities(event.capabilities))
+				//Accept
+				tc->TransferResponse(true);
+			else
+				//Reject
+				tc->TransferResponse(false);
 			return TRUE;
 		case H245TerminalCapability::e_RejectIndication:
 			Debug("TerminalCapability rejected\n");
@@ -145,19 +147,15 @@ int H324MControlChannel::OnLogicalChannel(const H245LogicalChannels::Event &even
 	switch(event.type)
 	{
 		case H245LogicalChannels::e_EstablishIndication:
+			//Event
+			//cf.OnEstablish(event.channel);
+			//Accept
 			lc->EstablishResponse(event.channel,true);
-			Debug("OpenLogicalChannel\n");
-			//lc->EstablishRequest(video->localChannel);
 			return true;
 		case H245LogicalChannels::e_EstablishConfirm:
-		{
-			//Send table
-			H223MuxTable table;
-			table.SetEntry(1,"","1");
-			//Send
-			mt->Send(table);
+			//Event
+			//cf.OnEstablish(event.channel);
 			return true;
-		}
 		case H245LogicalChannels::e_ReleaseIndication:
 		case H245LogicalChannels::e_ReleaseConfirm:
 		case H245LogicalChannels::e_ErrorIndication:
@@ -350,5 +348,33 @@ int H324MControlChannel::OnH245Command(H245_CommandMessage& cmd)
 int H324MControlChannel::OnH245Indication(H245_IndicationMessage& ind)
 {
 	Debug("Unknown Indication\n");
+	return 1;
+}
+
+int H324MControlChannel::OnError(ControlProtocolSource source, const void *str)
+{
+	switch(source)
+	{
+		case H245Connection::e_MasterSlaveDetermination:
+			Debug("MasterSlaveDetermination error %s",(char *) str);
+			break;
+		case H245Connection::e_CapabilityExchange:
+			Debug("CapabilityExchange error %s",(char *) str);
+			break;
+		case H245Connection::e_RoundTripDelay:
+			Debug("RoundTripDelay error %s",(char *) str);
+			break;
+		case H245Connection::e_LogicalChannel:
+			Debug("LogicalChannel error %s",(char *) str);
+			break;
+		case H245Connection::e_ModeRequest:
+			Debug("ModeRequest error %s",(char *) str);
+			break;
+		case H245Connection::e_MultiplexTable:
+			Debug("Multiplex error %s",(char *) str);
+			break;
+	}
+
+	//Exit
 	return 1;
 }

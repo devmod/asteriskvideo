@@ -23,12 +23,12 @@
 
 #define Debug printf
 
-H245TerminalCapability::H245TerminalCapability(H245Connection & con,H245ChannelsFactory & factory)
-	: channels(factory),H245Negotiator(con)
+H245TerminalCapability::H245TerminalCapability(H245Connection & con)
+	: H245Negotiator(con)
 
 {
 	//Reset secuence numbers
-	inSequenceNumber = -1;
+	inSequenceNumber = (DWORD) -1;
 	outSequenceNumber = 0;
 
 	//Idle state
@@ -42,7 +42,7 @@ H245TerminalCapability::~H245TerminalCapability() {
 /** Outgoing CESE SDL
 */
 
-BOOL H245TerminalCapability::TransferRequest()
+BOOL H245TerminalCapability::TransferRequest(H245Capabilities* capabilities)
 {
 	//Debug
 	Debug("H245 TerminalCapabilitySet TransferRequest\n");
@@ -61,7 +61,7 @@ BOOL H245TerminalCapability::TransferRequest()
 	H324ControlPDU pdu;
 
 	//Set capabilites
-	channels.BuildPDU(pdu.BuildTerminalCapabilitySet(outSequenceNumber));
+	capabilities->BuildPDU(pdu.BuildTerminalCapabilitySet(outSequenceNumber));
 
 	//Write pdu
 	return connection.WriteControlPDU(pdu);
@@ -85,7 +85,7 @@ BOOL H245TerminalCapability::HandleAck(const H245_TerminalCapabilitySetAck & pdu
  	outState = e_Idle;
 
 	//Event
-	return connection.OnEvent(Event(e_TransferConfirm));
+	return connection.OnEvent(Event(e_TransferConfirm,NULL));
 }
 
 BOOL H245TerminalCapability::HandleReject(const H245_TerminalCapabilitySetReject & pdu)
@@ -106,7 +106,7 @@ BOOL H245TerminalCapability::HandleReject(const H245_TerminalCapabilitySetReject
  	outState = e_Idle;
 
 	//Event
-	return connection.OnEvent(Event(e_RejectIndication));;
+	return connection.OnEvent(Event(e_RejectIndication,NULL));;
 }
 
 
@@ -126,12 +126,15 @@ BOOL H245TerminalCapability::HandleIncoming(const H245_TerminalCapabilitySet & p
 	//Set new state
 	inState = e_AwaitingResponse;
 
+	//Build capabilities object
+	H245Capabilities remoteCapabilities(pdu);
+
 	//Send indication
-	return connection.OnEvent(Event(e_TransferIndication));
+	return connection.OnEvent(Event(e_TransferIndication,&remoteCapabilities));
 	
 }
 
-BOOL H245TerminalCapability::TransferResponse()
+BOOL H245TerminalCapability::TransferResponse(int accept)
 {
 	//If not waiting for response
 	if (outState != e_AwaitingResponse)
@@ -141,7 +144,10 @@ BOOL H245TerminalCapability::TransferResponse()
 	H324ControlPDU reply;
 
 	//Accept
-	reply.BuildTerminalCapabilitySetAck(inSequenceNumber);
+	if (accept)
+		reply.BuildTerminalCapabilitySetAck(inSequenceNumber);
+	else
+		reply.BuildTerminalCapabilitySetReject(inSequenceNumber,H245_TerminalCapabilitySetReject_cause::e_unspecified);
 	
 	//State
 	inState = e_Idle;
@@ -179,5 +185,5 @@ BOOL H245TerminalCapability::HandleRelease(const H245_TerminalCapabilitySetRelea
 	//Reset state
 	outState = e_Idle;
 
-	return connection.OnEvent(Event(e_RejectIndication));
+	return connection.OnEvent(Event(e_RejectIndication,NULL));
 }

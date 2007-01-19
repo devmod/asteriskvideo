@@ -15,12 +15,19 @@ class H324MControlChannel :
 	public H324CCSRLayer,
 	public H245Connection
 {
+public:
+	enum States {
+		e_None = 0,
+		e_MasterSlaveConfirmed = 1,
+		e_CapabilitiesExchanged = 2
+	};
 
 public:
 	H324MControlChannel(H245ChannelsFactory* channels);
 	virtual ~H324MControlChannel();
 
 	int CallSetup();
+	int MediaSetup();
 	int Disconnect();
 
 public:
@@ -51,6 +58,9 @@ private:
 	H245LogicalChannels* lc;
 	H245ChannelsFactory* cf;
 	H245MaintenanceLoop* loop;
+
+	int state;
+	int master;
 };
 
 #endif

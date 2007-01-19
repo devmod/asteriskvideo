@@ -169,8 +169,8 @@ void H245Capabilities::BuildPDU(H245_TerminalCapabilitySet & pdu)
 	//Add audio and video
 	pdu.m_capabilityTable.RemoveAll();
 	pdu.m_capabilityTable.Append((PASN_Object*)h263Cap.Clone());
-	//pdu.m_capabilityTable.Append((PASN_Object*)amrCap.Clone());
-	//pdu.m_capabilityTable.Append((PASN_Object*)g723Cap.Clone());
+	pdu.m_capabilityTable.Append((PASN_Object*)amrCap.Clone());
+	pdu.m_capabilityTable.Append((PASN_Object*)g723Cap.Clone());
 	pdu.m_capabilityTable.Append((PASN_Object*)inputCap.Clone());
 
 	pdu.IncludeOptionalField(H245_TerminalCapabilitySet::e_capabilityDescriptors);
@@ -192,7 +192,7 @@ void H245Capabilities::BuildPDU(H245_TerminalCapabilitySet & pdu)
 	set.Append((PASN_Object *)number.Clone());
 	number.SetValue(3);
 	set.Append((PASN_Object *)number.Clone());
-	//des.m_simultaneousCapabilities.Append((PASN_Object *)set.Clone());
+	des.m_simultaneousCapabilities.Append((PASN_Object *)set.Clone());
 
 	pdu.m_capabilityDescriptors.RemoveAll();
 	pdu.m_capabilityDescriptors.Append((PASN_Object *)des.Clone());

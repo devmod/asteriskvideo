@@ -2,7 +2,7 @@
 #define __H245_TERMINALCAPABILITY_
 
 #include "H245Negotiator.h"
-#include "H245ChannelsFactory.h"
+#include "H245Capabilities.h"
 
 class H245TerminalCapability:
 	public H245Negotiator 
@@ -18,22 +18,25 @@ public:
 
 	struct Event: public H245Connection::Event
 	{
-		Event(Type i) 
+		Event(Type i,H245Capabilities*  c) 
 		{
 			source = H245Connection::e_CapabilityExchange;
 			type = i;
+			capabilities = c;
 		};
+
 		Type type;
+		H245Capabilities* capabilities;
 	};
 
 public:
 	//Constructor
-	H245TerminalCapability(H245Connection &con,H245ChannelsFactory &factory);
+	H245TerminalCapability(H245Connection &con);
 	virtual ~H245TerminalCapability();
 	
 	//Methods
-	BOOL TransferRequest();
-	BOOL TransferResponse();
+	BOOL TransferRequest(H245Capabilities* capabilities);
+	BOOL TransferResponse(int accept);
 	BOOL RejectRequest();
 
 	//Message Handlers
@@ -51,11 +54,10 @@ private:
 	};
 	
 	BOOL	receivedCapabilites;
-	WORD	inSequenceNumber;
-	WORD	outSequenceNumber;
+	DWORD	inSequenceNumber;
+	DWORD	outSequenceNumber;
 	States	inState;
 	States	outState;
-	H245ChannelsFactory & channels;
 };
 
 

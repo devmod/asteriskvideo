@@ -31,9 +31,9 @@
 H324CCSRLayer::H324CCSRLayer() : sdu(255),ccsrl(255)
 {
 	//Initialize variables
-	lastsn = -1;
+	lastsn = (DWORD) -1;
 	sentsn = 0;
-	cmdsn = -1;
+	cmdsn = (DWORD) -1;
 	cmd = NULL;
 	waiting = false;
 	isPDU = false;
