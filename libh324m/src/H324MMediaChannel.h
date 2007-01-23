@@ -30,6 +30,8 @@ public:
 		localChannel = 0;
 		remoteChannel = 0;
 		isBidirectional = 0;
+		sender = NULL;
+		receiver = NULL;
 	}
 
 	int Init();
