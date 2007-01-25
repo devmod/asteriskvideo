@@ -22,6 +22,8 @@
 #include "H324MSession.h"
 
 #define Debug printf 
+#define DUMP_H223 
+
 H324MSession::H324MSession()
 {
 	//Create the control channel
@@ -71,6 +73,14 @@ int H324MSession::Read(BYTE *buffer,int length)
 	//DeMux
 	for (int i=0;i<length;i++)
 		demuxer.Demultiplex(buffer[i]);
+
+#ifdef DUMP_H223
+	char name[256];
+	sprintf(name,"/tmp/h223_%x_in.raw",(unsigned int)this);
+	int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
+	write(fd,buffer,length);
+	close(fd);
+#endif
 	//Ok
 	return 1;
 }
@@ -80,6 +90,14 @@ int H324MSession::Write(BYTE *buffer,int length)
 	//Mux
 	for (int i=0;i<length;i++)
 		buffer[i] = muxer.Multiplex();
+#ifdef DUMP_H223
+	char name[256];
+	sprintf(name,"/tmp/h223_%x_out.raw",(unsigned int)this);
+	int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
+	write(fd,buffer,length);
+	close(fd);
+#endif
+
 	//Ok
 	return 1;
 }
