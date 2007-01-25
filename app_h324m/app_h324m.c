@@ -69,10 +69,10 @@ static int app_h324m_loopback(struct ast_channel *chan, void *data)
 
 		/* Check frame type */
 		if (f->frametype == AST_FRAME_VOICE) {
-			/* write data to h324m stack */
-			H324MSessionWrite(id, (unsigned char *)f->data, f->datalen);
 			/* read data */
 			H324MSessionRead(id, (unsigned char *)f->data, f->datalen);
+			/* write data */
+			H324MSessionWrite(id, (unsigned char *)f->data, f->datalen);
 			/* deliver now */
 			f->delivery.tv_usec = 0;
 			f->delivery.tv_sec = 0;
