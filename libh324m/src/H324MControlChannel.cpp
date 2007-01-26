@@ -309,7 +309,7 @@ int H324MControlChannel::OnH245Response(H245_ResponseMessage& rep)
 		case H245_ResponseMessage::e_openLogicalChannelAck:
 			return lc->HandleOpenAck((H245_OpenLogicalChannelAck&)rep);;
 		case H245_ResponseMessage::e_openLogicalChannelReject:
-			return lc->HandleOpenAck((H245_OpenLogicalChannelAck&)rep);;
+			return lc->HandleOpenAck((H245_OpenLogicalChannelReject&)rep);;
 		case H245_ResponseMessage::e_closeLogicalChannelAck:
 			return lc->HandleOpenAck((H245_OpenLogicalChannelAck&)rep);;
 
