@@ -260,6 +260,7 @@ int H324MControlChannel::OnH245Request(H245_RequestMessage& req)
 		case H245_RequestMessage::e_openLogicalChannel:
 			return lc->HandleOpen(req);
 		case H245_RequestMessage::e_closeLogicalChannel:
+			return lc->HandleClose(req);
 		//Loop Request
 		case H245_RequestMessage::e_maintenanceLoopRequest:
 			return loop->HandleRequest(req);
@@ -309,9 +310,9 @@ int H324MControlChannel::OnH245Response(H245_ResponseMessage& rep)
 		case H245_ResponseMessage::e_openLogicalChannelAck:
 			return lc->HandleOpenAck((H245_OpenLogicalChannelAck&)rep);;
 		case H245_ResponseMessage::e_openLogicalChannelReject:
-			return lc->HandleOpenAck((H245_OpenLogicalChannelReject&)rep);;
+			return lc->HandleReject((H245_OpenLogicalChannelReject&)rep);;
 		case H245_ResponseMessage::e_closeLogicalChannelAck:
-			return lc->HandleOpenAck((H245_OpenLogicalChannelAck&)rep);;
+			return lc->HandleCloseAck((H245_CloseLogicalChannelAck&)rep);;
 
 		//More....
 		case H245_ResponseMessage::e_nonStandard:
