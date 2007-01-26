@@ -137,7 +137,7 @@ BOOL H245TerminalCapability::HandleIncoming(const H245_TerminalCapabilitySet & p
 BOOL H245TerminalCapability::TransferResponse(int accept)
 {
 	//If not waiting for response
-	if (outState != e_AwaitingResponse)
+	if (inState != e_AwaitingResponse)
 		return FALSE;
 
 	//Reply
@@ -155,26 +155,6 @@ BOOL H245TerminalCapability::TransferResponse(int accept)
 	//Exit
 	return connection.WriteControlPDU(reply);
 }
-
-BOOL H245TerminalCapability::RejectRequest()
-{
-	//If not awaiting state
-	if (inState == e_AwaitingResponse)
-		return FALSE;
-
-	//Reset state
-	inState = e_Idle;
-
-	//Send reject
-	H324ControlPDU pdu;
-
-	//Build msg
-	pdu.BuildTerminalCapabilitySetReject(outSequenceNumber,H245_TerminalCapabilitySetReject_cause::e_unspecified);
-
-	//Send 
-	return connection.WriteControlPDU(pdu);
-}
-
 
 BOOL H245TerminalCapability::HandleRelease(const H245_TerminalCapabilitySetRelease & /*pdu*/)
 {

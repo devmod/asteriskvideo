@@ -37,7 +37,6 @@ public:
 	//Methods
 	BOOL TransferRequest(H245Capabilities* capabilities);
 	BOOL TransferResponse(int accept);
-	BOOL RejectRequest();
 
 	//Message Handlers
 	BOOL HandleIncoming(const H245_TerminalCapabilitySet & pdu);

@@ -38,13 +38,18 @@ H324CCSRLayer::H324CCSRLayer() : sdu(255),ccsrl(255)
 	waiting = false;
 	isPDU = false;
 
+	std::fstream flog;
+
+	flog.open ("h245.log",ios::out|ios::app);
+	flog << "****\r\n-Init call\r\n";
+	flog.close();
+
 	//Begin stream encoding
 	strm.BeginEncoding();
 }
 
 H324CCSRLayer::~H324CCSRLayer()
 {
-
 }
 
 void H324CCSRLayer::Send(BYTE b)
