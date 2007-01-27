@@ -8,9 +8,9 @@
 class H324MMediaChannel
 {
 public:
-	enum e_Type {
-		Audio,
-		Video
+	enum Type {
+		e_Audio,
+		e_Video
 	};
 
 	enum State {
@@ -48,7 +48,7 @@ public:
 	int isBidirectional;
 
 public:
-	e_Type type;
+	Type type;
 	State state;
 
 private:
@@ -62,7 +62,7 @@ class H324MAudioChannel :
 public:
 	H324MAudioChannel()
 	{
-		type = Audio;
+		type = e_Audio;
 	};
 };
 
@@ -72,7 +72,7 @@ class H324MVideoChannel :
 public:
 	H324MVideoChannel() 
 	{
-		type = Video;
+		type = e_Video;
 	};
 };
 

@@ -15,6 +15,7 @@ SRC = bits.c \
 	H223Session.cpp \
 	H235ALReceiver.cpp \
 	H245Capabilities.cpp \
+	H245Channel.cpp \
 	H245LogicalChannels.cpp \
 	H245ChannelsFactory.cpp \
 	H245MaintenanceLoop.cpp \

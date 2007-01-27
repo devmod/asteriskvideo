@@ -1,10 +1,8 @@
 #ifndef _H324MSESSION_H_
 #define _H324MSESSION_H_
 
-#include "H223Demuxer.h"
-#include "H223Muxer.h"
-#include "H324MControlChannel.h"
 #include "H245ChannelsFactory.h"
+#include "H324MControlChannel.h"
 
 class H324MSession 
 {
@@ -31,8 +29,7 @@ public:
 	int Write(BYTE *input,int length);
 	
 private:
-	H223Muxer			muxer;
-	H223Demuxer			demuxer;
+
 	CallState			state;
 	H245ChannelsFactory channels;
 	H324MControlChannel *controlChannel;

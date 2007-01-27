@@ -22,8 +22,10 @@
 
 #include "H245LogicalChannels.h"
 
-H245LogicalChannels::H245LogicalChannels(H245Connection & con,H245ChannelsFactory & factory)
-	: H245Negotiator(con),channels(factory)
+#define Debug printf
+
+H245LogicalChannels::H245LogicalChannels(H245Connection & con)
+	: H245Negotiator(con)
 {
 }
 
@@ -33,7 +35,7 @@ H245LogicalChannels::~H245LogicalChannels()
 
 /** Outgoing LCSE SDL
 */
-int H245LogicalChannels::EstablishRequest(int channelNumber)
+int H245LogicalChannels::EstablishRequest(int channelNumber,H245Channel & channel)
 {
 	Debug("H245 H245LogicalChannels Establish Request [%d]\n", channelNumber);
 
@@ -50,17 +52,14 @@ int H245LogicalChannels::EstablishRequest(int channelNumber)
 	{
 		case e_Released:
 		{
-			Debug("Released\n");
-
 			//H324ControlPDU pdu;
 			H245_OpenLogicalChannel & open = pdu.BuildOpenLogicalChannel(channelNumber);
 			//Set capabilities
-			if (!channels.BuildChannelPDU(open,channelNumber))
+			if (!channel.BuildChannelPDU(open))
 				//End
 				return FALSE;
 			//Set state
 			out[channelNumber] = e_AwaitingEstablishment;
-			Debug("WriteOpen\n");
 			//Send pdu
   			return connection.WriteControlPDU(pdu);
 		}
@@ -75,7 +74,7 @@ int H245LogicalChannels::EstablishRequest(int channelNumber)
 			//H324ControlPDU pdu;
 			H245_OpenLogicalChannel & open = pdu.BuildOpenLogicalChannel(channelNumber);
 			//Set capabilities
-			if (!channels.BuildChannelPDU(open,channelNumber))
+			if (!channel.BuildChannelPDU(open))
 				//End
 				return FALSE;
 			//Set state
@@ -251,7 +250,7 @@ BOOL H245LogicalChannels::HandleCloseAck(const H245_CloseLogicalChannelAck & pdu
 
 /** Incomming LCSE SDL
 */
-int H245LogicalChannels::EstablishResponse(int channelNumber,int accept)
+int H245LogicalChannels::EstablishResponse(int channelNumber)
 {
 	//See if channel exist
 	if (in.find(channelNumber)==in.end())
@@ -266,19 +265,42 @@ int H245LogicalChannels::EstablishResponse(int channelNumber,int accept)
 	//PDU
 	H324ControlPDU reply;
 
-	//Build
-	if (accept)
-		//Ack
-		reply.BuildOpenLogicalChannelAck(channelNumber);
-	else
-		//Reject
-		reply.BuildOpenLogicalChannelAck(channelNumber);
+	//Ack
+	reply.BuildOpenLogicalChannelAck(channelNumber);
+	
+	//Establish
+	in[channelNumber]=e_Established;
 
 	//Send it
 	return connection.WriteControlPDU(reply);
 }
 
-BOOL H245LogicalChannels::HandleOpen(const H245_OpenLogicalChannel & pdu)
+int H245LogicalChannels::EstablishReject(int channelNumber,unsigned cause)
+{
+	//See if channel exist
+	if (in.find(channelNumber)==in.end())
+		//Exit
+		return FALSE;
+
+	//If not in good state
+	if(in[channelNumber]!=e_AwaitingEstablishment)
+		//Exit
+		return FALSE;
+
+	//PDU
+	H324ControlPDU reply;
+
+	//Reject
+	reply.BuildOpenLogicalChannelReject(channelNumber,cause);
+
+	//Establish
+	in[channelNumber]=e_Released;
+
+	//Send it
+	return connection.WriteControlPDU(reply);
+}
+
+BOOL H245LogicalChannels::HandleOpen(H245_OpenLogicalChannel & pdu)
 {
 	//Get channel number
 	int channelNumber = pdu.m_forwardLogicalChannelNumber;
@@ -288,7 +310,7 @@ BOOL H245LogicalChannels::HandleOpen(const H245_OpenLogicalChannel & pdu)
 	//See if channel exist
 	if (in.find(channelNumber)==in.end())
 		//Create channel & set state
-		in[channelNumber] = e_Released;;
+		in[channelNumber] = e_Released;
 	
 	//Check state
 	switch (in[channelNumber])
@@ -297,19 +319,19 @@ BOOL H245LogicalChannels::HandleOpen(const H245_OpenLogicalChannel & pdu)
 			//Set state
 			in[channelNumber] = e_AwaitingEstablishment;
 			//Send error & continue 
-            return connection.OnEvent(Event(e_EstablishIndication,channelNumber));
+            return connection.OnEvent(Event(e_EstablishIndication,channelNumber,new H245Channel(pdu)));
 		case e_AwaitingEstablishment:
 			//Set event
 			connection.OnEvent(Event(e_ReleaseIndication,channelNumber));
 			//Send event
-			return connection.OnEvent(Event(e_EstablishIndication,channelNumber));
+			return connection.OnEvent(Event(e_EstablishIndication,channelNumber,new H245Channel(pdu)));
 		case e_Established:
 			//Set event
-			connection.OnEvent(Event(e_ReleaseIndication,channelNumber));
+			connection.OnEvent(Event(e_ReleaseIndication,channelNumber,new H245Channel(pdu)));
 			//Set state
 			in[channelNumber] = e_AwaitingEstablishment;
 			//Send event
-			return connection.OnEvent(Event(e_EstablishIndication,channelNumber));
+			return connection.OnEvent(Event(e_EstablishIndication,channelNumber,new H245Channel(pdu)));
 		case e_AwaitingRelease:
 			return FALSE;
 	}

@@ -2,7 +2,7 @@
 #define _H245_LOGICALCHANNELS_H_
 #include <map>
 #include "H245Negotiator.h"
-#include "H245ChannelsFactory.h"
+#include "H245Channel.h"
 
 class H245LogicalChannels : public H245Negotiator
 {
@@ -20,25 +20,28 @@ public:
 
 	struct Event: public H245Connection::Event
 	{
-		Event(Type i,int number) 
+		Event(Type t,int n,H245Channel* c = NULL) 
 		{
 			source = H245Connection::e_LogicalChannel;
-			type = i;
-			channel = number;
+			type = t;
+			number = n;
+			channel = c;
 		};
 		Type type;
-		int	channel;
+		int	number;
+		H245Channel* channel;
 	};
 
 public:
-	H245LogicalChannels(H245Connection &con,H245ChannelsFactory & factory);
+	H245LogicalChannels(H245Connection &con);
 	virtual ~H245LogicalChannels();
 
-    int EstablishRequest(int channelNumber);
-	int EstablishResponse(int channelNumber,int accept);
+    int EstablishRequest(int channelNumber,H245Channel & channel);
+	int EstablishResponse(int channelNumber);
+	int EstablishReject(int channelNumber,unsigned cause = 0);
 	int ReleaseRequest(int channelNumber);
 
-    virtual BOOL HandleOpen(const H245_OpenLogicalChannel & pdu);
+    virtual BOOL HandleOpen(H245_OpenLogicalChannel & pdu);
     virtual BOOL HandleOpenAck(const H245_OpenLogicalChannelAck & pdu);
     virtual BOOL HandleOpenConfirm(const H245_OpenLogicalChannelConfirm & pdu);
     virtual BOOL HandleReject(const H245_OpenLogicalChannelReject & pdu);
@@ -63,7 +66,6 @@ private:
 	typedef std::map<int,States> StateMap;
 
 private:
-	H245ChannelsFactory & channels;
 	StateMap out;
 	StateMap in;
 };

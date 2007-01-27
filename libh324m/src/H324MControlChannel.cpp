@@ -38,7 +38,7 @@ H324MControlChannel::H324MControlChannel(H245ChannelsFactory* channels)
 	//Create Multiplex table handler
 	mt = new H245MuxTable(*this);
 	//Create the logical channel negotiator 
-	lc = new H245LogicalChannels(*this,*cf);
+	lc = new H245LogicalChannels(*this);
 	//Maintenance loop
 	loop = new H245MaintenanceLoop(*this);
 }
@@ -69,12 +69,19 @@ int H324MControlChannel::CallSetup()
 
 int H324MControlChannel::MediaSetup()
 {
+	//Get local capabilities
+	H245Capabilities* cap = cf->GetLocalCapabilities();
+
+	//Create H245 channels
+	H245Channel audio(H245Channel::e_Audio,cap->amrCap.m_capability);
+	H245Channel video(H245Channel::e_Video,cap->h263Cap.m_capability);
+
 	//Start opening channels
-	lc->EstablishRequest(1);
-	lc->EstablishRequest(2);
+	lc->EstablishRequest(1,audio);
+	lc->EstablishRequest(2,video);
+
 	//Transfer mux table
-	mt->Send(*cf->GetLocalTable());
-	return true;
+	return mt->Send(*cf->GetLocalTable());
 }
 
 int H324MControlChannel::Disconnect()
@@ -148,13 +155,16 @@ int H324MControlChannel::OnLogicalChannel(const H245LogicalChannels::Event &even
 	{
 		case H245LogicalChannels::e_EstablishIndication:
 			//Event
-			//cf.OnEstablish(event.channel);
-			//Accept
-			lc->EstablishResponse(event.channel,true);
+			if (cf->OnEstablishIndication(event.number,event.channel))
+				//Accept
+				lc->EstablishResponse(event.number);
+			else
+				//Reject
+				lc->EstablishReject(event.number);
 			return true;
 		case H245LogicalChannels::e_EstablishConfirm:
 			//Event
-			//cf.OnEstablish(event.channel);
+			cf->OnEstablishConfirm(event.number);
 			return true;
 		case H245LogicalChannels::e_ReleaseIndication:
 		case H245LogicalChannels::e_ReleaseConfirm:

@@ -24,37 +24,85 @@
 
 H245ChannelsFactory::H245ChannelsFactory()
 {
-	//Set local capabilities
+	//Set local capabilities only with layer 2
 	local.audioWithAL2 = true;
 	local.videoWithAL2 = true;
-	local.videoWithAL3 = true;
 
 	//No media channels
 	numChannels = 0;
-
-	//Set local table with control channel
-	localTable.SetEntry(0,"","0");
-	
-	//Set remote table with control channel
-	remoteTable.SetEntry(0,"","0");
 }
 
 H245ChannelsFactory::~H245ChannelsFactory()
 {
 }
 
-int H245ChannelsFactory::CreateChannel(H324MMediaChannel::e_Type type)
+int H245ChannelsFactory::Init(H223ALSender* controlSender,H223ALReceiver* controlReceiver)
+{
+	//Set local table with control channel
+	localTable.SetEntry(0,"","0");
+	
+	//Set remote table with control channel
+	remoteTable.SetEntry(0,"","0");
+
+	//Set control channel
+	demuxer.SetChannel(0,controlReceiver);
+	muxer.SetChannel(0,controlSender);
+
+	//Channel setup
+	for(ChannelMap::iterator it = channels.begin(); it != channels.end(); it++)
+	{	
+		//Setup demuxer
+		demuxer.SetChannel(it->first,it->second->GetReceiver());
+		//Setup muxer
+		muxer.SetChannel(it->first,it->second->GetSender());
+	}
+	
+	//Open demuxer
+	demuxer.Open(&localTable);
+
+	//Open muxer
+	muxer.Open(&remoteTable);
+
+	//OK
+	return 1;
+}
+
+int H245ChannelsFactory::End()
+{
+	return 1;
+}
+
+int H245ChannelsFactory::Demultiplex(BYTE *buffer,int length)
+{
+	//DeMux
+	for (int i=0;i<length;i++)
+		demuxer.Demultiplex(buffer[i]);
+	//Ok
+	return 1;
+}
+
+int H245ChannelsFactory::Multiplex(BYTE *buffer,int length)
+{
+	//Mux
+	for (int i=0;i<length;i++)
+		buffer[i] = muxer.Multiplex();
+
+	//Ok
+	return 1;
+}
+
+int H245ChannelsFactory::CreateChannel(H324MMediaChannel::Type type)
 {
 	H324MMediaChannel* chan;
 
 	//Dependin on channel type
 	switch(type)
 	{
-		case H324MMediaChannel::Audio:
+		case H324MMediaChannel::e_Audio:
 			//New audio channel
 			chan = new H324MAudioChannel();
 			break;
-		case H324MMediaChannel::Video:
+		case H324MMediaChannel::e_Video:
 			//New audio channel
 			chan = new H324MVideoChannel();
 			break;
@@ -142,97 +190,48 @@ int H245ChannelsFactory::SetRemoteCapabilities(H245Capabilities* remoteCapabilit
 		H324MMediaChannel *chan = it->second;
 
 		//IF is audio
-		if (chan->type == H324MMediaChannel::Audio)
+		switch(chan->type)
 		{
-			//Check capabilities
-			if (remote.audioWithAL1)
-				chan->SetReceiverLayer(1);
-			else if (remote.audioWithAL2) 
-				chan->SetReceiverLayer(2);
-			else if (remote.audioWithAL3) 
-				chan->SetReceiverLayer(3);
-			else 
-				Debug("No audio suported\n");
-			//Set sender layer
-			chan->SetSenderLayer(2);
+			case H324MMediaChannel::e_Audio:
+				//Check capabilities
+				if (remote.audioWithAL1)
+					chan->SetReceiverLayer(1);
+				else if (remote.audioWithAL2) 
+					chan->SetReceiverLayer(2);
+				else if (remote.audioWithAL3) 
+					chan->SetReceiverLayer(3);
+				else 
+					Debug("No audio suported\n");
+				//Set sender layer
+				chan->SetSenderLayer(2);
+				break;
+			case H324MMediaChannel::e_Video:
+				//Check capabilities
+				if (remote.videoWithAL1)
+					chan->SetReceiverLayer(1);
+				else if (remote.audioWithAL2) 
+					chan->SetReceiverLayer(2);
+				else if (remote.audioWithAL3) 
+					chan->SetReceiverLayer(3);
+				else 
+					//No audio (should end??)
+					Debug("No video suported\n");
 
-		} else {
-			//Check capabilities
-			if (remote.videoWithAL1)
-				chan->SetReceiverLayer(1);
-			else if (remote.audioWithAL2) 
-				chan->SetReceiverLayer(2);
-			else if (remote.audioWithAL3) 
-				chan->SetReceiverLayer(3);
-			else 
-				//No audio (should end??)
-				Debug("No video suported\n");
-
-			//Video
-			chan->SetSenderLayer(2);
+				//Video
+				chan->SetSenderLayer(2);
 		}
 	}
 	
 	return 1;
 }
 
-int H245ChannelsFactory::BuildChannelPDU(H245_OpenLogicalChannel & open,int number)
+
+int H245ChannelsFactory::OnEstablishIndication(int number, H245Channel *channel)
 {
-	
-	//Check channel exits
-	if (channels.find(number)==channels.end())
-		//Exit
-		return FALSE;
-	
-	Debug("-Building PDU for channel [%d,%d]\n",number,channels[number]->type);
+	return 1;
+}
 
-	//Depending on the channel type
-	if (channels[number]->type==H324MMediaChannel::Video)
-	{
-		//Set video type
-		open.m_forwardLogicalChannelParameters.m_dataType.SetTag(H245_DataType::e_videoData);
-		//Set capabilities
-		(H245_VideoCapability &) open.m_forwardLogicalChannelParameters.m_dataType = (H245_VideoCapability&)local.h263Cap.m_capability;
-		//Mux Capabilities
-		open.m_forwardLogicalChannelParameters.m_multiplexParameters.SetTag(H245_OpenLogicalChannel_forwardLogicalChannelParameters_multiplexParameters::e_h223LogicalChannelParameters);
-		//Set h223
-		H245_H223LogicalChannelParameters & h223 = open.m_forwardLogicalChannelParameters.m_multiplexParameters;
-		h223.m_adaptationLayerType.SetTag(H245_H223LogicalChannelParameters_adaptationLayerType::e_al2WithoutSequenceNumbers);
-		/*H245_H223LogicalChannelParameters_adaptationLayerType_al3 &al3 = h223.m_adaptationLayerType;
-		al3.m_controlFieldOctets = 1;
-		al3.m_sendBufferSize = 4231;
-		h223.m_segmentableFlag = true;*/
-	
-		return 1;	
-
-		//Set capabilities
-		open.m_reverseLogicalChannelParameters.m_dataType.SetTag(H245_DataType::e_videoData);
-		open.IncludeOptionalField(H245_OpenLogicalChannel::e_reverseLogicalChannelParameters);
-		(H245_VideoCapability &) open.m_reverseLogicalChannelParameters.m_dataType = (H245_VideoCapability&)local.h263Cap.m_capability;
-
-		//Mux Capabilities
-		open.m_reverseLogicalChannelParameters.m_multiplexParameters.SetTag(H245_OpenLogicalChannel_reverseLogicalChannelParameters_multiplexParameters::e_h223LogicalChannelParameters);
-		open.m_reverseLogicalChannelParameters.IncludeOptionalField(H245_OpenLogicalChannel_reverseLogicalChannelParameters::e_multiplexParameters);
-		//Set h223
-		H245_H223LogicalChannelParameters & rh223 = open.m_reverseLogicalChannelParameters.m_multiplexParameters;
-		rh223.m_adaptationLayerType.SetTag(H245_H223LogicalChannelParameters_adaptationLayerType::e_al3);
-		H245_H223LogicalChannelParameters_adaptationLayerType_al3 &ral3 = rh223.m_adaptationLayerType;
-		ral3.m_controlFieldOctets = 1;
-		ral3.m_sendBufferSize = 4231;
-		rh223.m_segmentableFlag = true;
-
-	} else {
-		//Set audio type
-		open.m_forwardLogicalChannelParameters.m_dataType.SetTag(H245_DataType::e_audioData);
-		//Set capabilities
-		(H245_AudioCapability &) open.m_forwardLogicalChannelParameters.m_dataType = (H245_AudioCapability&)local.g723Cap.m_capability;
-		//Mux Capabilities
-		open.m_forwardLogicalChannelParameters.m_multiplexParameters.SetTag(H245_OpenLogicalChannel_forwardLogicalChannelParameters_multiplexParameters::e_h223LogicalChannelParameters);
-		//Set h223
-		H245_H223LogicalChannelParameters & h223 = open.m_forwardLogicalChannelParameters.m_multiplexParameters;
-		h223.m_adaptationLayerType.SetTag(H245_H223LogicalChannelParameters_adaptationLayerType::e_al2WithSequenceNumbers);
-		h223.m_segmentableFlag = false;
-	}
-
+int H245ChannelsFactory::OnEstablishConfirm(int number)
+{
 	return 1;
 }

@@ -29,35 +29,23 @@ H324MSession::H324MSession()
 	//Create the control channel
 	controlChannel = new H324MControlChannel(&channels);
 	//Create audio channel
-	audio = channels.CreateChannel(H324MMediaChannel::Audio);
+	audio = channels.CreateChannel(H324MMediaChannel::e_Audio);
 	//Create video channel
-	video = channels.CreateChannel(H324MMediaChannel::Video);
+	video = channels.CreateChannel(H324MMediaChannel::e_Video);
+	//Init channels
+	channels.Init(controlChannel,controlChannel);
 }
 
 H324MSession::~H324MSession()
 {
-	//Delete control channels
+	//End channels
+	channels.End();
+	//Delete control channel
 	delete controlChannel;
 }
 
 int H324MSession::Init()
 {
-	//Set demuxer channels
-	demuxer.SetChannel(0,controlChannel);
-	demuxer.SetChannel(audio,channels.GetReceiver(audio));
-	demuxer.SetChannel(video,channels.GetReceiver(video));
-
-	//Set muxer channels
-	muxer.SetChannel(0,controlChannel);
-	muxer.SetChannel(audio,channels.GetSender(audio));
-	muxer.SetChannel(video,channels.GetSender(video));
-	
-	//Open demuxer
-	demuxer.Open(channels.GetLocalTable());
-
-	//Open muxer
-	muxer.Open(channels.GetRemoteTable());
-
 	//Call Setup
 	return controlChannel->CallSetup();
 }
@@ -70,9 +58,6 @@ int H324MSession::End()
 
 int H324MSession::Read(BYTE *buffer,int length)
 {
-	//DeMux
-	for (int i=0;i<length;i++)
-		demuxer.Demultiplex(buffer[i]);
 
 #ifdef DUMP_H223
 	char name[256];
@@ -81,15 +66,14 @@ int H324MSession::Read(BYTE *buffer,int length)
 	write(fd,buffer,length);
 	close(fd);
 #endif
-	//Ok
-	return 1;
+
+	//Demultiplex
+	return channels.Demultiplex(buffer,length);
 }
 
 int H324MSession::Write(BYTE *buffer,int length)
 {
-	//Mux
-	for (int i=0;i<length;i++)
-		buffer[i] = muxer.Multiplex();
+
 #ifdef DUMP_H223
 	char name[256];
 	sprintf(name,"/tmp/h223_%x_out.raw",(unsigned int)this);
@@ -98,6 +82,6 @@ int H324MSession::Write(BYTE *buffer,int length)
 	close(fd);
 #endif
 
-	//Ok
-	return 1;
+	//Multiplex
+	return channels.Multiplex(buffer,length);
 }
