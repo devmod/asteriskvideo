@@ -110,7 +110,7 @@ H223MuxTable::H223MuxTable(const H245_MultiplexEntrySend & pdu)
 		entries[i] = NULL;
 
 	//For each descriptor
-	for (int i=0;i<pdu.m_multiplexEntryDescriptors.GetSize();i++)
+	for (int i=1;i<pdu.m_multiplexEntryDescriptors.GetSize()-1;i++)
 	{
 		//Get entry number
 		int mc = pdu.m_multiplexEntryDescriptors[i].m_multiplexTableEntryNumber.GetValue();
