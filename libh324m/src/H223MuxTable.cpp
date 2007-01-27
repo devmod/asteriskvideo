@@ -110,7 +110,7 @@ H223MuxTable::H223MuxTable(const H245_MultiplexEntrySend & pdu)
 		entries[i] = NULL;
 
 	//For each descriptor
-	for (int i=1;i<pdu.m_multiplexEntryDescriptors.GetSize()-1;i++)
+	for (int i=0;i<pdu.m_multiplexEntryDescriptors.GetSize();i++)
 	{
 		//Get entry number
 		int mc = pdu.m_multiplexEntryDescriptors[i].m_multiplexTableEntryNumber.GetValue();
@@ -140,7 +140,7 @@ void H223MuxTable::BuildPDU(H245_MultiplexEntrySend & pdu)
 	//Remove descriptors
 	pdu.m_multiplexEntryDescriptors.RemoveAll();
 
-	for (int k=0;k<3;k++)
+	for (int k=1;k<3;k++)
 	{
 		//Create an entry
 		H245_MultiplexEntryDescriptor des;
