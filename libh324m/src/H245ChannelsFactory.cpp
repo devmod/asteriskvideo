@@ -48,15 +48,6 @@ int H245ChannelsFactory::Init(H223ALSender* controlSender,H223ALReceiver* contro
 	demuxer.SetChannel(0,controlReceiver);
 	muxer.SetChannel(0,controlSender);
 
-	//Channel setup
-	for(ChannelMap::iterator it = channels.begin(); it != channels.end(); it++)
-	{	
-		//Setup demuxer
-		demuxer.SetChannel(it->first,it->second->GetReceiver());
-		//Setup muxer
-		muxer.SetChannel(it->first,it->second->GetSender());
-	}
-	
 	//Open demuxer
 	demuxer.Open(&localTable);
 
@@ -188,38 +179,8 @@ int H245ChannelsFactory::SetRemoteCapabilities(H245Capabilities* remoteCapabilit
 	{
 		//Get channel
 		H324MMediaChannel *chan = it->second;
-
-		//IF is audio
-		switch(chan->type)
-		{
-			case H324MMediaChannel::e_Audio:
-				//Check capabilities
-				if (remote.audioWithAL1)
-					chan->SetReceiverLayer(1);
-				else if (remote.audioWithAL2) 
-					chan->SetReceiverLayer(2);
-				else if (remote.audioWithAL3) 
-					chan->SetReceiverLayer(3);
-				else 
-					Debug("No audio suported\n");
-				//Set sender layer
-				chan->SetSenderLayer(2);
-				break;
-			case H324MMediaChannel::e_Video:
-				//Check capabilities
-				if (remote.videoWithAL1)
-					chan->SetReceiverLayer(1);
-				else if (remote.audioWithAL2) 
-					chan->SetReceiverLayer(2);
-				else if (remote.audioWithAL3) 
-					chan->SetReceiverLayer(3);
-				else 
-					//No audio (should end??)
-					Debug("No video suported\n");
-
-				//Video
-				chan->SetSenderLayer(2);
-		}
+		
+		//Here we should set an H245Channel to a H324MChannel
 	}
 	
 	return 1;
@@ -228,10 +189,64 @@ int H245ChannelsFactory::SetRemoteCapabilities(H245Capabilities* remoteCapabilit
 
 int H245ChannelsFactory::OnEstablishIndication(int number, H245Channel *channel)
 {
-	return 1;
+	int local = -1;
+
+	//Search local channel for same media type
+	ChannelMap::iterator it = channels.begin();
+
+	//While not found
+	while (it!=channels.end())
+	{
+		if (it->second->type == H324MMediaChannel::e_Audio && channel->GetType() == H245Channel::e_Audio)
+		{
+			//We found it 
+			local = it->first;
+			//Exit
+			break;
+		} else if (it->second->type == H324MMediaChannel::e_Audio && channel->GetType() == H245Channel::e_Audio) {
+			//We found it 
+			local = it->first;
+			//Exit
+			break;
+		}
+		//Next channel
+		it++;
+	}
+
+	//If not found
+	if (local==-1)
+		//Reject channel
+		return 0;
+
+	//Get channel
+	H324MMediaChannel * chan = it->second;
+
+	//Asign remote channel
+	chan->remoteChannel = number;
+
+	//Set receiving layer
+	chan->SetReceiverLayer(2);
+
+	//Append to demuxer && accept
+	return demuxer.SetChannel(number,chan->GetReceiver());
 }
 
 int H245ChannelsFactory::OnEstablishConfirm(int number)
 {
-	return 1;
+	//Search channel 
+	ChannelMap::iterator it = channels.find(number);
+
+	//If not found
+	if (it==channels.end())
+		//exit
+		return 0;
+
+	//Get channel
+	H324MMediaChannel * chan = it->second;
+
+	//Set sender layer
+	chan->SetSenderLayer(2);
+
+	//Set muxer
+	return muxer.SetChannel(number,chan->GetSender());
 }

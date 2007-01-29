@@ -37,6 +37,11 @@ H223Muxer::~H223Muxer()
 
 int H223Muxer::Open(H223MuxTable *muxTable)
 {
+	//Check for null table
+	if (!muxTable)
+		//Error
+		return 0;
+
 	//Save the mux table
 	table = muxTable;
 
@@ -56,6 +61,11 @@ int H223Muxer::Close()
 
 int H223Muxer::SetChannel(int channel,H223ALSender *sender)
 {
+	//Check for null channel
+	if (!sender)
+		//Error
+		return 0;
+
 	//If the channel already has a sender
 	if (senders.find(channel)!=senders.end())
 		return 0;

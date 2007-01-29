@@ -36,6 +36,11 @@ H223Demuxer::~H223Demuxer()
 
 int H223Demuxer::SetChannel(int num,H223ALReceiver *receiver)
 {
+	//Check for null channel
+	if (!receiver)
+		//Error
+		return 0;
+
 	//Save the reciever
 	al[num] = receiver;
 
@@ -44,6 +49,11 @@ int H223Demuxer::SetChannel(int num,H223ALReceiver *receiver)
 
 int H223Demuxer::Open(H223MuxTable *table)
 {
+	//Check for null table
+	if (!table)
+		//Error
+		return 0;
+
 	//The table
 	mux = table;
 

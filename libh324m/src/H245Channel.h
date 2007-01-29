@@ -15,6 +15,7 @@ public:
 	H245Channel(H245_OpenLogicalChannel & open);
 
 	int BuildChannelPDU(H245_OpenLogicalChannel & open);
+	Type GetType() {return type;}
 
 private:
 	Type type;
