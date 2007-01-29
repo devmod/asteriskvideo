@@ -49,10 +49,10 @@ int H245ChannelsFactory::Init(H223ALSender* controlSender,H223ALReceiver* contro
 	muxer.SetChannel(0,controlSender);
 
 	//Open demuxer
-	demuxer.Open(&localTable);
+	demuxer.Open(&remoteTable);
 
 	//Open muxer
-	muxer.Open(&remoteTable);
+	muxer.Open(&localTable);
 
 	//OK
 	return 1;
