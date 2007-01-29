@@ -3,6 +3,14 @@
 #include "H223Const.h"
 #include "H245.h"
 
+struct MyKey
+{
+	MyKey();
+	MyKey(BYTE  mc,BYTE  len);
+	~MyKey();
+	BYTE lc;
+	BYTE rc;
+};
 struct H223MuxTableEntry
 {
 	H223MuxTableEntry(const char* f,const char *r);

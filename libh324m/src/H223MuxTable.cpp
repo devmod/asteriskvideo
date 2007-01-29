@@ -20,7 +20,16 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "H223MuxTable.h"
+#include <list>
 
+MyKey::MyKey(BYTE  mc,BYTE  len)
+{
+	lc=mc;
+	rc=len;
+}
+MyKey::~MyKey()
+{
+}
 H223MuxTableEntry::H223MuxTableEntry(const char* f,const char *r)
 {
 	//Get the length of the fixed part
@@ -140,6 +149,7 @@ void H223MuxTable::BuildPDU(H245_MultiplexEntrySend & pdu)
 	//Remove descriptors
 	pdu.m_multiplexEntryDescriptors.RemoveAll();
 
+/*
 	for (int k=1;k<3;k++)
 	{
 		//Create an entry
@@ -171,10 +181,10 @@ void H223MuxTable::BuildPDU(H245_MultiplexEntrySend & pdu)
 		pdu.m_multiplexEntryDescriptors.Append((PASN_Object*)des.Clone());
 	}
 
-	return;
+	return;*/
 
 	//For each channel
-	for (int i=0;i<16;i++)
+	for (int i=1;i<16;i++)
 		//If we have channel
 		if (entries[i])
 		{
@@ -182,7 +192,7 @@ void H223MuxTable::BuildPDU(H245_MultiplexEntrySend & pdu)
 			H245_MultiplexEntryDescriptor des;
 
 			//Set channel number
-			des.m_multiplexTableEntryNumber.SetValue(i+1);
+			des.m_multiplexTableEntryNumber.SetValue(i);
 
 			//Include elements
 			des.IncludeOptionalField(H245_MultiplexEntryDescriptor::e_elementList);
@@ -213,7 +223,25 @@ void H223MuxTable::BuildPDU(H245_MultiplexEntrySend & pdu)
 
 				//Set to 1
 				((PASN_Integer &)rc.GetObject()) = 1;
+				
+				int repeatc;
+				BYTE mc;
+				for (int j=0;j<entries[i]->fixedLen;)
+				{
+					repeatc=0;
+					mc=entries[i]->fixed[j] ;
+					repeatc++;
+					if (j+1)
+					while (mc==entries[i]->fixed[j+repeatc])
+					{
+						repeatc++;
+						if ((j+repeatc)==entries[i]->fixedLen)
+							break;
+					}
+					j+=repeatc;
 
+				}
+				
 				//Loop fixed part
 				for (int j=0;j<entries[i]->fixedLen;j++)
 				{
@@ -249,45 +277,83 @@ void H223MuxTable::BuildPDU(H245_MultiplexEntrySend & pdu)
 			{
 				//Repeat part element
 				H245_MultiplexElement repeat;
+				
+				list<MyKey> mc_;				
 
-				//Set type 
-				repeat.m_type.SetTag(H245_MultiplexElement_type::e_subElementList);
-
-				//And repeat count
-				repeat.m_repeatCount.SetTag(H245_MultiplexElement_repeatCount::e_untilClosingFlag);
-
-				//Get the list for the fixed
-				H245_ArrayOf_MultiplexElement &repeatList = repeat.m_type;
-
-				//Remove
-				repeatList.RemoveAll();
-
-				//Loop fixed part
-				for (int j=0;j<entries[i]->repeatLen;j++)
+				int repeatc;
+				BYTE mc=0;
+				MyKey key(mc,mc);
+				for (int j=0;j<entries[i]->repeatLen;)
 				{
-					H245_MultiplexElement el;
+					
+					repeatc=0;
+					mc=entries[i]->repeat[j] ;
+					repeatc++;
+					if ((j+1)<entries[i]->repeatLen)
+					while (mc==entries[i]->repeat[j+repeatc])
+					{
+						repeatc++;
+						if ((j+repeatc)==entries[i]->repeatLen)
+							break;
+					}
+					key.lc = mc;
+					key.rc = repeatc;
+					mc_.push_back(key);
+					j+=repeatc;
+				}
 
+
+
+				if (mc_.size()>1)
+				{
 					//Set type 
-					el.m_type.SetTag(H245_MultiplexElement_type::e_logicalChannelNumber);
+					repeat.m_type.SetTag(H245_MultiplexElement_type::e_subElementList);
 
 					//And repeat count
-					el.m_repeatCount.SetTag(H245_MultiplexElement_repeatCount::e_finite);
+					repeat.m_repeatCount.SetTag(H245_MultiplexElement_repeatCount::e_untilClosingFlag);
+					//
+					//Get the list for the fixed
+					H245_ArrayOf_MultiplexElement &repeatList = repeat.m_type;
 
-					//Get it
-					H245_MultiplexElement_repeatCount &rc = (H245_MultiplexElement_repeatCount &)repeat.m_repeatCount;
-					//Get count
-					rc = (H245_MultiplexElement_repeatCount &)el.m_repeatCount;
+					//Remove
+					repeatList.RemoveAll();
+					while(mc_.size()>0)
+					{
+						key=mc_.front();
+						mc_.pop_front();
+						H245_MultiplexElement el;
 
-					//Set to rc to 1
-					((PASN_Integer &)rc.GetObject()) = 1;
+						//Set type 
+						el.m_type.SetTag(H245_MultiplexElement_type::e_logicalChannelNumber);
 
-					//Set the channel
-					((PASN_Integer &)el.m_type.GetObject()) = entries[i]->repeat[j];
+						//And repeat count
+						el.m_repeatCount.SetTag(H245_MultiplexElement_repeatCount::e_finite);
+						//Get elem count
+						H245_MultiplexElement_repeatCount &rc = (H245_MultiplexElement_repeatCount &)el.m_repeatCount;
+						//Set to rc to 1
+						((PASN_Integer &)rc.GetObject()) = key.rc ;
 
-					//Add element
-					repeatList.Append((PASN_Object*)el.Clone());
+						//Set the channel
+						((PASN_Integer &)el.m_type.GetObject()) = key.lc ;
+
+						//Add element
+						repeatList.Append((PASN_Object*)el.Clone());
+					}
 				}
-				
+				else
+				{	
+					key=mc_.back();
+					//Set type 
+					repeat.m_type.SetTag(H245_MultiplexElement_type::e_logicalChannelNumber);
+
+					//And repeat count
+					repeat.m_repeatCount.SetTag(H245_MultiplexElement_repeatCount::e_untilClosingFlag);
+
+					//Set channel
+					((PASN_Integer &)repeat.m_type.GetObject()) = key.lc  ;
+				}
+				mc_.clear();
+
 				//Append fixed
 				des.m_elementList.Append((PASN_Object*)repeat.Clone());
 			}
