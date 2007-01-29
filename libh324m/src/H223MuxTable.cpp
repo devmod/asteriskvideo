@@ -147,7 +147,7 @@ void H223MuxTable::BuildPDU(H245_MultiplexEntrySend & pdu)
 		H245_MultiplexElement fixed;
 
 		//Set channel number
-		des.m_multiplexTableEntryNumber.SetValue(k+1);
+		des.m_multiplexTableEntryNumber.SetValue(k);
 
 		//Include elements
 		des.IncludeOptionalField(H245_MultiplexEntryDescriptor::e_elementList);
