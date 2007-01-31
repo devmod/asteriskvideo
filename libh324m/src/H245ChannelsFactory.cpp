@@ -234,7 +234,7 @@ int H245ChannelsFactory::OnEstablishIndication(int number, H245Channel *channel)
 			local = it->first;
 			//Exit
 			break;
-		} else if (it->second->type == H324MMediaChannel::e_Audio && channel->GetType() == H245Channel::e_Audio) {
+		} else if (it->second->type == H324MMediaChannel::e_Video && channel->GetType() == H245Channel::e_Video) {
 			//We found it 
 			local = it->first;
 			//Exit
