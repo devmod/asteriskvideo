@@ -56,7 +56,7 @@ int H324MMediaChannel::SetSenderLayer(int layer)
 			sender = new H223AL1Sender();
 			break;
 		case 2:
-			sender = new H223AL3Sender();
+			sender = new H223AL2Sender(0);
 			break;
 		case 3:
 			sender = new H223AL3Sender();
@@ -77,7 +77,7 @@ int H324MMediaChannel::SetReceiverLayer(int layer)
 			receiver = new H223AL1Receiver();
 			break;
 		case 2:
-			receiver = new H223AL2Receiver(1);
+			receiver = new H223AL2Receiver(0);
 			break;
 		case 3:
 			receiver = new H223AL3Receiver();

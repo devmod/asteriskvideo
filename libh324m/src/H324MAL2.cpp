@@ -60,16 +60,25 @@ void H223AL2Receiver::SendClosingFlag()
 	dataLen = sdu.Length();
 
 	//Set data
-	crc.Add(data,dataLen-useSN-1);
+	crc.Add(data,dataLen-1);
 
+	Debug("-AL2 Frame [%x,%x,%x,%d]\n",data[dataLen-1],crc.Calc(),this,dataLen);
+
+	{
+		char name[256];
+		sprintf(name,"/tmp/media_%x.raw",(unsigned int)this);
+		int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
+		write(fd,data+useSN,dataLen-useSN-1);
+		close(fd);
+	}
+	
 	//Calc
-	if (data[dataLen]!=crc.Calc())
-		goto clean;
-
-	Debug("-AL2 Frame correct\n");
+	/*if (data[dataLen-1]!=crc.Calc())
+		goto clean;*/
 
 	//Enque new frame
-	frameList.push_back(new H223MuxSDU(data+useSN,dataLen-useSN-1));
+	//frameList.push_back(new H223MuxSDU(data+useSN,dataLen-useSN-1));
+	frameList.push_back(new H223MuxSDU(data+useSN,dataLen-useSN));
 
 //Clean SDU and exit
 clean:
@@ -153,7 +162,7 @@ int H223AL2Sender::SendPDU(BYTE *buffer,int len)
 	crc.Add(sdu->GetPointer(),sdu->Length());
 
 	//Append crc
-	sdu->Push(crc.Calc());
+	//sdu->Push(crc.Calc());
 
 	//Enque sdu
 	frameList.push_back(sdu);

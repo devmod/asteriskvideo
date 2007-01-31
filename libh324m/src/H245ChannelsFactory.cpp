@@ -68,6 +68,37 @@ int H245ChannelsFactory::Demultiplex(BYTE *buffer,int length)
 	//DeMux
 	for (int i=0;i<length;i++)
 		demuxer.Demultiplex(buffer[i]);
+
+	//Loopback ugly hack
+	for (ChannelMap::iterator it = channels.begin(); it != channels.end(); it++)
+	{
+		//Get channel
+		H324MMediaChannel *channel = it->second;
+
+		//If have both channehs
+		if (channel->localChannel>0 && channel->remoteChannel>0)
+		{
+			//Get sender
+			H223AL2Sender *sender = (H223AL2Sender *)channel->GetSender();
+			//Get receiver
+			H223AL2Receiver *receiver = (H223AL2Receiver *)channel->GetReceiver();
+			//If both are not null
+			if (sender && receiver)
+			{
+				//Frame
+				H223MuxSDU * frame;
+				//While it has frames
+				while( (frame=receiver->GetFrame())!=NULL)
+				{
+					//send frame
+					sender->SendPDU(frame->GetPointer(),frame->Length());
+					//Next frame
+					receiver->NextFrame();
+				}
+			}
+		}
+	}
+
 	//Ok
 	return 1;
 }
