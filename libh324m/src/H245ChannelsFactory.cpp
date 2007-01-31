@@ -250,3 +250,14 @@ int H245ChannelsFactory::OnEstablishConfirm(int number)
 	//Set muxer
 	return muxer.SetChannel(number,chan->GetSender());
 }
+
+int H245ChannelsFactory::OnMuxTableIndication(H223MuxTable &table, H223MuxTableEntryList &list)
+{
+	//Append entries to table
+    return remoteTable.AppendEntries(table,list);
+}
+
+int H245ChannelsFactory::OnMuxTableConfirm(H223MuxTableEntryList &list)
+{
+	return 1;
+}

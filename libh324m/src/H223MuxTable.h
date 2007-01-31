@@ -3,17 +3,15 @@
 #include "H223Const.h"
 #include "H245.h"
 
-struct MyKey
-{
-	MyKey();
-	MyKey(BYTE  mc,BYTE  len);
-	~MyKey();
-	BYTE lc;
-	BYTE rc;
-};
+#include <list>
+
+typedef std::list<int> H223MuxTableEntryList;
+
 struct H223MuxTableEntry
 {
+	H223MuxTableEntry();
 	H223MuxTableEntry(const char* f,const char *r);
+	H223MuxTableEntry(H223MuxTableEntry* entry);
 	~H223MuxTableEntry();
 
 	BYTE* fixed;
@@ -31,10 +29,11 @@ public:
 	~H223MuxTable();
 	int IsSet(int mc);
 	int SetEntry(int mc,const char* f,const char *r);
+	int SetEntry(int mc,H223MuxTableEntry *entry);
 	int GetChannel(int mc,int count);
 	void BuildPDU(H245_MultiplexEntrySend & pdu);
-	void SetEntry(int mc,H245_MultiplexElement);
-private:
+	int AppendEntries(H223MuxTable &table,H223MuxTableEntryList &list);
+protected:
 	H223MuxTableEntry*	entries[16];
 };
 

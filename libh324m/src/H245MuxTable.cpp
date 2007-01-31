@@ -26,100 +26,208 @@
 H245MuxTable::H245MuxTable(H245Connection & con)
 	: H245Negotiator(con)
 {
-	awaitingResponse = FALSE;
-	sequenceNumber = 0;
-	retryCount = 1;
+	//Initial states
+	inState = e_Idle;
+	outState = e_Idle;
+
+	//Initial secuence number
+	inSec = (unsigned)-1;
+	outSec = 0;
 }
 
 H245MuxTable::~H245MuxTable()
 {
 }
 
-BOOL H245MuxTable::Send(H223MuxTable& table)
+/* Outgoing MTSE SDL
+ */
+BOOL H245MuxTable::TransferRequest(H223MuxTable& table)
 {
 	Debug("H245 MultiplexEntrySend\n");
 
-	sequenceNumber = (sequenceNumber + 1)%256;
-	awaitingResponse = TRUE;
+	//If not in idle
+		//Reset timer
+
+	//Increment secuence number
+	outSec = (outSec + 1)%256;
+
+	//Set new state
+	outState = e_AwaitingResponse;
 
 	H324ControlPDU pdu;
 
 	//Build request pdu
-	pdu.BuildMultiplexEntrySend(sequenceNumber);
+	H245_MultiplexEntrySend & entrySend = pdu.BuildMultiplexEntrySend(outSec);
 
 	//Create pdu
-	table.BuildPDU((H245_MultiplexEntrySend &)(H245_RequestMessage&)pdu);
+	table.BuildPDU(entrySend);
 
-	if (!connection.WriteControlPDU(pdu))
-		return FALSE;
+	//Set timer
 
-	return TRUE;
+	//Write pdu
+	return connection.WriteControlPDU(pdu);
 }
 
-
-BOOL H245MuxTable::HandleRequest(const H245_MultiplexEntrySend & pdu)
-{
-	Debug("H245 MultiplexEntrySend request\n");
-
-	H324ControlPDU reply;
-
-	H223MuxTable table(pdu);
-
-	//Set event
-	if (connection.OnEvent(Event(table)))
-	{
-		//Build accept
-		H245_MultiplexEntrySendAck &ack = reply.BuildMultiplexEntrySendAck(pdu.m_sequenceNumber);
-		//Take out all
-		ack.m_multiplexTableEntryNumber.RemoveAll();
-		//Build
-		for (int i=0;i<pdu.m_multiplexEntryDescriptors.GetSize();i++)
-			ack.m_multiplexTableEntryNumber.Append((PASN_Object*)pdu.m_multiplexEntryDescriptors[i].m_multiplexTableEntryNumber.Clone());
-		
-	} else {
-		reply.BuildMultiplexEntrySendReject(pdu.m_sequenceNumber);
-	}
-
-	return connection.WriteControlPDU(reply);
-}
 
 BOOL H245MuxTable::HandleAck(const H245_MultiplexEntrySendAck  & pdu)
 {
 	Debug("H245 MultiplexEntrySend accepted\n");
 
-	if (!awaitingResponse || pdu.m_sequenceNumber != sequenceNumber) 
-		return FALSE;
+	//If already idle
+	if (outState==e_Idle)
+		//Do nothing
+		return TRUE;
 
-	awaitingResponse = FALSE;
-	retryCount = 3;
+	//Check secuence number
+	if (pdu.m_sequenceNumber!=outSec) 
+		return TRUE;
+
+	//Reset timer
+
+	//Set state
+	outState = e_Idle;
 	
-	return TRUE;
+	//List of accepted entries
+	H223MuxTableEntryList list;
+
+	//For all entries
+	for (int i=0; i<pdu.m_multiplexTableEntryNumber.GetSize(); i++)
+		//Append to list
+		list.push_back(pdu.m_multiplexTableEntryNumber[i].GetValue());
+	
+	//Send event
+	return connection.OnEvent(Event(e_TransferConfirm,NULL,&list));
 }
 
 BOOL H245MuxTable::HandleReject(const H245_MultiplexEntrySendReject & pdu)
 {
 	Debug("H245 MultiplexEntrySend rejected\n");
 
-	if (!awaitingResponse || pdu.m_sequenceNumber != sequenceNumber) 
+	//If already idle
+	if (outState==e_Idle)
+		//Do nothing
+		return TRUE;
+
+	//Check secuence number
+	if (pdu.m_sequenceNumber!=outSec) 
+		return TRUE;
+
+	//Reset timer
+
+	//Set state
+	outState = e_Idle;
+	
+	//List of rejected entries
+	H223MuxTableEntryList list;
+
+	//For all entries
+	for (int i=0; i<pdu.m_rejectionDescriptions.GetSize(); i++)
+		//Append to list
+		list.push_back(pdu.m_rejectionDescriptions[i].m_multiplexTableEntryNumber.GetValue());
+
+	//Send event
+	return connection.OnEvent(Event(e_TransferReject,NULL,&list));
+}
+
+/*
+ * Incoming MTSE SDL
+ */
+BOOL H245MuxTable::HandleRequest(const H245_MultiplexEntrySend & pdu)
+{
+	Debug("H245 MultiplexEntrySend request\n");
+
+	//Create table
+	H223MuxTable table(pdu);
+
+	//Depending on the state
+	switch(inState)
+	{
+		case e_Idle:
+			//Get in sequence
+			inSec = pdu.m_sequenceNumber;
+			//Set new state
+			inState = e_AwaitingResponse;
+			//Send event
+			return connection.OnEvent(Event(e_TransferIndication,&table,NULL));
+		case e_AwaitingResponse:
+			//Get in sequence
+			inSec = pdu.m_sequenceNumber;
+			//Set new state
+			inState = e_AwaitingResponse;
+			//Should indicate a reject !
+			//Send event
+			return connection.OnEvent(Event(e_TransferIndication,&table,NULL));
+	}
+
+	return FALSE;
+	
+}
+
+BOOL H245MuxTable::TransferResponse(H223MuxTableEntryList &accept)
+{
+	//Check state
+	if (inState==e_Idle)
+		//Exit
 		return FALSE;
 
-	awaitingResponse = FALSE;
-	retryCount = 3;
-	
-	return TRUE;
+	H324ControlPDU pdu;
+
+	//Build accept
+	H245_MultiplexEntrySendAck &ack = pdu.BuildMultiplexEntrySendAck(inSec);
+
+	//Take out all
+	ack.m_multiplexTableEntryNumber.RemoveAll();
+
+	//Build
+	for (H223MuxTableEntryList::iterator it = accept.begin(); it != accept.end(); it++)
+	{
+		//Create accepted entry number
+		H245_MultiplexTableEntryNumber number;
+		//Set the value
+		number.SetValue(*it);
+		//Append to array
+		ack.m_multiplexTableEntryNumber.Append((PASN_Object*)number.Clone());
+	}
+
+	//Set state
+	inState = e_Idle;
+
+	//Write
+	return connection.WriteControlPDU(pdu);
 }
-/*
-void H245RoundTripDelay::HandleTimeout(PTimer &, INT)
+
+BOOL H245MuxTable::TransferReject(H223MuxTableEntryList &reject)
 {
-//	PWaitAndSignal wait(mutex);
+	//Check state
+	if (inState==e_Idle)
+		//Exit
+		return FALSE;
 
-//	PTRACE(3, "H245\tTimeout on round trip delay: seq=" << sequenceNumber
-	//			 << (awaitingResponse ? " awaitingResponse" : " idle"));
+	H324ControlPDU pdu;
 
-	if (awaitingResponse && retryCount > 0)
-		retryCount--;
-	awaitingResponse = FALSE;
+	//Build reject 
+	H245_MultiplexEntrySendReject &rej = pdu.BuildMultiplexEntrySendReject(inSec);
 
-	connection.OnControlProtocolError(H245Connection::e_RoundTripDelay, "Timeout");
+	//Take out all
+	rej.m_rejectionDescriptions.RemoveAll();
+
+	//Build
+	for (H223MuxTableEntryList::iterator it = reject.begin(); it != reject.end(); it++)
+	{
+		//Create reject entry description
+		H245_MultiplexEntryRejectionDescriptions desc;
+		//Set number
+		desc.m_multiplexTableEntryNumber.SetValue(*it);
+		//Set cause
+		desc.m_cause.SetTag(H245_MultiplexEntryRejectionDescriptions_cause::e_unspecifiedCause);
+		//Añadimos
+		rej.m_rejectionDescriptions.Append((PASN_Object*)desc.Clone());
+	}
+
+	//Set state
+	inState = e_Idle;
+
+	//Write
+	return connection.WriteControlPDU(pdu);
 }
-*/
+

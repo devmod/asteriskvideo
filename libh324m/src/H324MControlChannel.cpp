@@ -81,7 +81,7 @@ int H324MControlChannel::MediaSetup()
 	lc->EstablishRequest(2,video);
 
 	//Transfer mux table
-	return mt->Send(*cf->GetLocalTable());
+	return mt->TransferRequest(*cf->GetLocalTable());
 }
 
 int H324MControlChannel::Disconnect()
@@ -145,6 +145,28 @@ int H324MControlChannel::OnCapabilityExchange(const H245TerminalCapability::Even
 
 int H324MControlChannel::OnMultiplexTable(const H245MuxTable::Event &event)
 {
+	H223MuxTableEntryList list;
+
+	Debug("-OnMultiplexTable\n");
+	switch(event.type)
+	{
+		case H245MuxTable::e_TransferConfirm:
+			//Set event
+			cf->OnMuxTableConfirm(*event.entries);
+			break;
+		case H245MuxTable::e_TransferIndication:
+			//Set event
+			if (cf->OnMuxTableIndication(*event.muxTable,list))
+				//Accept
+				mt->TransferResponse(list);
+			else
+				//Reject
+				mt->TransferReject(list);
+			break;
+		case H245MuxTable::e_TransferReject:
+			Debug("e_TransferReject!!!!\n");
+			break;
+	}
 	return true;
 }
 

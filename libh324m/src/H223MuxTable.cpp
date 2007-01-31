@@ -20,16 +20,42 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "H223MuxTable.h"
-#include <list>
 
-MyKey::MyKey(BYTE  mc,BYTE  len)
+struct MyKey
 {
-	lc=mc;
-	rc=len;
-}
-MyKey::~MyKey()
+	MyKey(BYTE  mc,BYTE  len)
+	{
+		lc=mc;
+		rc=len;
+	}
+	BYTE lc;
+	BYTE rc;
+};
+
+H223MuxTableEntry::H223MuxTableEntry()
 {
+	//Empty
+	fixedLen = 0;
+	repeatLen = 0;
+	fixed = NULL;
+	repeat = NULL;
 }
+
+H223MuxTableEntry::H223MuxTableEntry(H223MuxTableEntry* entry)
+{
+	//Set lengths
+	fixedLen = entry->fixedLen;
+	repeatLen = entry->repeatLen;
+
+	//Alocate
+	fixed = (BYTE*)malloc(fixedLen);
+	repeat = (BYTE*)malloc(repeatLen);
+
+	//Fill
+	memcpy(fixed,entry->fixed,fixedLen);
+	memcpy(repeat,entry->repeat,repeatLen);
+}
+
 H223MuxTableEntry::H223MuxTableEntry(const char* f,const char *r)
 {
 	//Get the length of the fixed part
@@ -97,6 +123,25 @@ int H223MuxTable::SetEntry(int mc,const char* f,const char *r)
 	return 1;
 
 }
+
+int H223MuxTable::SetEntry(int mc,H223MuxTableEntry *entry)
+{
+	//Check mc
+	if (mc>=16)
+		return 0;
+
+	//If it was assigned
+	if (entries[mc])
+		//delete it
+		delete(entries[mc]);
+
+	//Create a new entrie
+	entries[mc] = entry;
+
+	//good
+	return 1;
+}
+
 int H223MuxTable::GetChannel(int mc,int count)
 {
 	//If the mc is valid
@@ -111,6 +156,22 @@ int H223MuxTable::GetChannel(int mc,int count)
 	return entries[mc]->repeat[(count-entries[mc]->fixedLen) % entries[mc]->repeatLen];
 }
 
+int H223MuxTable::AppendEntries(H223MuxTable &table,H223MuxTableEntryList &list)
+{
+	//For each table
+	for (int i=0;i<16;i++)
+		//If is set
+		if (table.entries[i])
+		{
+			//Set entry
+			SetEntry(i,new H223MuxTableEntry(table.entries[i]));
+			//Append index to accepted list
+			list.push_back(i);
+		}
+
+	//Exit
+	return 1;
+}
 
 H223MuxTable::H223MuxTable(const H245_MultiplexEntrySend & pdu)
 {
@@ -124,6 +185,8 @@ H223MuxTable::H223MuxTable(const H245_MultiplexEntrySend & pdu)
 		//Get entry number
 		int mc = pdu.m_multiplexEntryDescriptors[i].m_multiplexTableEntryNumber.GetValue();
 
+		//New empty entry
+		H223MuxTableEntry * entry = new H223MuxTableEntry();
 
 		//Loop throught element list
 		for (int j=0;j<pdu.m_multiplexEntryDescriptors[i].m_elementList.GetSize();j++)
@@ -131,15 +194,39 @@ H223MuxTable::H223MuxTable(const H245_MultiplexEntrySend & pdu)
 			//Get element
 			H245_MultiplexElement &el = pdu.m_multiplexEntryDescriptors[i].m_elementList[j];
 
-			//If it's fnite
-			if (el.m_repeatCount.GetTag()==H245_MultiplexElement_repeatCount::e_finite)
-			{
-				//Get count
-				int rc = ((PASN_Integer &)((H245_MultiplexElement_repeatCount &)el.m_repeatCount)).GetValue();	
+			//If it's an element
+			if (el.m_type.GetTag()==H245_MultiplexElement_type::e_logicalChannelNumber)
+			{	
+				//Get element
+				int chan = ((PASN_Integer &)((H245_MultiplexElement_type &)el.m_type));
+
+				//If it's fnite
+				if (el.m_repeatCount.GetTag()==H245_MultiplexElement_repeatCount::e_finite)
+				{
+					//Get count
+					int rc = ((PASN_Integer &)((H245_MultiplexElement_repeatCount &)el.m_repeatCount)).GetValue();	
+					//Realloc fixed
+					entry->fixed = (BYTE*)realloc(entry->fixed,entry->fixedLen+rc);
+					//Copy channel
+					for (int k=entry->fixedLen; k<entry->fixedLen+rc; k++)
+						entry->fixed[k] = (BYTE)chan;
+					//Increase length
+					entry->fixedLen += rc;
+				} else {
+			 		//Realloc repeat
+					entry->repeat = (BYTE*)realloc(entry->repeat,entry->repeatLen+1);
+					//Copy channel
+					entry->repeat[entry->repeatLen] = (BYTE)chan;
+					//Increase length
+					entry->repeatLen += 1;
+				}
 			} else {
-			 	
+				//uffff... nested elements.. 
 			}
 		}
+
+		//Append entry
+		SetEntry(mc,entry);
 	}
 
 }

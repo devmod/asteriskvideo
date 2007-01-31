@@ -38,6 +38,9 @@ public:
 	int OnEstablishIndication(int number, H245Channel *channel);
 	int OnEstablishConfirm(int number);
 
+	int OnMuxTableIndication(H223MuxTable &table, H223MuxTableEntryList &list);
+	int OnMuxTableConfirm(H223MuxTableEntryList &list);
+
 private:
 	typedef std::map<int,H324MMediaChannel*> ChannelMap;
 
