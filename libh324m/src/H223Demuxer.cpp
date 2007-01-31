@@ -183,8 +183,24 @@ void H223Demuxer::Send(BYTE b)
 	//Get the next channel from the mux table
 	channel = mux->GetChannel(header.mc,counter++);
 
-	//Send it to the al
-	if (channel!=-1)
-		al[channel]->Send(b);
+	//Check channel
+	if ((channel<0) || (channel>15))
+		//Exit
+		return;
+
+	//Get channel
+	std::map<int,H223ALReceiver*>::iterator it = al.find(channel);
+
+	//If not found 
+	if (it==al.end())
+		return;
+	
+	//Get channel
+	H223ALReceiver *recv = it->second;
+
+	//If it's not null
+	if (recv)
+		//Send byte
+		recv->Send(b);
 }
 
