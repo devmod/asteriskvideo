@@ -64,6 +64,10 @@ void H324CCSRLayer::SendClosingFlag()
 	if (sdu.GetSize()<3)
 		return;
 
+	//Log
+	std::fstream flog;
+	flog.open ("h245.log",ios::out|ios::app);
+	flog << "-SendClosingFlag\r\n";
 	//The header
 	BYTE header = sdu[0];
 
@@ -87,7 +91,10 @@ void H324CCSRLayer::SendClosingFlag()
 
 	//Check it's good crc
 	if (crcA!=crcB)
+	{
+		flog << "BAD CRC\n";
 		goto clean;
+	}
 
 	//Depending on the type
 	switch(header)
@@ -101,7 +108,7 @@ void H324CCSRLayer::SendClosingFlag()
 			sn = sdu[1];
 
 			Debug("Received SRP_SRP_COMMAND [%d]\n",sn);
-
+			flog << "SRP_SRP_COMMAND\n";
 			//Send NSRP Response
 			SendNSRP(sn);
 
@@ -123,10 +130,6 @@ void H324CCSRLayer::SendClosingFlag()
 			{
 				//Decode
 				H324ControlPDU pdu;
-			
-				std::fstream flog;
-				//flog.open ("c:\\logs\\h245.txt",ios::out|ios::app);
-				flog.open ("h245.log",ios::out|ios::app);
 	
 				flog << "-Receiving\r\n";
 				//Decode
@@ -137,7 +140,6 @@ void H324CCSRLayer::SendClosingFlag()
 					pdu.PrintOn(flog);
 					flog << "\r\n";
 				}
-				flog.close();
 
 				//Reset the decoder just if something went wrong
 				ccsrl.ResetDecoder();
@@ -151,6 +153,7 @@ void H324CCSRLayer::SendClosingFlag()
 			if (sdu[1]==cmdsn)
 			{
 				Debug("Received SRP_NSRP_RESPONSE [%d]\n",sdu[1]);
+				flog << "SRP_NSRP_RESPONSE\n";
 				//End waiting
 				waiting = false;
 			} else
@@ -158,6 +161,7 @@ void H324CCSRLayer::SendClosingFlag()
 			break;
 		case SRP_SRP_RESPONSE:
 			Debug("Received SRP_SRP_RESPONSE\n");
+			flog << "SRP_RESPONSE\n";
 			//End waiting
 			waiting = false;
 			break;
@@ -166,6 +170,7 @@ void H324CCSRLayer::SendClosingFlag()
 clean:
 	//Clean sdu
 	sdu.SetSize(0);
+	flog.close();
 }
 
 

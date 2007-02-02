@@ -52,7 +52,7 @@ void H223AL2Receiver::SendClosingFlag()
 	int dataLen;
 
 	//Check minimum size
-	if (sdu.Length()<1+useSN)
+	if (sdu.Length()<2+useSN)
 		goto clean;
 
 	//Get data

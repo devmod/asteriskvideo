@@ -35,10 +35,10 @@ int H223Header::IsValid()
 	
 	//Get the values
 	mc   = buffer[0] & 0x0F;
-	mpl  = (buffer[0] >> 4) | (buffer[1] & 0x0F);
+	mpl  = (buffer[0] >> 4) | ((buffer[1] & 0x0F) << 4);
 	pm   = (buffer[1] >> 4) | (buffer[2] << 4);
 
-	//Calculate the golay code
+	//Calculate the golay codez
 	return 1;
 
 }
