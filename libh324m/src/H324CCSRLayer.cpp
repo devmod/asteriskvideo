@@ -114,7 +114,10 @@ void H324CCSRLayer::SendClosingFlag()
 
 			//Check for retransmission
 			if (sn == lastsn)
+			{
+				flog << "Retransmission\n";
 				goto clean;
+			}
 
 			//Update lastsn
 			lastsn = sn;
@@ -131,12 +134,16 @@ void H324CCSRLayer::SendClosingFlag()
 				//Decode
 				H324ControlPDU pdu;
 	
-				flog << "-Receiving\r\n";
 				//Decode
 				while (!ccsrl.IsAtEnd() && pdu.Decode(ccsrl))
 				{
 					//Launch event
 					OnControlPDU(pdu);
+					
+					//Byte aling the stream
+					ccsrl.ByteAlign();
+
+					//Log
 					pdu.PrintOn(flog);
 					flog << "\r\n";
 				}
