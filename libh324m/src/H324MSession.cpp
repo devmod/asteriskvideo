@@ -73,6 +73,10 @@ int H324MSession::Read(BYTE *buffer,int length)
 
 int H324MSession::Write(BYTE *buffer,int length)
 {
+	int ret;
+
+	//Multiplex
+	ret = channels.Multiplex(buffer,length);
 
 #ifdef DUMP_H223
 	char name[256];
@@ -82,6 +86,5 @@ int H324MSession::Write(BYTE *buffer,int length)
 	close(fd);
 #endif
 
-	//Multiplex
-	return channels.Multiplex(buffer,length);
+	return ret;
 }
