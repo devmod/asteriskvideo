@@ -165,7 +165,7 @@ int H223Muxer::GetBestMC(int max)
 			//Save values
 			mc = i;
 			mpl = j;
-			pm = !end;
+			pm = end;
 			best = ratio;
 		}
 	}
