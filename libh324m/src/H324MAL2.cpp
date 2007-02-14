@@ -76,6 +76,8 @@ void H223AL2Receiver::SendClosingFlag()
 	if (data[dataLen-1]!=crc.Calc())
 		goto clean;
 
+	Debug("-Pushing frame [%d]\n",frameList.size());
+
 	//Enque new frame
 	frameList.push_back(new H223MuxSDU(data+useSN,dataLen-useSN-1));
 
@@ -89,6 +91,7 @@ H223MuxSDU* H223AL2Receiver::GetFrame()
 	//Check size
 	if (frameList.size()==0)
 		return NULL;
+	Debug("-Get frame [%d]\n",frameList.size());
 	//Return first frame
 	return frameList.front();
 }
@@ -102,6 +105,8 @@ int H223AL2Receiver::NextFrame()
 	delete frameList.front();
 	//Remove
 	frameList.pop_front();
+
+	Debug("-Next frame [%d]\n",frameList.size());
 	//Return size
 	return frameList.size();
 }
