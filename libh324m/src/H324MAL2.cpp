@@ -73,12 +73,11 @@ void H223AL2Receiver::SendClosingFlag()
 	}
 	
 	//Calc
-	/*if (data[dataLen-1]!=crc.Calc())
-		goto clean;*/
+	if (data[dataLen-1]!=crc.Calc())
+		goto clean;
 
 	//Enque new frame
-	//frameList.push_back(new H223MuxSDU(data+useSN,dataLen-useSN-1));
-	frameList.push_back(new H223MuxSDU(data+useSN,dataLen-useSN));
+	frameList.push_back(new H223MuxSDU(data+useSN,dataLen-useSN-1));
 
 //Clean SDU and exit
 clean:
@@ -162,7 +161,7 @@ int H223AL2Sender::SendPDU(BYTE *buffer,int len)
 	crc.Add(sdu->GetPointer(),sdu->Length());
 
 	//Append crc
-	//sdu->Push(crc.Calc());
+	sdu->Push(crc.Calc());
 
 	//Enque sdu
 	frameList.push_back(sdu);
