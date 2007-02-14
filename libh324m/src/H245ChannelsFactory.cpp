@@ -74,7 +74,7 @@ int H245ChannelsFactory::Demultiplex(BYTE *buffer,int length)
 	{
 		//Get channel
 		H324MMediaChannel *channel = it->second;
-
+		
 		//If have both channehs
 		if (channel->localChannel>0 && channel->remoteChannel>0)
 		{
@@ -220,6 +220,8 @@ int H245ChannelsFactory::SetRemoteCapabilities(H245Capabilities* remoteCapabilit
 
 int H245ChannelsFactory::OnEstablishIndication(int number, H245Channel *channel)
 {
+	Debug("-OnEstablishIndication [%d]\n",number);
+
 	int local = -1;
 
 	//Search local channel for same media type
@@ -258,12 +260,16 @@ int H245ChannelsFactory::OnEstablishIndication(int number, H245Channel *channel)
 	//Set receiving layer
 	chan->SetReceiverLayer(2);
 
+	Debug("-Creating receiving layer [%d,%d,%x,%d,%d]\n",local,number,chan->GetReceiver(),channel->GetType(),chan->type);
+
 	//Append to demuxer && accept
 	return demuxer.SetChannel(number,chan->GetReceiver());
 }
 
 int H245ChannelsFactory::OnEstablishConfirm(int number)
 {
+	Debug("-OnEstablishConfirm [%d]\n",number);
+
 	//Search channel 
 	ChannelMap::iterator it = channels.find(number);
 
@@ -277,6 +283,8 @@ int H245ChannelsFactory::OnEstablishConfirm(int number)
 
 	//Set sender layer
 	chan->SetSenderLayer(2);
+
+	Debug("-Creating sending layer [%d,2,%x]\n",number,chan->GetSender());
 
 	//Set muxer
 	return muxer.SetChannel(number,chan->GetSender());

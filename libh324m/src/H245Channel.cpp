@@ -47,7 +47,7 @@ H245Channel::H245Channel(H245_OpenLogicalChannel & open)
 		case H245_DataType::e_videoData:
 			{
 				//Set type
-				type = e_Audio;
+				type = e_Video;
 				//Get audio type
 				H245_VideoCapability &videoCap = (H245_VideoCapability &)open.m_forwardLogicalChannelParameters.m_dataType;
 				//Clone
