@@ -147,30 +147,26 @@ int H223Muxer::GetBestMC(int max)
 
 			//Do we have more on this channel?
 			if(len[c] == sduLen[c])
-			{
-				//Calculate ratio
-				float ratio = 0;
-				//For each sdu
-				for (int k=0;k<256;k++)
-					if (len[k]>0)
-						ratio +=  (float)sduLen[k]/len[k];
-
-				//If the ratio is better
-				if (ratio>best)
-				{
-					//Save values
-					mc = c;
-					mpl = j;
-					pm = 1;
-					best = ratio;
-					//Next entry
-					end = 1;
-				}
-			}
+				//Finish
+				end = 1;
 		}
-		//If max reached and not found an mc yet
-		if ((!end) && (j>0))
+
+		//Calculate ratio
+		float ratio = 0;
+
+		//For each sdu
+		for (int k=0;k<256;k++)
+			if (len[k]>0)
+				ratio +=  (float)sduLen[k]/len[k];
+
+		//If the ratio is better
+		if (ratio>best)
 		{
+			//Save values
+			mc = i;
+			mpl = j;
+			pm = !end;
+			best = ratio;
 		}
 	}
 
@@ -200,7 +196,7 @@ BYTE H223Muxer::Multiplex()
 				}
 
 				//Get the best mc & mpl from the table
-				if (GetBestMC(160))
+				if (GetBestMC(512))
 				{
 					//Calculate p bits
 					WORD data = (mc & 0x0F) | mpl << 4;
