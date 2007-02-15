@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "H223Muxer.h"
+#include "FileLogger.h"
 extern "C"
 {
 #include "golay.h"
@@ -29,10 +30,14 @@ extern "C"
 
 H223Muxer::H223Muxer()
 {
+	//Create logger
+	log = new FileLogger();
 }
 
 H223Muxer::~H223Muxer()
 {
+	//Delete logger
+	delete log;
 }
 
 int H223Muxer::Open(H223MuxTable *muxTable)
@@ -189,14 +194,19 @@ BYTE H223Muxer::Multiplex()
 					//Create the flag
 					buffer[0] = 0xE1;
 					buffer[1] = 0x4D;
+
+					//Log
+					log->SetMuxInfo("endflg");
 				} else {
 					//Create the flag
 					buffer[0] = ~0xE1;
 					buffer[1] = ~0x4D;
+					//Log
+					log->SetMuxInfo("dneflg");
 				}
 
 				//Get the best mc & mpl from the table
-				if (GetBestMC(512))
+				if (GetBestMC(255))
 				{
 					//Calculate p bits
 					WORD data = (mc & 0x0F) | mpl << 4;
@@ -207,11 +217,15 @@ BYTE H223Muxer::Multiplex()
 					buffer[2] = ((BYTE *)&code)[0];//(mc & 0x0F) | (mpl &0x0F) << 4;
 					buffer[3] = ((BYTE *)&code)[1];//(mpl &0xF0) >> 4;
 					buffer[4] = ((BYTE *)&code)[2];//0x00;
+					//Log
+					log->SetMuxInfo("   mc%.1d %.2x",mc,mpl);
 				} else {
 					//Create the header
 					buffer[2] = 0x00;
 					buffer[3] = 0x00;
 					buffer[4] = 0x00;
+					//Log
+					log->SetMuxInfo("         ");
 				}
 				//Set pointers
 				i = 0;
@@ -223,16 +237,25 @@ BYTE H223Muxer::Multiplex()
 			case PDU:
 				//If we still haven't sent the flag & header
 				if (i<size)
+				{
+					//Log
+					log->SetMuxByte(buffer[i]);
 					//Return header byte
 					return buffer[i++];
+				}
 
 				//If we haven't finished
 				if (j<mpl)
 				{
 					//Next channel byte
 					channel = table->GetChannel(mc,j++);
+					//Get byte
+					BYTE b = sdus[channel]->Pop();
+					//Log
+					log->SetMuxByte(b);
+					log->SetMuxInfo(" c%.1d",channel);
 					//Send the byte
-					return sdus[channel]->Pop();
+					return b;
 				}
 				//If we hav finished the sdu
 				if (pm)

@@ -6,6 +6,7 @@
 #include "H223MuxTable.h"
 #include "H223Flag.h"
 #include "H223Header.h"
+#include "log.h"
 
 #include <map>
 
@@ -39,6 +40,8 @@ private:
 	int state;
 	int counter;
 	int channel;
+
+	Logger *log;
 };
 
 #endif

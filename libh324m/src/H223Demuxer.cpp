@@ -21,25 +21,21 @@
  */
 #include <string.h>
 #include "H223Demuxer.h"
+#include "FileLogger.h"
 #define NONE  0
 #define HEAD  1
 #define PDU   2
 
-#define linesize 104
-char line1[linesize];
-char line2[linesize];
-char line3[linesize];
-char *l1;
-char *l2;
-int num=0;
-
-
 H223Demuxer::H223Demuxer()
 {
+	//Create logger
+	log = new FileLogger();
 }
 
 H223Demuxer::~H223Demuxer()
 {
+	//Delete logger
+	delete log;
 }
 
 int H223Demuxer::SetChannel(int num,H223ALReceiver *receiver)
@@ -92,8 +88,8 @@ void H223Demuxer::StartPDU(H223Flag &flag)
 	counter = 0;
 	//No channel
 	channel = -1;
-	
-	{l2[-3] = 'f';l2[-2] = 'l';l2[-1] = 'g';}
+	//Log
+	log->SetDemuxInfo(-3,"flg");
 }
 
 void H223Demuxer::EndPDU(H223Flag &flag)
@@ -102,51 +98,23 @@ void H223Demuxer::EndPDU(H223Flag &flag)
 	//If the flag is the complement
 	if (flag.complement)
 	{
-		{l2[-6] = 'd';l2[-5] = 'n';l2[-4] = 'e';}
+		//Log
+		log->SetDemuxInfo(-6,"dne");
+		
 		//if there is channel
 		if ((channel!=-1) && (al[channel]!=NULL))
 			//Send the closing pdu to the last channel
 			al[channel]->SendClosingFlag();
 	} else
-		{l2[-6] = 'e';l2[-5] = 'n';l2[-4] = 'd';}
+		//Log
+		log->SetDemuxInfo(-6,"end");
+		
 }
 
 void H223Demuxer::Demultiplex(BYTE b)
 {
-	//New line
-	if (num % 32 == 0)
-	{
-		if (num>0)
-		{
-			int fd = open("h245.log",O_CREAT|O_WRONLY|O_APPEND);
-			write(fd,line3,linesize-6);
-			if (line3[linesize-5]==' ') {
-				write(fd,line2+2,6);
-			} else if (line3[linesize-3]!=' ') {
-				write(fd,line3+linesize-6,3);
-				write(fd,line2+5,3);
-			} else {
-				write(fd,line3+linesize-6,6);
-			}
-			memset(line2,' ',8);
-			write(fd,"\r\n",2);
-			write(fd,line1,linesize);
-			write(fd,"\r\n",2);
-			memcpy(line3,line2,linesize);
-			close(fd);
-		} else
-			memset(line3,' ',linesize);
-		sprintf(line1,"%.8X ",num);
-		memset(line2,' ',linesize);
-		l1 = line1+8;
-		l2 = line2+8;
-
-	}
-	sprintf(l1," %.2X",b);
-	sprintf(l2,"   ");
-	l1+=3;
-	l2+=3;
-	num++;
+	//Append to logger
+	log->SetDemuxByte(b);
 
 	//Depending on the state
 	switch(state)
@@ -186,8 +154,10 @@ void H223Demuxer::Demultiplex(BYTE b)
 				state = NONE;
 			}
 
+			//Append info
 			if (header.mpl!=0)
-				sprintf(l2-6," t%.1dl%.2x",header.mc,header.mpl);l2[-3]=' ';
+				//Log header
+				log->SetDemuxInfo(-6,"mc%.1dl%.2x",header.mc,header.mpl);
 
 			//We have a good header go for the pdu
             state = PDU;
@@ -230,7 +200,9 @@ void H223Demuxer::Demultiplex(BYTE b)
 
 void H223Demuxer::Send(BYTE b)
 {
-	sprintf(l2-9," xx");l2[-6]=' ';
+	//Log
+	log->SetDemuxInfo(-9," xx");
+	
 	//Get the next channel from the mux table
 	channel = mux->GetChannel(header.mc,counter++);
 
@@ -239,14 +211,19 @@ void H223Demuxer::Send(BYTE b)
 		//Exit
 		return;
 
-	sprintf(l2-9," n%.1d",channel);l2[-6]=' ';
+	//Log
+	log->SetDemuxInfo(-9," n%.1d",channel);
+
 	//Get channel
 	std::map<int,H223ALReceiver*>::iterator it = al.find(channel);
 
 	//If not found 
 	if (it==al.end())
 		return;
-	sprintf(l2-9," c%.1d",channel);l2[-6]=' ';
+
+	//Log
+	log->SetDemuxInfo(-9," c%.1d",channel);
+
 	//Get channel
 	H223ALReceiver *recv = it->second;
 

@@ -5,6 +5,7 @@
 #include "H223MuxTable.h"
 #include "H223MuxSDU.h"
 #include "H223AL.h"
+#include "log.h"
 
 class H223Muxer
 {
@@ -39,6 +40,8 @@ private:
 	int size;
 	int len;
 	int channel;
+
+	Logger *log;
 
 };
 
