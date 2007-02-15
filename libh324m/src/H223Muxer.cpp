@@ -206,7 +206,7 @@ BYTE H223Muxer::Multiplex()
 				}
 
 				//Get the best mc & mpl from the table
-				if (GetBestMC(255))
+				if (GetBestMC(160))
 				{
 					//Calculate p bits
 					WORD data = (mc & 0x0F) | mpl << 4;

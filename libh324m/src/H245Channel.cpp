@@ -80,6 +80,7 @@ int H245Channel::BuildChannelPDU(H245_OpenLogicalChannel & open)
 	H245_H223LogicalChannelParameters & h223 = open.m_forwardLogicalChannelParameters.m_multiplexParameters;
 	h223.m_adaptationLayerType.SetTag(H245_H223LogicalChannelParameters_adaptationLayerType::e_al2WithoutSequenceNumbers);
 
+	h223.m_segmentableFlag = true; 
 	return 1;
 }
 
