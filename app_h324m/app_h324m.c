@@ -45,6 +45,7 @@ static int app_h324m_loopback(struct ast_channel *chan, void *data)
 {
 	struct ast_frame *f;
 	struct ast_module_user *u;
+	void*  frame;
 
 	ast_log(LOG_DEBUG, "h324m_loopback\n");
 
@@ -71,6 +72,16 @@ static int app_h324m_loopback(struct ast_channel *chan, void *data)
 		if (f->frametype == AST_FRAME_VOICE) {
 			/* read data */
 			H324MSessionRead(id, (unsigned char *)f->data, f->datalen);
+			/* Get frames */
+			while ((frame=H324MSessionGetFrame(id))!=NULL)
+			{
+				/* If it's video */
+				if (FrameGetType(frame)==MEDIA_VIDEO)
+					/* Send it back */
+					H324MSessionSendFrame(id,frame);
+				/* Delete frame */
+				FrameDestroy(frame);
+			}
 			/* write data */
 			H324MSessionWrite(id, (unsigned char *)f->data, f->datalen);
 			/* deliver now */
