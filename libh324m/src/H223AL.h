@@ -19,5 +19,11 @@ public:
 	virtual void OnPDUCompleted()=0;
 };
 
+class H223SDUListener
+{
+public:
+	//H223SDUListener
+	virtual void OnSDU(BYTE* data,DWORD length) = 0;
+};
 #endif
 

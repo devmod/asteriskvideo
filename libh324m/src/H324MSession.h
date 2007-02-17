@@ -22,6 +22,8 @@ public:
 
 	//Init functions
 	int Init();
+	Frame* GetFrame();
+	int SendFrame(Frame *frame);
 	int End();
 	
 	//Mux & demux

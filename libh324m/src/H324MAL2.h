@@ -10,21 +10,17 @@ class H223AL2Receiver :
 {
 public:
 	//Constructor
-	H223AL2Receiver(int useSequenceNumbers);
+	H223AL2Receiver(int useSequenceNumbers,H223SDUListener* listener);
 	virtual ~H223AL2Receiver();
 
 	//H223ALReceiver interface
 	virtual void Send(BYTE b);
 	virtual void SendClosingFlag();
 
-	//Methods
-	H223MuxSDU* GetFrame();
-	int NextFrame();
-
 private:
 	int	 useSN;
+	H223SDUListener* sduListener;
 	H223MuxSDU sdu;
-	H223MuxSDUList frameList;
 };
 
 

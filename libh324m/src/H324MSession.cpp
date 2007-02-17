@@ -29,9 +29,9 @@ H324MSession::H324MSession()
 	//Create the control channel
 	controlChannel = new H324MControlChannel(&channels);
 	//Create audio channel
-	audio = channels.CreateChannel(H324MMediaChannel::e_Audio);
+	audio = channels.CreateChannel(e_Audio);
 	//Create video channel
-	video = channels.CreateChannel(H324MMediaChannel::e_Video);
+	video = channels.CreateChannel(e_Video);
 	//Init channels
 	channels.Init(controlChannel,controlChannel);
 }
@@ -87,4 +87,15 @@ int H324MSession::Write(BYTE *buffer,int length)
 #endif
 
 	return ret;
+}
+Frame* H324MSession::GetFrame()
+{
+	//Send Frame
+	return channels.GetFrame();
+}
+
+int H324MSession::SendFrame(Frame *frame)
+{
+	//Return Frame
+	return channels.SendFrame(frame);
 }

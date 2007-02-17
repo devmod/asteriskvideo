@@ -73,8 +73,8 @@ int H324MControlChannel::MediaSetup()
 	H245Capabilities* cap = cf->GetLocalCapabilities();
 
 	//Create H245 channels
-	H245Channel audio(H245Channel::e_Audio,cap->amrCap.m_capability);
-	H245Channel video(H245Channel::e_Video,cap->h263Cap.m_capability);
+	H245Channel audio(e_Audio,cap->amrCap.m_capability);
+	H245Channel video(e_Video,cap->h263Cap.m_capability);
 
 	//Start opening channels
 	lc->EstablishRequest(1,audio);

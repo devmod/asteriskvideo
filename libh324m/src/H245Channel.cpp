@@ -21,7 +21,7 @@
  */
 #include "H245Channel.h"
 
-H245Channel::H245Channel(Type t,H245_Capability &c) 
+H245Channel::H245Channel(MediaType t,H245_Capability &c) 
 {
 	//Set type
 	type = t;

@@ -21,7 +21,6 @@
  */
 #include "H245ChannelsFactory.h"
 
-
 H245ChannelsFactory::H245ChannelsFactory()
 {
 	//Set local capabilities only with layer 2
@@ -69,36 +68,6 @@ int H245ChannelsFactory::Demultiplex(BYTE *buffer,int length)
 	for (int i=0;i<length;i++)
 		demuxer.Demultiplex(buffer[i]);
 
-	//Loopback ugly hack
-	for (ChannelMap::iterator it = channels.begin(); it != channels.end(); it++)
-	{
-		//Get channel
-		H324MMediaChannel *channel = it->second;
-		
-		//If have both channehs
-		if (channel->localChannel>0 && channel->remoteChannel>0)
-		{
-			//Get sender
-			H223AL2Sender *sender = (H223AL2Sender *)channel->GetSender();
-			//Get receiver
-			H223AL2Receiver *receiver = (H223AL2Receiver *)channel->GetReceiver();
-			//If both are not null
-			if (sender && receiver)
-			{
-				//Frame
-				H223MuxSDU * frame;
-				//While it has frames
-				while( (frame=receiver->GetFrame())!=NULL)
-				{
-					//send frame
-					sender->SendPDU(frame->GetPointer(),frame->Length());
-					//Next frame
-					receiver->NextFrame();
-				}
-			}
-		}
-	}
-
 	//Ok
 	return 1;
 }
@@ -113,18 +82,18 @@ int H245ChannelsFactory::Multiplex(BYTE *buffer,int length)
 	return 1;
 }
 
-int H245ChannelsFactory::CreateChannel(H324MMediaChannel::Type type)
+int H245ChannelsFactory::CreateChannel(MediaType type)
 {
 	H324MMediaChannel* chan;
 
 	//Dependin on channel type
 	switch(type)
 	{
-		case H324MMediaChannel::e_Audio:
+		case e_Audio:
 			//New audio channel
 			chan = new H324MAudioChannel();
 			break;
-		case H324MMediaChannel::e_Video:
+		case e_Video:
 			//New audio channel
 			chan = new H324MVideoChannel();
 			break;
@@ -230,13 +199,8 @@ int H245ChannelsFactory::OnEstablishIndication(int number, H245Channel *channel)
 	//While not found
 	while (it!=channels.end())
 	{
-		if (it->second->type == H324MMediaChannel::e_Audio && channel->GetType() == H245Channel::e_Audio)
+		if (it->second->type == channel->GetType() )
 		{
-			//We found it 
-			local = it->first;
-			//Exit
-			break;
-		} else if (it->second->type == H324MMediaChannel::e_Video && channel->GetType() == H245Channel::e_Video) {
 			//We found it 
 			local = it->first;
 			//Exit
@@ -299,4 +263,45 @@ int H245ChannelsFactory::OnMuxTableIndication(H223MuxTable &table, H223MuxTableE
 int H245ChannelsFactory::OnMuxTableConfirm(H223MuxTableEntryList &list)
 {
 	return 1;
+}
+
+Frame* H245ChannelsFactory::GetFrame()
+{
+	//Loop throught channels
+	for (ChannelMap::iterator it = channels.begin(); it != channels.end(); it++)
+	{
+		//Get channel
+		H324MMediaChannel *channel = it->second;
+		
+		//If have remote channel
+		if (channel->remoteChannel>0)
+		{
+			//Frame
+			Frame* frame = channel->GetFrame();
+			
+			//If not null
+			if (frame)
+				//Return frame
+				return frame;
+		}
+	}
+	//exit
+	return NULL;
+}
+
+int H245ChannelsFactory::SendFrame(Frame* frame)
+{
+	//Loop throught channels
+	for (ChannelMap::iterator it = channels.begin(); it != channels.end(); it++)
+	{
+		//Get channel
+		H324MMediaChannel *channel = it->second;
+		
+		//If have remote channel && same type
+		if ((channel->type== frame->type) && (channel->localChannel>0))
+			//Send frame
+			channel->SendFrame(frame);
+	}
+	//Not send
+	return 0;
 }

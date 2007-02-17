@@ -8,6 +8,7 @@
 #include "H223Demuxer.h"
 #include "H223Muxer.h"
 #include "H245Channel.h"
+#include "Media.h"
 #include <map>
 
 class H245ChannelsFactory
@@ -16,7 +17,7 @@ public:
 	H245ChannelsFactory();
 	~H245ChannelsFactory();
 
-	int CreateChannel(H324MMediaChannel::Type type);
+	int CreateChannel(MediaType type);
 
 	H223ALSender*	GetSender(int channel);
 	H223ALReceiver* GetReceiver(int channel);
@@ -40,6 +41,9 @@ public:
 
 	int OnMuxTableIndication(H223MuxTable &table, H223MuxTableEntryList &list);
 	int OnMuxTableConfirm(H223MuxTableEntryList &list);
+
+	Frame* GetFrame();
+	int SendFrame(Frame *frame);
 
 private:
 	typedef std::map<int,H324MMediaChannel*> ChannelMap;

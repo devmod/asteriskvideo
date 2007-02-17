@@ -28,14 +28,25 @@ int main(int argc,char **argv)
 	//Read
 	unsigned char buffer[160];
 	int len;
+	Frame *frame;
 
 	//Until end of file
-	while ((len=read(f,buffer,160))>0)
+	while ((len=read(f,buffer,10))>0)
 	{
 		//Read
-		session.Read(buffer,160);
+		session.Read(buffer,10);
+		//Loopback
+		while((frame=session.GetFrame())!=NULL)
+		{
+			//If it's video
+			if (frame->type==e_Video)
+				//Loop
+				session.SendFrame(frame);
+			//Delete frame
+			delete frame;
+		}
 		//Write
-		session.Write(buffer,160);
+		session.Write(buffer,10);
 	}
 
 	//End session

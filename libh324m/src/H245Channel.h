@@ -2,23 +2,19 @@
 #define _H245CHANNEL_H_
 
 #include "H245.h"
+#include "Media.h"
 
 class H245Channel
 {
 public:
-	enum Type {
-		e_Audio,
-		e_Video
-	};
-
-	H245Channel(Type type,H245_Capability &cap);
+	H245Channel(MediaType type,H245_Capability &cap);
 	H245Channel(H245_OpenLogicalChannel & open);
 
 	int BuildChannelPDU(H245_OpenLogicalChannel & open);
-	Type GetType() {return type;}
+	MediaType GetType() {return type;}
 
 private:
-	Type type;
+	MediaType type;
 	H245_Capability *capability;
 };
 

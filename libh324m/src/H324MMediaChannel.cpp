@@ -22,6 +22,20 @@
 #include "H324MMediaChannel.h"
 
 
+H324MMediaChannel::H324MMediaChannel()
+{
+		state = e_AwaitingEstablishment;
+		localChannel = 0;
+		remoteChannel = 0;
+		isBidirectional = 0;
+		sender = NULL;
+		receiver = NULL;
+}
+
+H324MMediaChannel::~H324MMediaChannel()
+{
+}
+
 int H324MMediaChannel::Init()
 {
 	return 1;
@@ -77,7 +91,7 @@ int H324MMediaChannel::SetReceiverLayer(int layer)
 			receiver = new H223AL1Receiver();
 			break;
 		case 2:
-			receiver = new H223AL2Receiver(0);
+			receiver = new H223AL2Receiver(0,this);
 			break;
 		case 3:
 			receiver = new H223AL3Receiver();
@@ -89,3 +103,45 @@ int H324MMediaChannel::SetReceiverLayer(int layer)
 	return 1;
 }
 
+void H324MMediaChannel::OnSDU(BYTE* data,DWORD length)
+{
+	MediaCodec codec;
+	//Depending on the type
+	if (type == e_Audio)
+		codec = e_H263;
+	else
+		codec = e_AMR;
+	//Enque new frame
+	frameList.push_back(new Frame(type,codec,data,length));
+}
+
+Frame* H324MMediaChannel::GetFrame()
+{
+	//Check size
+	if (frameList.size()==0)
+		return NULL;
+	//Get frame
+	Frame *frame = frameList.front();
+	//Remove
+	frameList.pop_front();
+	//Return frame
+	return frame;
+}
+
+int H324MMediaChannel::SendFrame(Frame *frame)
+{
+	//Return size
+	return ((H223AL2Sender*)sender)->SendPDU(frame->data,frame->dataLength);
+}
+
+H324MAudioChannel::H324MAudioChannel()
+{
+	//Set audio type
+	type = e_Audio;
+}
+
+H324MVideoChannel::H324MVideoChannel()
+{
+	//Set video type
+	type = e_Video;
+}

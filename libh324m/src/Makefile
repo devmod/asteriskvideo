@@ -35,7 +35,9 @@ SRC = bits.c \
 	H245_2.cpp \
 	H245_3.cpp \
 	H324pdu.cpp \
-	FileLogger.cpp
+	FileLogger.cpp \
+	Media.cpp
+
 	
 
 OBJS1 = $(SRC:.cpp=.o)
