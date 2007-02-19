@@ -121,6 +121,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	struct ast_frame *send;
 	struct ast_module_user *u;
 	void*  frame;
+	char*  input;
 	int    reason = 0;
 	int    ms;
 	int    res;
@@ -238,6 +239,30 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 					/* Delete frame */
 					FrameDestroy(frame);
 				}
+				/* Get user input */
+				while((input=H324SessionGetUserInput(id))!=NULL)
+				{
+					/* Create frame */
+					send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET);
+					/* No data*/
+					f->data = f + AST_FRIENDLY_OFFSET;
+					f->datalen = 0;
+					/* Set DTMF type */
+					send->frametype = AST_FRAME_DTMF;
+					/* Set DTMF value */
+					send->subclass = input[0];
+					/* Rest of values*/
+					send->src = 0;
+					send->samples = 0;
+					send->delivery.tv_usec = 0;
+					send->delivery.tv_sec = 0;
+					send->mallocd = 0;
+					/* Write DTMF */
+					ast_write(pseudo,send);
+					/* free data */
+					free(input);
+				}
+
 				/* write data */
 				H324MSessionWrite(id, (unsigned char *)f->data, f->datalen);
 				/* deliver now */
