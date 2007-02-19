@@ -240,7 +240,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 					FrameDestroy(frame);
 				}
 				/* Get user input */
-				while((input=H324SessionGetUserInput(id))!=NULL)
+				while((input=H324MSessionGetUserInput(id))!=NULL)
 				{
 					/* Create frame */
 					send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET);
@@ -303,7 +303,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 						unsigned char pebit = framedata[0] & 0x7;
 						/* skip header*/
 						framedata += 2;
-						framelength += 2;
+						framelength -= 2;
 						/* Check */
 						if (v)
 						{
@@ -317,7 +317,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 						{
 							/* Decrease ini */
 							framedata -= 2;
-							framelength -= 2;
+							framelength += 2;
 							/* Append 0s */	
 							framedata[0] = 0;
 							framedata[1] = 0;
