@@ -22,9 +22,15 @@ public:
 
 	//Init functions
 	int Init();
-	Frame* GetFrame();
-	int SendFrame(Frame *frame);
 	int End();
+
+	//Media frame functions
+	Frame*	GetFrame();
+	int		SendFrame(Frame *frame);
+
+	//User input functions
+	char*	GetUserInput();
+	int		SendUserInput(const char *input);
 	
 	//Mux & demux
 	int Read(BYTE *input,int length);

@@ -25,6 +25,9 @@ int	H324MSessionWrite(void * id,unsigned char *buffer,int len);
 void*	H324MSessionGetFrame(void * id);
 int	H324MSessionSendFrame(void * id,void *frame);
 
+char* 	H324MSessionGetUserInput(void * id);
+int  	H324MSessionSendUserInput(void * id,char *input);
+
 void* 	FrameCreate(int type,int codec, unsigned char * buffer, int len);
 int 	FrameGetType(void* frame);
 int 	FrameGetCodec(void* frame);

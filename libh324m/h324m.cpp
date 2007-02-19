@@ -51,6 +51,16 @@ int  H324MSessionSendFrame(void * id,void *frame)
 	return ((H324MSession*)id)->SendFrame((Frame*)frame);
 }
 
+char * H324MSessionGetUserInput(void * id)
+{ 	
+	return ((H324MSession*)id)->GetUserInput();
+}
+
+int  H324MSessionSendUserInput(void * id,char *input)
+{ 	
+	return ((H324MSession*)id)->SendUserInput((char*)input);
+}
+
 void * FrameCreate(int type, int codec, unsigned char * data, int len)
 {
 	return (void*)new Frame((MediaType)type,(MediaCodec)codec,data,len);

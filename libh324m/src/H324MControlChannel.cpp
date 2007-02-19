@@ -67,6 +67,36 @@ int H324MControlChannel::CallSetup()
 	return true;
 }
 
+int H324MControlChannel::OnUserInput(const char*input)
+{
+	//Enque
+	inputList.push_back(strdup(input));
+	//Exit
+	return true;
+}
+
+char* H324MControlChannel::GetUserInput()
+{
+	//Check size
+	if (inputList.size()==0)
+		return NULL;
+	//Get input
+	char *input = inputList.front();
+	//Remove
+	inputList.pop_front();
+	//Return input
+	return input;
+}
+
+int H324MControlChannel::SendUserInput(const char* input)
+{
+	H324ControlPDU pdu;
+	//Create user input
+	pdu.BuildUserInputIndication(PString(input));
+	//Send
+	return WriteControlPDU(pdu);
+}
+
 int H324MControlChannel::MediaSetup()
 {
 	//Get local capabilities
@@ -374,13 +404,41 @@ int H324MControlChannel::OnH245Response(H245_ResponseMessage& rep)
 
 int H324MControlChannel::OnH245Command(H245_CommandMessage& cmd)
 {
+
 	Debug("Unknown Command\n");
 	return 1;
 }
 
 int H324MControlChannel::OnH245Indication(H245_IndicationMessage& ind)
 {
-	Debug("Unknown Indication\n");
+	Debug("-OnH245Indication\n");
+
+	//Depending on the tag
+	switch(ind.GetTag())
+	{
+		//MasterSlaveDetermination
+		case H245_IndicationMessage::e_userInput:
+		{
+			// Get user indication
+			H245_UserInputIndication &uind = (H245_UserInputIndication &)ind;
+			// If it's not alphanumeric
+			if (uind.GetTag()==H245_UserInputIndication::e_alphanumeric)
+			{
+				//Debug
+				Debug("Unknown user Indication\n");
+				//Exit
+				return 0;
+			}
+			//Get input
+			PString input = (PString &)(PASN_GeneralString&)uind;
+			//Handle user input
+			return OnUserInput((const char *)input);
+		}
+		default:
+			Debug("Unknown Indication\n");
+	}
+
+	//Exit
 	return 1;
 }
 

@@ -99,3 +99,14 @@ int H324MSession::SendFrame(Frame *frame)
 	//Return Frame
 	return channels.SendFrame(frame);
 }
+
+char* H324MSession::GetUserInput()
+{
+	//Get input
+	return controlChannel->GetUserInput();
+}
+int	H324MSession::SendUserInput(const char *input)
+{
+	//Send input
+	return controlChannel->SendUserInput(input);
+}
