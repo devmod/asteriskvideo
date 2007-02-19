@@ -302,18 +302,17 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 						unsigned char plen = ((framedata[0] & 0x1 ) << 5 ) || (framedata[1] >> 3);
 						unsigned char pebit = framedata[0] & 0x7;
 						/* skip header*/
-						framedata += 2;
-						framelength -= 2;
+						framedata += 2+plen;
+						framelength -= 2+plen;
 						/* Check */
 						if (v)
 						{
 							/* Increase ini */
 							framedata++;
 							framelength--;
-						} else {
 						}
 						/* Check p bit */
-						if (p || plen)
+						if (p)
 						{
 							/* Decrease ini */
 							framedata -= 2;
