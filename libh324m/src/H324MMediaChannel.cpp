@@ -130,6 +130,10 @@ Frame* H324MMediaChannel::GetFrame()
 
 int H324MMediaChannel::SendFrame(Frame *frame)
 {
+	//Check sender
+	if (!sender)
+		//Exit
+		return 0;
 	//Return size
 	return ((H223AL2Sender*)sender)->SendPDU(frame->data,frame->dataLength);
 }
