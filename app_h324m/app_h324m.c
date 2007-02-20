@@ -44,10 +44,160 @@ static char *name_h324m_gw = "h324m_gw";
 static char *syn_h324m_gw = "H324m gateway";
 static char *des_h324m_gw = "  h324m_gw():  Creates a pseudo channel for an incoming h324m call.\n";
 
+static char *name_h324m_call = "h324m_call";
+static char *syn_h324m_call = "H324m call";
+static char *des_h324m_call = "  h324m_call():  Creates a pseudo channel for an outgoing h324m call.\n";
+
 static char *name_video_loopback = "video_loopback";
 static char *syn_video_loopback = "video_loopback";
 static char *des_video_loopback = "  video_loopback():  Video loopback.\n";
 
+static struct ast_frame* create_ast_input_frame(const char *input)
+{
+	/* Create frame */
+	struct ast_frame* send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET);
+	/* No data*/
+	send->data = send + AST_FRIENDLY_OFFSET;
+	send->datalen = 0;
+	/* Set DTMF type */
+	send->frametype = AST_FRAME_DTMF;
+	/* Set DTMF value */
+	send->subclass = input[0];
+	/* Rest of values*/
+	send->src = 0;
+	send->samples = 0;
+	send->delivery.tv_usec = 0;
+	send->delivery.tv_sec = 0;
+	send->mallocd = 0;
+	/* Return */
+	return send;
+}
+
+static struct ast_frame* create_ast_frame(void *frame)
+{
+	int mark = 0;
+	struct ast_frame* send;
+
+	/* Get data & size */
+	unsigned char * framedata = FrameGetData(frame);
+	int framelength = FrameGetLength(frame);
+
+	/* Depending on the type */
+	switch(FrameGetType(frame))
+	{
+		case MEDIA_AUDIO:
+			/*Check it's AMR */
+			if (FrameGetCodec(frame)!=CODEC_AMR)
+				/* exit */
+				return NULL;
+			/* TODO */
+			return NULL;
+		case MEDIA_VIDEO:
+			/*Check it's H263 */
+			if (FrameGetCodec(frame)!=CODEC_H263)
+				/* exit */
+				return NULL;
+			/* Create frame */
+			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 2 + framelength);
+			/* if it¡s first */
+			if (framedata[0]==0 && framedata[1]==0)
+			{
+				/* No data*/
+				send->data = send + AST_FRIENDLY_OFFSET;
+				send->datalen = framelength;
+				/* Copy */
+				memcpy(send->data+2, framedata+2, framelength-2);
+				/* Set header */
+				((unsigned char*)(send->data))[0] = 0x04;
+				((unsigned char*)(send->data))[1] = 0x00; 
+				/* Set mark */
+				mark = 1;
+			} else {
+				/* No data*/
+				send->data = send + AST_FRIENDLY_OFFSET;
+				send->datalen =  framedata + 2  ;
+				/* Copy */
+				memcpy(send->data+2, framedata, framelength);
+				/* Set header */
+				((unsigned char*)(send->data))[0] = 0x00;
+				((unsigned char*)(send->data))[1] = 0x00;
+				/* Unset mark */
+				mark = 1;
+			}
+			/* Set video type */
+			send->frametype = AST_FRAME_VIDEO;
+			/* Set codec value */
+			send->subclass = AST_FORMAT_H263_PLUS | mark;
+			/* Rest of values*/
+			send->src = 0;
+			send->samples = 0;
+			send->delivery.tv_usec = 0;
+			send->delivery.tv_sec = 0;
+			send->mallocd = 0;
+			/* Send */
+			return send;
+	}
+
+	/* NOthing */
+	return NULL;
+}
+
+static void* create_h324m_frame(struct ast_frame* f)
+{
+	/* Data & length */
+	unsigned char *framedata = NULL;
+	int framelength = 0;
+	
+	/* Depending on the type */
+	switch (f->frametype)
+	{
+		case AST_FRAME_VOICE:
+			/* Create frame */
+			return FrameCreate(MEDIA_AUDIO, CODEC_AMR, (unsigned char *)f->data, f->datalen);
+		case AST_FRAME_VIDEO:
+			/* Depending on the codec */
+			if (f->subclass & AST_FORMAT_H263) 
+			{
+				/* Get data & length without rfc 2190 (only A packets ) */
+				framedata = (unsigned char *)f->data+4;
+				framelength = f->datalen-4;
+			} else if (f->subclass & AST_FORMAT_H263_PLUS) {
+				/* Get initial data */
+				framedata = (unsigned char *)f->data;
+				framelength = f->datalen;
+				/* Get header */
+				unsigned char p = framedata[0] & 0x04;
+				unsigned char v = framedata[0] & 0x02;
+				unsigned char plen = ((framedata[0] & 0x1 ) << 5 ) || (framedata[1] >> 3);
+				unsigned char pebit = framedata[0] & 0x7;
+				/* skip header*/
+				framedata += 2+plen;
+				framelength -= 2+plen;
+				/* Check */
+				if (v)
+				{
+					/* Increase ini */
+					framedata++;
+					framelength--;
+				}
+				/* Check p bit */
+				if (p)
+				{
+					/* Decrease ini */
+					framedata -= 2;
+					framelength += 2;
+					/* Append 0s */	
+					framedata[0] = 0;
+					framedata[1] = 0;
+				}
+			} else
+				break;
+			/* Create frame */
+			return FrameCreate(MEDIA_VIDEO, CODEC_H263, framedata, framelength);
+	}
+	/* NOthing */
+	return NULL;
+}
 
 static int app_h324m_loopback(struct ast_channel *chan, void *data)
 {
@@ -124,12 +274,9 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	char*  input;
 	int    reason = 0;
 	int    ms;
-	int    res;
 	struct ast_channel *channels[2];
 	struct ast_channel *pseudo;
 	struct ast_channel *where;
-	unsigned char* framedata;
-	unsigned int framelength;
 
 	ast_log(LOG_DEBUG, "h324m_loopback\n");
 
@@ -234,31 +381,20 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 				/* Get frames */
 				while ((frame=H324MSessionGetFrame(id))!=NULL)
 				{
-					/* TODO!!! */
 					/* Packetize outgoing frame */
+					if ((send=create_ast_frame(frame))!=NULL)
+						/* Send frame */
+						ast_write(pseudo,send);
 					/* Delete frame */
 					FrameDestroy(frame);
 				}
 				/* Get user input */
 				while((input=H324MSessionGetUserInput(id))!=NULL)
 				{
-					/* Create frame */
-					send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET);
-					/* No data*/
-					f->data = f + AST_FRIENDLY_OFFSET;
-					f->datalen = 0;
-					/* Set DTMF type */
-					send->frametype = AST_FRAME_DTMF;
-					/* Set DTMF value */
-					send->subclass = input[0];
-					/* Rest of values*/
-					send->src = 0;
-					send->samples = 0;
-					send->delivery.tv_usec = 0;
-					send->delivery.tv_sec = 0;
-					send->mallocd = 0;
-					/* Write DTMF */
-					ast_write(pseudo,send);
+					/* Create DTMF */
+					if ((send=create_ast_frame_input(input))!=NULL)
+						/* Write DTMF */
+						ast_write(pseudo,send);
 					/* free data */
 					free(input);
 				}
@@ -274,62 +410,196 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 				/* Delete frame */
 				ast_frfree(f);
 		} else {
-			/* Depending on the type */
-			switch (f->frametype)
-			{
-				case AST_FRAME_VOICE:
-					/* Create frame */
-					frame = FrameCreate(MEDIA_AUDIO, CODEC_AMR, (unsigned char *)f->data, f->datalen);
-					/* Send frame */
-					H324MSessionSendFrame(id,frame);
+			/* Create frame */
+			if ((frame=create_h324m_frame(f))!=NULL) {
+				/* Send frame */
+				H324MSessionSendFrame(id,frame);
+				/* Delete frame */
+				FrameDestroy(frame);
+			}
+			/* Delete frame */
+			ast_frfree(f);
+		}
+	}
+
+	/* End session */
+	H324MSessionEnd(id);
+
+	/* Destroy session */
+	H324MSessionDestroy(id);
+
+hangup_pseudo:
+	/* Hangup pseudo channel if needed */
+	ast_softhangup(pseudo, reason);
+
+clean_pseudo:
+	/* Destroy pseudo channel */
+	ast_channel_free(pseudo);
+
+end:
+	/* Hangup channel if needed */
+	ast_softhangup(chan, reason);
+
+	/* Unlock module*/
+	ast_module_user_remove(u);
+
+	//Exit
+	return 0;
+}
+
+static int app_h324m_call(struct ast_channel *chan, void *data)
+{
+	struct ast_frame *f;
+	struct ast_frame *send;
+	struct ast_module_user *u;
+	void*  frame;
+	char*  input;
+	int    reason = 0;
+	int    ms;
+	struct ast_channel *channels[2];
+	struct ast_channel *pseudo;
+	struct ast_channel *where;
+
+	ast_log(LOG_DEBUG, "h324m_loopback\n");
+
+	/* Lock module */
+	u = ast_module_user_add(chan);
+
+	/* Request new channel */
+	pseudo = ast_request("Local", 0xffffffff, data, &reason);
+ 
+	printf("[%x]\n",pseudo);fflush(stdout);
+
+	/* If somthing has gone wrong */
+	if (!pseudo)
+		/* goto end */
+		goto end; 
+
+	/* Set caller id */
+	ast_set_callerid(pseudo, chan->cid.cid_num, chan->cid.cid_name, chan->cid.cid_num);
+
+	/* Place call */
+	if (ast_call(pseudo,data,0))
+		/* if fail goto clean */
+		goto clean_pseudo;
+
+	/* while not setup */
+	while (pseudo->_state!=AST_STATE_UP) {
+		/* Wait for data */
+		if (ast_waitfor(pseudo, 0)<0)
+			/* error, timeout, or done */
+			break;
+		/* Read frame */
+		f = ast_read(pseudo);
+		/* If not frame */
+		if (!f)
+			/* done */ 
+			break;
+		/* If it's a control frame */
+		if (f->frametype == AST_FRAME_CONTROL) {
+			/* Dependinf on the event */
+			switch (f->subclass) {
+				case AST_CONTROL_RINGING:       
+					/* record but keep going */
+					reason = f->subclass;
+					break;
+				case AST_CONTROL_BUSY:
+				case AST_CONTROL_CONGESTION:
+					/* Save cause */
+					reason = f->subclass;
+					/* exit */
+					goto hangup_pseudo;
+					break;
+				case AST_CONTROL_ANSWER:
+					/* Save cause */
+					reason = f->subclass;	
+					break;
+			}
+		}
+		/* Delete frame */
+		ast_frfree(f);
+	}
+
+	printf("[%x,%x]\n",pseudo->_state,AST_STATE_UP);fflush(stdout);
+
+	/* If no answer */
+	if (pseudo->_state != AST_STATE_UP)
+		/* goto end */
+		goto clean_pseudo; 
+
+	/* Create session */
+	void* id = H324MSessionCreate();
+
+	/* Init session */
+	H324MSessionInit(id);
+
+	/* Answer call */
+	ast_answer(chan);
+
+	printf("Answering\n");
+
+	/* Set up array */
+	channels[0] = chan;
+	channels[1] = pseudo;
+
+	/* No timeout */
+	ms = -1;
+
+	/* Wait for data avaiable on any channel */
+	while ((where = ast_waitfor_n(channels, 2, &ms)) != NULL) {
+		/* Read frame from channel */
+		f = ast_read(where);
+
+		/* if it's null */
+		if (f == NULL)
+			break;
+
+		/* If it's on h324m channel */
+		if (where==pseudo) {
+			/* Check frame type */
+			if (f->frametype == AST_FRAME_VOICE) {
+				/* read data */
+				H324MSessionRead(id, (unsigned char *)f->data, f->datalen);
+				/* Get frames */
+				while ((frame=H324MSessionGetFrame(id))!=NULL)
+				{
+					/* Packetize outgoing frame */
+					if ((send=create_ast_frame(frame))!=NULL)
+						/* Send frame */
+						ast_write(chan,send);
 					/* Delete frame */
 					FrameDestroy(frame);
-					break;
-				case AST_FRAME_VIDEO:
-					/* Depending on the codec */
-					if (f->subclass & AST_FORMAT_H263) 
-					{
-						/* Get data & length without rfc 2190 (only A packets ) */
-						framedata = (unsigned char *)f->data+4;
-						framelength = f->datalen-4;
-					} else if (f->subclass & AST_FORMAT_H263_PLUS) {
-						/* Get initial data */
-						framedata = (unsigned char *)f->data;
-						framelength = f->datalen;
-						/* Get header */
-						unsigned char p = framedata[0] & 0x04;
-						unsigned char v = framedata[0] & 0x02;
-						unsigned char plen = ((framedata[0] & 0x1 ) << 5 ) || (framedata[1] >> 3);
-						unsigned char pebit = framedata[0] & 0x7;
-						/* skip header*/
-						framedata += 2+plen;
-						framelength -= 2+plen;
-						/* Check */
-						if (v)
-						{
-							/* Increase ini */
-							framedata++;
-							framelength--;
-						}
-						/* Check p bit */
-						if (p)
-						{
-							/* Decrease ini */
-							framedata -= 2;
-							framelength += 2;
-							/* Append 0s */	
-							framedata[0] = 0;
-							framedata[1] = 0;
-						}
-					} else
-						break;
-					/* Create frame */
-					frame = FrameCreate(MEDIA_VIDEO, CODEC_H263, framedata, framelength);
-					/* Send frame */
-					H324MSessionSendFrame(id,frame);
-					/* Delete frame */
-					FrameDestroy(frame);
-					break;
+				}
+				/* Get user input */
+				while((input=H324MSessionGetUserInput(id))!=NULL)
+				{
+					/* free data */
+					free(input);
+					/* Create DTMF */
+					if ((send=create_ast_frame_input(input))!=NULL)
+						/* Write DTMF */
+						ast_write(chan,send);
+					/* free data */
+					free(input);
+				}
+
+				/* write data */
+				H324MSessionWrite(id, (unsigned char *)f->data, f->datalen);
+				/* deliver now */
+				f->delivery.tv_usec = 0;
+				f->delivery.tv_sec = 0;
+				/* write frame */
+				ast_write(pseudo, f);
+			} else 
+				/* Delete frame */
+				ast_frfree(f);
+		} else {
+			/* Create frame */
+			if ((frame=create_h324m_frame(f))!=NULL) {
+				/* Send frame */
+				H324MSessionSendFrame(id,frame);
+				/* Delete frame */
+				FrameDestroy(frame);
 			}
 			/* Delete frame */
 			ast_frfree(f);
@@ -406,6 +676,7 @@ static int unload_module(void)
 
 	res = ast_unregister_application(name_h324m_loopback);
 	res &= ast_unregister_application(name_h324m_gw);
+	res &= ast_unregister_application(name_h324m_call);
 	res &= ast_unregister_application(name_video_loopback);
 
 	ast_module_user_hangup_all();
@@ -419,6 +690,7 @@ static int load_module(void)
 
 	res = ast_register_application(name_h324m_loopback, app_h324m_loopback, syn_h324m_loopback, des_h324m_loopback);
 	res &= ast_register_application(name_h324m_gw, app_h324m_gw, syn_h324m_gw, des_h324m_gw);
+	res &= ast_register_application(name_h324m_call, app_h324m_call, syn_h324m_call, des_h324m_call);
 	res &= ast_register_application(name_video_loopback, app_video_loopback, syn_video_loopback, des_video_loopback);
 	return 0;
 }
