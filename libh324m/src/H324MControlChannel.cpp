@@ -422,10 +422,10 @@ int H324MControlChannel::OnH245Indication(H245_IndicationMessage& ind)
 			// Get user indication
 			H245_UserInputIndication &uind = (H245_UserInputIndication &)ind;
 			// If it's not alphanumeric
-			if (uind.GetTag()==H245_UserInputIndication::e_alphanumeric)
+			if (uind.GetTag()!=H245_UserInputIndication::e_alphanumeric)
 			{
 				//Debug
-				Debug("Unknown user Indication\n");
+				Debug("Unknown user input Indication\n");
 				//Exit
 				return 0;
 			}
