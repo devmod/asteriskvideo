@@ -122,6 +122,15 @@ void H223AL2Sender::OnPDUCompleted()
 
 int H223AL2Sender::SendPDU(BYTE *buffer,int len)
 {
+	Debug("-AL2 SendPDU\n");
+	{
+		char name[256];
+		sprintf(name,"/tmp/media_out_%x.raw",(unsigned int)this);
+		int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
+		write(fd,buffer,len);
+		close(fd);
+	}
+
 	//Crc
 	CRC8 crc;
 

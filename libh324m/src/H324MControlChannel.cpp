@@ -430,7 +430,7 @@ int H324MControlChannel::OnH245Indication(H245_IndicationMessage& ind)
 				return 0;
 			}
 			//Get input
-			PString input = (PString &)(PASN_GeneralString&)uind;
+			PString input = (PASN_GeneralString&)uind;
 			//Handle user input
 			return OnUserInput((const char *)input);
 		}
