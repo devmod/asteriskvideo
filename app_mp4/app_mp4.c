@@ -172,16 +172,12 @@ static int mp4_rtp_read(struct mp4rtp *p)
 	int next = 0;
 	int last = 0;
 
-	ast_log(LOG_DEBUG, "mp4_rtp_read\n");
-
 	/* If it's first packet of a frame */
 	if (!p->numHintSamples) {
-
-		ast_log(LOG_DEBUG, "New sample for %s\n", p->name);
-
 		/* Get number of rtp packets for this sample */
 		if (!MP4ReadRtpHint(p->mp4, p->hint, p->sampleId, &p->numHintSamples)) {
 			ast_log(LOG_DEBUG, "MP4ReadRtpHint failed\n");
+			printf( "MP4ReadRtpHint failed\n");
 			return -1;
 		}
 
@@ -193,9 +189,6 @@ static int mp4_rtp_read(struct mp4rtp *p)
 
 		/* Get sample timestamp */
 		p->frameTime = MP4GetSampleTime(p->mp4, p->hint, p->sampleId);
-
-		ast_log(LOG_DEBUG, "[%d,%d,%d]\n", p->frameSamples, p->frameSize, p->frameTime);
-
 	}
 
 	/* if it's the last */
@@ -236,6 +229,7 @@ static int mp4_rtp_read(struct mp4rtp *p)
 				1				/* bool includePayload DEFAULT(true) */
 			)) {
 		ast_log(LOG_DEBUG, "Error reading packet [%d,%d]\n", p->hint, p->track);
+		printf( "Error reading packet [%d,%d]\n", p->hint, p->track);
 		return -1;
 	}
 
@@ -284,6 +278,7 @@ static int mp4_play(struct ast_channel *chan, void *data)
 		return -1;
 
 	ast_log(LOG_DEBUG, "mp4play %s\n", (char *)data);
+	printf( "mp4play %s\n", (char *)data);
 
 	/* Lock module */
 	u = ast_module_user_add(chan);
@@ -307,6 +302,7 @@ static int mp4_play(struct ast_channel *chan, void *data)
 	while (hintId != MP4_INVALID_TRACK_ID) {
 
 		ast_log(LOG_DEBUG, "found hint track %d\n", hintId);
+		printf( "found hint track %d\n", hintId);
 
 		/* Get asociated track */
 		trackId = MP4GetHintTrackReferenceTrackId(mp4, hintId);
@@ -318,6 +314,7 @@ static int mp4_play(struct ast_channel *chan, void *data)
 			type = MP4GetTrackType(mp4, trackId);
 
 			ast_log(LOG_DEBUG, "track %d %s\n", trackId, type);
+			printf( "track %d %s\n", trackId, type);
 
 			/* Check track type */
 			if (strcmp(type, MP4_AUDIO_TRACK_TYPE) == 0) {
@@ -363,6 +360,8 @@ static int mp4_play(struct ast_channel *chan, void *data)
 					video.frameSubClass = AST_FORMAT_H263_PLUS;
 				else if (strcmp("H263-2000", video.name) == 0)
 					video.frameSubClass = AST_FORMAT_H263_PLUS;
+				else if (strcmp("H264", video.name) == 0)
+					video.frameSubClass = AST_FORMAT_H264;
 			}
 		}
 
@@ -431,6 +430,7 @@ static int mp4_play(struct ast_channel *chan, void *data)
 					dtmf[0] = res;
 					dtmf[1] = 0;
 
+
 					/* Check for dtmf extension in context */
 					if (ast_exists_extension(chan, chan->context, dtmf, 1, NULL)) {
 						/* Free frame */
@@ -438,7 +438,7 @@ static int mp4_play(struct ast_channel *chan, void *data)
 						/* exit */
 						return res;
 					}
-				}
+				} 
 
 				/* Free frame */
 				ast_frfree(f);
