@@ -52,27 +52,6 @@ static char *name_video_loopback = "video_loopback";
 static char *syn_video_loopback = "video_loopback";
 static char *des_video_loopback = "  video_loopback():  Video loopback.\n";
 
-static struct ast_frame* create_ast_input_frame(const char *input)
-{
-	/* Create frame */
-	struct ast_frame* send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET);
-	/* No data*/
-	send->data = send + AST_FRIENDLY_OFFSET;
-	send->datalen = 0;
-	/* Set DTMF type */
-	send->frametype = AST_FRAME_DTMF;
-	/* Set DTMF value */
-	send->subclass = input[0];
-	/* Rest of values*/
-	send->src = 0;
-	send->samples = 0;
-	send->delivery.tv_usec = 0;
-	send->delivery.tv_sec = 0;
-	send->mallocd = 0;
-	/* Return */
-	return send;
-}
-
 static struct ast_frame* create_ast_frame(void *frame)
 {
 	int mark = 0;
@@ -391,10 +370,10 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 				/* Get user input */
 				while((input=H324MSessionGetUserInput(id))!=NULL)
 				{
-					/* Create DTMF */
-					if ((send=create_ast_frame_input(input))!=NULL)
-						/* Write DTMF */
-						ast_write(pseudo,send);
+					/* Send digit begin */
+					ast_senddigit_begin(pseudo,input[0]);
+					/* Send digit end */
+					ast_senddigit_end(pseudo,input[0]);
 					/* free data */
 					free(input);
 				}
@@ -406,7 +385,8 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 				f->delivery.tv_sec = 0;
 				/* write frame */
 				ast_write(chan, f);
-			} else 
+			} else if (f->frametype == AST_FRAME_DTMF) {
+			}
 				/* Delete frame */
 				ast_frfree(f);
 		} else {
@@ -434,7 +414,7 @@ hangup_pseudo:
 
 clean_pseudo:
 	/* Destroy pseudo channel */
-	ast_channel_free(pseudo);
+	//ast_channel_free(pseudo);
 
 end:
 	/* Hangup channel if needed */
@@ -545,6 +525,24 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	/* No timeout */
 	ms = -1;
 
+	/* Create enpty packet */
+	send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 160 );
+	/* No data*/
+	send->data = send + AST_FRIENDLY_OFFSET + 160;
+	send->datalen = 160;
+	/* Set DTMF type */
+	send->frametype = AST_FRAME_VOICE;
+	/* Set DTMF value */
+	send->subclass = pseudo->rawwriteformat;
+	/* Rest of values*/
+	send->src = 0;
+	send->samples = 160;
+	send->delivery.tv_usec = 0;
+	send->delivery.tv_sec = 0;
+	send->mallocd = 0;
+	/* Send */
+	ast_write(pseudo,send);
+
 	/* Wait for data avaiable on any channel */
 	while ((where = ast_waitfor_n(channels, 2, &ms)) != NULL) {
 		/* Read frame from channel */
@@ -573,12 +571,10 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 				/* Get user input */
 				while((input=H324MSessionGetUserInput(id))!=NULL)
 				{
-					/* free data */
-					free(input);
-					/* Create DTMF */
-					if ((send=create_ast_frame_input(input))!=NULL)
-						/* Write DTMF */
-						ast_write(chan,send);
+					/* Send digit begin */
+					ast_senddigit_begin(pseudo,input[0]);
+					/* Send digit end */
+					ast_senddigit_end(pseudo,input[0]);
 					/* free data */
 					free(input);
 				}
@@ -594,8 +590,16 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 				/* Delete frame */
 				ast_frfree(f);
 		} else {
-			/* Create frame */
-			if ((frame=create_h324m_frame(f))!=NULL) {
+			/* Check frame type DTMF*/
+			if (f->frametype == AST_FRAME_DTMF) {
+				char dtmf[2];
+				/* Get DTMF */
+				dtmf[0] = f->subclass;
+				dtmf[1] = 0;
+				/* Send DTMF */
+				H324MSessionSendUserInput(id,dtmf);	
+ 			/* Create frame */
+			} else if ((frame=create_h324m_frame(f))!=NULL) {
 				/* Send frame */
 				H324MSessionSendFrame(id,frame);
 				/* Delete frame */
@@ -618,7 +622,7 @@ hangup_pseudo:
 
 clean_pseudo:
 	/* Destroy pseudo channel */
-	ast_channel_free(pseudo);
+//	ast_channel_free(pseudo);
 
 end:
 	/* Hangup channel if needed */
