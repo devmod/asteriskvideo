@@ -544,7 +544,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					type = 98;
 					MP4SetHintTrackRtpPayload(mp4, hintAudio, "AMR", &type, 0, NULL, 1, 0);
 					/* Unknown things */
-					MP4SetAudioProfileLevel(mp4File, 0xFE);
+					MP4SetAudioProfileLevel(mp4, 0xFE);
 				}
 				/* Set struct info */
 				audioTrack.mp4 = mp4;
