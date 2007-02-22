@@ -44,6 +44,10 @@
 #include <asterisk/pbx.h>
 #include <asterisk/module.h>
 
+#ifndef AST_FORMAT_AMR
+#define AST_FORMAT_AMR (1 << 13)
+#endif 
+
 static char *app_play = "mp4play";
 static char *syn_play = "MP4 file playblack";
 static char *des_play = "  mp4play():  Play mp4 file to user. \n";
@@ -337,6 +341,8 @@ static int mp4_play(struct ast_channel *chan, void *data)
 					audio.frameSubClass = AST_FORMAT_ULAW;
 				else if (strcmp("PCMA", audio.name) == 0)
 					audio.frameSubClass = AST_FORMAT_ALAW;
+				else if (strcmp("AMR", audio.name) == 0)
+					audio.frameSubClass = AST_FORMAT_AMR;
 
 			} else if (strcmp(type, MP4_VIDEO_TRACK_TYPE) == 0) {
 				/* it's video */
@@ -512,13 +518,34 @@ static int mp4_save(struct ast_channel *chan, void *data)
 		if (f->frametype == AST_FRAME_VOICE) {
 			/* Check if we have the audio track */
 			if (audio == -1) {
-				/* Create audio track */
-				audio = MP4AddAudioTrack(mp4, 8000, 0, MP4_ULAW_AUDIO_TYPE);
-				/* Create audio hint track */
-				hintAudio = MP4AddHintTrack(mp4, audio);
-				/* Set payload type for hint track */
-				type = 0;
-				MP4SetHintTrackRtpPayload(mp4, hintAudio, "PCMU", &type, 0, NULL, 1, 0);
+				/* Check codec */
+				if (f->subclass & AST_FORMAT_ULAW) {
+					/* Create audio track */
+					audio = MP4AddAudioTrack(mp4, 8000, 0, MP4_ULAW_AUDIO_TYPE);
+					/* Create audio hint track */
+					hintAudio = MP4AddHintTrack(mp4, audio);
+					/* Set payload type for hint track */
+					type = 0;
+					MP4SetHintTrackRtpPayload(mp4, hintAudio, "PCMU", &type, 0, NULL, 1, 0);
+				} else if (f->subclass & AST_FORMAT_ALAW) {
+					/* Create audio track */
+					audio = MP4AddAudioTrack(mp4, 8000, 0, MP4_ALAW_AUDIO_TYPE);
+					/* Create audio hint track */
+					hintAudio = MP4AddHintTrack(mp4, audio);
+					/* Set payload type for hint track */
+					type = 8;
+					MP4SetHintTrackRtpPayload(mp4, hintAudio, "PCMA", &type, 0, NULL, 1, 0);
+				} else if (f->subclass & AST_FORMAT_AMR) {
+					/* Create audio track */
+					audio = MP4AddAmrAudioTrack(mp4, 8000, 0, 0, 1, 0); /* Should check framesPerSample*/
+					/* Create audio hint track */
+					hintAudio = MP4AddHintTrack(mp4, audio);
+					/* Set payload type for hint track */
+					type = 98;
+					MP4SetHintTrackRtpPayload(mp4, hintAudio, "AMR", &type, 0, NULL, 1, 0);
+					/* Unknown things */
+					MP4SetAudioProfileLevel(mp4File, 0xFE);
+				}
 				/* Set struct info */
 				audioTrack.mp4 = mp4;
 				audioTrack.track = audio;
