@@ -37,6 +37,10 @@
 #include <asterisk/module.h>
 #include <asterisk/causes.h>
 
+#ifndef AST_FORMAT_AMR
+#define AST_FORMAT_AMR (1 << 13)
+#endif
+
 static char *name_h324m_loopback = "h324m_loopback";
 static char *syn_h324m_loopback = "H324m loopback mode";
 static char *des_h324m_loopback = "  h324m_loopback():  Estabish connection and loopback media.\n";
@@ -70,8 +74,25 @@ static struct ast_frame* create_ast_frame(void *frame)
 			if (FrameGetCodec(frame)!=CODEC_AMR)
 				/* exit */
 				return NULL;
-			/* TODO */
-			return NULL;
+			/* Create frame */
+			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + framelength);
+			/* Set data*/
+			send->data = (void*)send + AST_FRIENDLY_OFFSET;
+			send->datalen = framelength;
+			/* Copy */
+			memcpy(send->data, framedata, framelength);
+			/* Set video type */
+			send->frametype = AST_FRAME_VOICE;
+			/* Set codec value */
+			send->subclass = AST_FORMAT_AMR;
+			/* Rest of values*/
+			send->src = "h324m";
+			send->samples = framelength;
+			send->delivery.tv_usec = 0;
+			send->delivery.tv_sec = 0;
+			send->mallocd = 0;
+			/* Send */
+			return send;
 		case MEDIA_VIDEO:
 			/*Check it's H263 */
 			if (FrameGetCodec(frame)!=CODEC_H263)
@@ -133,7 +154,7 @@ static void* create_h324m_frame(struct ast_frame* f)
 	{
 		case AST_FRAME_VOICE:
 			/* Check audio type */
-			/* if (f->subclass & AST_FORMAT_AMR) */
+			if (f->subclass & AST_FORMAT_AMR)
 				/* exit */
 				break;
 			/* Create frame */
