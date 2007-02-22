@@ -196,11 +196,11 @@ static int mp4_rtp_read(struct mp4rtp *p)
 		last = 1;
 
 	/* malloc frame & data */
-	f = (struct ast_frame *) malloc(sizeof(struct ast_frame) + 65000);
+	f = (struct ast_frame *) malloc(sizeof(struct ast_frame) + 1500);
 
 	/* Let mp4 lib allocate memory */
-	f->data = f + AST_FRIENDLY_OFFSET;
-	f->datalen = 65000;
+	f->data = (void*)f + AST_FRIENDLY_OFFSET;
+	f->datalen = 1500;
 	f->src = 0;
 
 	/* Set type */
