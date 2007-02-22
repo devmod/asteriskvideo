@@ -35,6 +35,7 @@
 #include <asterisk/channel.h>
 #include <asterisk/pbx.h>
 #include <asterisk/module.h>
+#include <asterisk/causes.h>
 
 static char *name_h324m_loopback = "h324m_loopback";
 static char *syn_h324m_loopback = "H324m loopback mode";
@@ -59,7 +60,7 @@ static struct ast_frame* create_ast_frame(void *frame)
 
 	/* Get data & size */
 	unsigned char * framedata = FrameGetData(frame);
-	int framelength = FrameGetLength(frame);
+	unsigned int framelength = FrameGetLength(frame);
 
 	/* Depending on the type */
 	switch(FrameGetType(frame))
@@ -82,7 +83,7 @@ static struct ast_frame* create_ast_frame(void *frame)
 			if (framedata[0]==0 && framedata[1]==0)
 			{
 				/* No data*/
-				send->data = send + AST_FRIENDLY_OFFSET;
+				send->data = (void*)send + AST_FRIENDLY_OFFSET;
 				send->datalen = framelength;
 				/* Copy */
 				memcpy(send->data+2, framedata+2, framelength-2);
@@ -93,23 +94,23 @@ static struct ast_frame* create_ast_frame(void *frame)
 				mark = 1;
 			} else {
 				/* No data*/
-				send->data = send + AST_FRIENDLY_OFFSET;
-				send->datalen =  framedata + 2  ;
+				send->data = (void*)send + AST_FRIENDLY_OFFSET;
+				send->datalen =  framelength + 2  ;
 				/* Copy */
 				memcpy(send->data+2, framedata, framelength);
 				/* Set header */
 				((unsigned char*)(send->data))[0] = 0x00;
 				((unsigned char*)(send->data))[1] = 0x00;
 				/* Unset mark */
-				mark = 1;
+				mark = 0;
 			}
 			/* Set video type */
 			send->frametype = AST_FRAME_VIDEO;
 			/* Set codec value */
 			send->subclass = AST_FORMAT_H263_PLUS | mark;
 			/* Rest of values*/
-			send->src = 0;
-			send->samples = 0;
+			send->src = "h324m";
+			send->samples = 9000;
 			send->delivery.tv_usec = 0;
 			send->delivery.tv_sec = 0;
 			send->mallocd = 0;
@@ -131,6 +132,10 @@ static void* create_h324m_frame(struct ast_frame* f)
 	switch (f->frametype)
 	{
 		case AST_FRAME_VOICE:
+			/* Check audio type */
+			/* if (f->subclass & AST_FORMAT_AMR) */
+				/* exit */
+				break;
 			/* Create frame */
 			return FrameCreate(MEDIA_AUDIO, CODEC_AMR, (unsigned char *)f->data, f->datalen);
 		case AST_FRAME_VIDEO:
@@ -265,8 +270,6 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	/* Request new channel */
 	pseudo = ast_request("Local", 0xffffffff, data, &reason);
  
-	printf("[%x]\n",pseudo);fflush(stdout);
-
 	/* If somthing has gone wrong */
 	if (!pseudo)
 		/* goto end */
@@ -297,27 +300,23 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 			/* Dependinf on the event */
 			switch (f->subclass) {
 				case AST_CONTROL_RINGING:       
-					/* record but keep going */
-					reason = f->subclass;
 					break;
 				case AST_CONTROL_BUSY:
 				case AST_CONTROL_CONGESTION:
 					/* Save cause */
-					reason = f->subclass;
+					reason = pseudo->hangupcause;
 					/* exit */
 					goto hangup_pseudo;
 					break;
 				case AST_CONTROL_ANSWER:
-					/* Save cause */
-					reason = f->subclass;	
+					/* Set UP*/
+					reason = 0;	
 					break;
 			}
 		}
 		/* Delete frame */
 		ast_frfree(f);
 	}
-
-	printf("[%x,%x]\n",pseudo->_state,AST_STATE_UP);fflush(stdout);
 
 	/* If no answer */
 	if (pseudo->_state != AST_STATE_UP)
@@ -333,8 +332,6 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	/* Answer call */
 	ast_answer(chan);
 
-	printf("Answering\n");
-
 	/* Set up array */
 	channels[0] = chan;
 	channels[1] = pseudo;
@@ -343,7 +340,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	ms = -1;
 
 	/* Wait for data avaiable on any channel */
-	while ((where = ast_waitfor_n(channels, 2, &ms)) != NULL) {
+	while (!reason && (where = ast_waitfor_n(channels, 2, &ms)) != NULL) {
 		/* Read frame from channel */
 		f = ast_read(where);
 
@@ -385,17 +382,32 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 				f->delivery.tv_sec = 0;
 				/* write frame */
 				ast_write(chan, f);
-			} else if (f->frametype == AST_FRAME_DTMF) {
+
+			} else if (f->frametype == AST_FRAME_CONTROL) {
+				/* Check for hangup */
+				if (f->subclass == AST_CONTROL_HANGUP)
+					/* exit */
+					reason = AST_CAUSE_NORMAL_CLEARING;
 			}
-				/* Delete frame */
-				ast_frfree(f);
+
+			/* Delete frame */
+			ast_frfree(f);
 		} else {
-			/* Create frame */
-			if ((frame=create_h324m_frame(f))!=NULL) {
-				/* Send frame */
-				H324MSessionSendFrame(id,frame);
-				/* Delete frame */
-				FrameDestroy(frame);
+			/* Check for hangup */
+			if ((f->frametype == AST_FRAME_CONTROL)&& (f->subclass == AST_CONTROL_HANGUP)) {
+				/* exit */
+				reason = AST_CAUSE_NORMAL_CLEARING;
+			/* Check for DTMF */
+			} else if (f->frametype == AST_FRAME_DTMF) {
+				
+			} else {
+				/* Create frame */
+				if ((frame=create_h324m_frame(f))!=NULL) {
+					/* Send frame */
+					H324MSessionSendFrame(id,frame);
+					/* Delete frame */
+					FrameDestroy(frame);
+				}
 			}
 			/* Delete frame */
 			ast_frfree(f);
@@ -414,7 +426,7 @@ hangup_pseudo:
 
 clean_pseudo:
 	/* Destroy pseudo channel */
-	//ast_channel_free(pseudo);
+	ast_hangup(pseudo);
 
 end:
 	/* Hangup channel if needed */
@@ -424,7 +436,7 @@ end:
 	ast_module_user_remove(u);
 
 	//Exit
-	return 0;
+	return -1;
 }
 
 static int app_h324m_call(struct ast_channel *chan, void *data)
@@ -448,8 +460,6 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	/* Request new channel */
 	pseudo = ast_request("Local", 0xffffffff, data, &reason);
  
-	printf("[%x]\n",pseudo);fflush(stdout);
-
 	/* If somthing has gone wrong */
 	if (!pseudo)
 		/* goto end */
@@ -480,27 +490,23 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 			/* Dependinf on the event */
 			switch (f->subclass) {
 				case AST_CONTROL_RINGING:       
-					/* record but keep going */
-					reason = f->subclass;
 					break;
 				case AST_CONTROL_BUSY:
 				case AST_CONTROL_CONGESTION:
 					/* Save cause */
-					reason = f->subclass;
+					reason = pseudo->hangupcause;
 					/* exit */
 					goto hangup_pseudo;
 					break;
 				case AST_CONTROL_ANSWER:
-					/* Save cause */
-					reason = f->subclass;	
+					/* Set UP*/
+					reason = 0;	
 					break;
 			}
 		}
 		/* Delete frame */
 		ast_frfree(f);
 	}
-
-	printf("[%x,%x]\n",pseudo->_state,AST_STATE_UP);fflush(stdout);
 
 	/* If no answer */
 	if (pseudo->_state != AST_STATE_UP)
@@ -516,8 +522,6 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	/* Answer call */
 	ast_answer(chan);
 
-	printf("Answering\n");
-
 	/* Set up array */
 	channels[0] = chan;
 	channels[1] = pseudo;
@@ -528,7 +532,7 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	/* Create enpty packet */
 	send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 160 );
 	/* No data*/
-	send->data = send + AST_FRIENDLY_OFFSET + 160;
+	send->data = (void*)send + AST_FRIENDLY_OFFSET;
 	send->datalen = 160;
 	/* Set DTMF type */
 	send->frametype = AST_FRAME_VOICE;
@@ -544,7 +548,7 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	ast_write(pseudo,send);
 
 	/* Wait for data avaiable on any channel */
-	while ((where = ast_waitfor_n(channels, 2, &ms)) != NULL) {
+	while (!reason && (where = ast_waitfor_n(channels, 2, &ms)) != NULL) {
 		/* Read frame from channel */
 		f = ast_read(where);
 
@@ -586,6 +590,11 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 				f->delivery.tv_sec = 0;
 				/* write frame */
 				ast_write(pseudo, f);
+			} else if (f->frametype == AST_FRAME_CONTROL) {
+				/* Check for hangup */
+				if (f->subclass == AST_CONTROL_HANGUP) 
+					/* exit */
+					reason = AST_CAUSE_NORMAL_CLEARING;
 			} else 
 				/* Delete frame */
 				ast_frfree(f);
@@ -598,6 +607,12 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 				dtmf[1] = 0;
 				/* Send DTMF */
 				H324MSessionSendUserInput(id,dtmf);	
+			/* Check control channel */
+			} else if (f->frametype == AST_FRAME_CONTROL) {
+				/* Check for hangup */
+				if (f->subclass == AST_CONTROL_HANGUP)
+					/* exit */
+					reason = AST_CAUSE_NORMAL_CLEARING;
  			/* Create frame */
 			} else if ((frame=create_h324m_frame(f))!=NULL) {
 				/* Send frame */
@@ -622,7 +637,7 @@ hangup_pseudo:
 
 clean_pseudo:
 	/* Destroy pseudo channel */
-//	ast_channel_free(pseudo);
+	ast_hangup(pseudo);
 
 end:
 	/* Hangup channel if needed */
@@ -632,7 +647,7 @@ end:
 	ast_module_user_remove(u);
 
 	//Exit
-	return 0;
+	return -1;
 }
 
 static int app_video_loopback(struct ast_channel *chan, void *data)
