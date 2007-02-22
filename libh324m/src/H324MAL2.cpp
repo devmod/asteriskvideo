@@ -44,7 +44,7 @@ void H223AL2Receiver::Send(BYTE b)
 
 void H223AL2Receiver::SendClosingFlag()
 {
-	Debug("-AL2 Frame received\n");
+	//Debug("-AL2 Frame received\n");
 
 	//Crc
 	CRC8 crc;
@@ -64,7 +64,7 @@ void H223AL2Receiver::SendClosingFlag()
 	//Set data
 	crc.Add(data,dataLen-1);
 
-	Debug("-AL2 Frame [%x,%x,%x,%d]\n",data[dataLen-1],crc.Calc(),this,dataLen);
+	//Debug("-AL2 Frame [%x,%x,%x,%d]\n",data[dataLen-1],crc.Calc(),this,dataLen);
 
 	{
 		char name[256];
@@ -122,7 +122,7 @@ void H223AL2Sender::OnPDUCompleted()
 
 int H223AL2Sender::SendPDU(BYTE *buffer,int len)
 {
-	Debug("-AL2 SendPDU\n");
+	//Debug("-AL2 SendPDU\n");
 	{
 		char name[256];
 		sprintf(name,"/tmp/media_out_%x.raw",(unsigned int)this);

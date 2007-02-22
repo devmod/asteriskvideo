@@ -32,7 +32,7 @@ void* 	FrameCreate(int type,int codec, unsigned char * buffer, int len);
 int 	FrameGetType(void* frame);
 int 	FrameGetCodec(void* frame);
 unsigned char * FrameGetData(void* frame);
-int 	FrameGetLength(void *frame);
+unsigned int 	FrameGetLength(void *frame);
 void 	FrameDestroy(void *frame);
 
 #ifdef __cplusplus    

@@ -81,7 +81,7 @@ unsigned char * FrameGetData(void* frame)
 	return ((Frame*)frame)->data;
 }
 
-int FrameGetLength(void *frame)
+unsigned int FrameGetLength(void *frame)
 {
 	return ((Frame*)frame)->dataLength;
 }

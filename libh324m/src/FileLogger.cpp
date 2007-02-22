@@ -41,7 +41,9 @@ void FileLogger::SetMuxByte(BYTE b)
 	{
 		if (num>0)
 		{
-			int fd = open("h245_out.log",O_CREAT|O_WRONLY|O_APPEND);
+			char name[256];
+			sprintf(name,"/tmp/h245_out_%x.log",(unsigned int)this)
+			int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
 			write(fd,line1,linesize);
 			write(fd,"\r\n",2);
 			write(fd,line3,linesize);
@@ -98,7 +100,9 @@ void FileLogger::SetDemuxByte(BYTE b)
 	{
 		if (num>0)
 		{
-			int fd = open("h245.log",O_CREAT|O_WRONLY|O_APPEND);
+			char name[256];
+			sprintf(name,"/tmp/h245_%x.log",(unsigned int)this)
+			int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
 			write(fd,line3,linesize-6);
 			if (line3[linesize-5]==' ') {
 				write(fd,line2+2,6);

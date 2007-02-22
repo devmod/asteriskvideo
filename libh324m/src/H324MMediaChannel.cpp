@@ -108,9 +108,9 @@ void H324MMediaChannel::OnSDU(BYTE* data,DWORD length)
 	MediaCodec codec;
 	//Depending on the type
 	if (type == e_Audio)
-		codec = e_H263;
-	else
 		codec = e_AMR;
+	else
+		codec = e_H263;
 	//Enque new frame
 	frameList.push_back(new Frame(type,codec,data,length));
 }
@@ -134,8 +134,29 @@ int H324MMediaChannel::SendFrame(Frame *frame)
 	if (!sender)
 		//Exit
 		return 0;
+
+	//Initial sdu length
+	int len = 0;
+    int pos = 0;
+
+	//Sen up to max size
+	while (pos<frame->dataLength)
+	{
+		//Calculate length
+		if (pos+512>frame->dataLength)
+			//Send until the end
+			len = frame->dataLength-pos;
+		else
+			//Send 512
+			len = 512;
+		//Send
+		((H223AL2Sender*)sender)->SendPDU(frame->data+pos,len);
+		//Increase len
+		pos += len;
+	}
+
 	//Return size
-	return ((H223AL2Sender*)sender)->SendPDU(frame->data,frame->dataLength);
+	return pos;
 }
 
 H324MAudioChannel::H324MAudioChannel()
