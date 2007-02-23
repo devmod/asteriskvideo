@@ -74,6 +74,7 @@ static struct ast_frame* create_ast_frame(void *frame)
 			if (FrameGetCodec(frame)!=CODEC_AMR)
 				/* exit */
 				return NULL;
+			printf("Create AMR frame\n");
 			/* Create frame */
 			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + framelength);
 			/* Set data*/
@@ -157,6 +158,7 @@ static void* create_h324m_frame(struct ast_frame* f)
 			if (f->subclass & AST_FORMAT_AMR)
 				/* exit */
 				break;
+			printf("Create h324m AMR frame\n");
 			/* Create frame */
 			return FrameCreate(MEDIA_AUDIO, CODEC_AMR, (unsigned char *)f->data, f->datalen);
 		case AST_FRAME_VIDEO:
@@ -289,7 +291,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	u = ast_module_user_add(chan);
 
 	/* Request new channel */
-	pseudo = ast_request("Local", 0xffffffff, data, &reason);
+	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_H263_PLUS | AST_FORMAT_AMR, data, &reason);
  
 	/* If somthing has gone wrong */
 	if (!pseudo)
@@ -479,7 +481,7 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	u = ast_module_user_add(chan);
 
 	/* Request new channel */
-	pseudo = ast_request("Local", 0xffffffff, data, &reason);
+	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_H263_PLUS | AST_FORMAT_AMR , data, &reason);
  
 	/* If somthing has gone wrong */
 	if (!pseudo)
