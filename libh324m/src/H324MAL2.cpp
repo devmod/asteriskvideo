@@ -138,10 +138,6 @@ int H223AL2Sender::SendPDU(BYTE *buffer,int len)
 		write(fd,buffer,len);
 		close(fd);
 	}
-	//If it's non segmentable
-	if (!segmentableChannel)
-		//Append data to sdu
-		return noSegSDU->Push(buffer,len);
 
 	//Crc
 	CRC8 crc;
