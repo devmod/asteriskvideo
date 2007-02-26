@@ -103,8 +103,8 @@ int H324MControlChannel::MediaSetup()
 	H245Capabilities* cap = cf->GetLocalCapabilities();
 
 	//Create H245 channels
-	H245Channel audio(e_Audio,cap->amrCap.m_capability);
-	H245Channel video(e_Video,cap->h263Cap.m_capability);
+	H245Channel audio(e_Audio,cap->amrCap.m_capability,e_al2WithoutSequenceNumbers,false);
+	H245Channel video(e_Video,cap->h263Cap.m_capability,e_al2WithoutSequenceNumbers,true);
 
 	//Start opening channels
 	lc->EstablishRequest(1,audio);
@@ -253,7 +253,7 @@ int H324MControlChannel::OnEvent(const H245Connection::Event &event)
 
 int H324MControlChannel::WriteControlPDU(H324ControlPDU & pdu)
 {
-	cout << "Sending \n" << pdu << "\n";
+	Debug("-WriteControlPDU [%s]\n",(const unsigned char *)pdu.GetTagName());
 
 	//Send pdu to ccsrl layer
 	SendPDU(pdu);
@@ -264,9 +264,7 @@ int H324MControlChannel::WriteControlPDU(H324ControlPDU & pdu)
 
 int H324MControlChannel::OnControlPDU(H324ControlPDU &pdu)
 {
-	Debug("OnControlPDU\n");
-	
-	cout << "Received \n" << pdu << "\n";
+	Debug("-OnControlPDU [%s]\n",(const unsigned char *)pdu.GetTagName());
 
 	//Depending on the pdu
 	switch(pdu.GetTag())

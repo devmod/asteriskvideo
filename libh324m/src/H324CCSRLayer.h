@@ -23,6 +23,7 @@ public:
 	//H223ALSender interface
 	virtual H223MuxSDU* GetNextPDU();
 	virtual void OnPDUCompleted();
+	virtual int IsSegmentable();
 
 	void SendPDU(H324ControlPDU &pdu);
 	void SendNSRP(BYTE sn);

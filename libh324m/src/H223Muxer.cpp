@@ -138,7 +138,7 @@ int H223Muxer::GetBestMC(int max)
 		memset(len,0,256*sizeof(WORD));
 
 		//While not done
-		while((j<max) && (!end))
+		while(j<max)
 		{
 			//Get next channel for table
 			int c = table->GetChannel(i,j++);
@@ -152,8 +152,14 @@ int H223Muxer::GetBestMC(int max)
 
 			//Do we have more on this channel?
 			if(len[c] == sduLen[c])
-				//Finish
-				end = 1;
+			{
+				//If channel is segmentble
+				if (senders[c]->IsSegmentable())
+					//Finish sdu
+					end = 1;
+				//Exit
+				break;
+			}
 		}
 
 		//Calculate ratio

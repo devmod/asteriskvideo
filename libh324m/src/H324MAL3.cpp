@@ -22,6 +22,18 @@
 #include "H324MAL3.h"
 
 
+/****************** Receiver **************/
+H223AL3Receiver::H223AL3Receiver(int segmentable,H223SDUListener* listener)
+{
+	//Save listener
+	sduListener = listener;
+	//Set segmentable
+	segmentableChannel = segmentable;
+}
+
+H223AL3Receiver::~H223AL3Receiver()
+{
+}
 
 void H223AL3Receiver::Send(BYTE b)
 {
@@ -31,6 +43,24 @@ void H223AL3Receiver::SendClosingFlag()
 {
 }
 
+/****************** Sender **************/
+H223AL3Sender::H223AL3Sender(int segmentable)
+{
+	//Set segmentable flag
+	segmentableChannel = segmentable;
+}
+
+H223AL3Sender::~H223AL3Sender()
+{
+	//Clean sdus pending
+	while(frameList.size()>0)
+	{
+		//Delete front
+		delete frameList.front();
+		//Remove
+		frameList.pop_front();
+	}
+}
 
 H223MuxSDU* H223AL3Sender::GetNextPDU()
 {
@@ -41,3 +71,7 @@ void H223AL3Sender::OnPDUCompleted()
 {
 }
 
+int H223AL3Sender::IsSegmentable()
+{
+	return segmentableChannel;
+}

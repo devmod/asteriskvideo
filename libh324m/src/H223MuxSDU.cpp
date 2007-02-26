@@ -56,7 +56,7 @@ H223MuxSDU::H223MuxSDU(BYTE *b,int len)
 	ini = 0;
 }
 
-void H223MuxSDU::Push(BYTE b)
+int H223MuxSDU::Push(BYTE b)
 {
 	//Check if there is enougth room
 	if (end+1>size)
@@ -79,9 +79,12 @@ void H223MuxSDU::Push(BYTE b)
 
 	//Set the byte
 	buffer[end++]=b;
+
+	//return added
+	return 1;
 }
 
-void H223MuxSDU::Push(BYTE *b,int len)
+int H223MuxSDU::Push(BYTE *b,int len)
 {
 	//Check if there is enougth room
 	if (end+len>size)
@@ -107,6 +110,9 @@ void H223MuxSDU::Push(BYTE *b,int len)
 
 	//Increase end
 	end+=len;
+
+	//Return added
+	return len;
 }
 
 BYTE H223MuxSDU::Pop()

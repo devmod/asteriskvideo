@@ -334,9 +334,6 @@ H223MuxSDU* H324CCSRLayer::GetNextPDU()
 			cmd = NULL;
 		}
 		
-		//Build pdu
-		//BuildCMD();
-
 		//If we don't have elements
 		if (cmds.size()==0)
 			return NULL;
@@ -418,5 +415,12 @@ void H324CCSRLayer::OnPDUCompleted()
 int H324CCSRLayer::OnControlPDU(H324ControlPDU &pdu)
 {
 	//Exit
+	return 1;
+}
+
+int H324CCSRLayer::IsSegmentable()
+{
+	//In fact it should be nonsegmentable and framed but.. 
+	//for muxer its segmentable to send the closing flag
 	return 1;
 }

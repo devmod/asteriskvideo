@@ -39,6 +39,8 @@ int H245LogicalChannels::EstablishRequest(int channelNumber,H245Channel & channe
 {
 	Debug("H245 H245LogicalChannels Establish Request [%d]\n", channelNumber);
 
+	//TODO: Store h245channel on list
+
 	//Pdu
 	H324ControlPDU pdu;
 
@@ -135,6 +137,8 @@ int H245LogicalChannels::ReleaseRequest(int channelNumber)
 
 BOOL H245LogicalChannels::HandleOpenAck(const H245_OpenLogicalChannelAck & pdu)
 {
+	//TODO: return h245channel on event
+
 	//Get channel number
 	int channelNumber = pdu.m_forwardLogicalChannelNumber;
 

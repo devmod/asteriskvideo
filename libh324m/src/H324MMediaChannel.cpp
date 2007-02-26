@@ -61,50 +61,70 @@ H223ALSender* H324MMediaChannel::GetSender()
 	return sender;
 }
 
-int H324MMediaChannel::SetSenderLayer(int layer)
+int H324MMediaChannel::SetSenderLayer(AdaptationLayer layer, int segmentable)
 {
 	//Dependind on the adaptation layer
 	switch(layer)
 	{
-		case 1:
-			sender = new H223AL1Sender();
+		case e_al1Framed:
+		case e_al1NotFramed:
+			// AL 1
+			sender = new H223AL1Sender(segmentable);
 			break;
-		case 2:
-			sender = new H223AL2Sender(0);
+		case e_al2WithoutSequenceNumbers:
+			// AL 2
+			sender = new H223AL2Sender(segmentable,false);
 			break;
-		case 3:
-			sender = new H223AL3Sender();
+		case e_al2WithSequenceNumbers:
+			// AL 2
+			sender = new H223AL2Sender(segmentable,true);
+			break;
+		case e_al3:
+			// AL3
+			sender = new H223AL3Sender(segmentable);
 			break;
 		default:
+			//Not handled
 			return 0;
 	}
 
 	return 1;
 }
 
-int H324MMediaChannel::SetReceiverLayer(int layer)
+int H324MMediaChannel::SetReceiverLayer(AdaptationLayer layer, int segmentable)
 {
 	//Dependind on the adaptation layer
 	switch(layer)
 	{
-		case 1:
-			receiver = new H223AL1Receiver();
+		case e_al1Framed:
+		case e_al1NotFramed:
+			// AL 1
+			receiver = new H223AL1Receiver(segmentable,this);
 			break;
-		case 2:
-			receiver = new H223AL2Receiver(0,this);
+		case e_al2WithoutSequenceNumbers:
+			// AL 2
+			receiver = new H223AL2Receiver(segmentable,this,false);
 			break;
-		case 3:
-			receiver = new H223AL3Receiver();
+		case e_al2WithSequenceNumbers:
+			// AL 2
+			receiver = new H223AL2Receiver(segmentable,this,true);
+			break;
+		case e_al3:
+			// AL3
+			receiver = new H223AL3Receiver(segmentable,this);
 			break;
 		default:
+			//Not handled
 			return 0;
 	}
-
+	//Exit
 	return 1;
 }
 
 void H324MMediaChannel::OnSDU(BYTE* data,DWORD length)
 {
+	Debug ("-H324MMediaChannel::OnSDU");
+
 	MediaCodec codec;
 	//Depending on the type
 	if (type == e_Audio)

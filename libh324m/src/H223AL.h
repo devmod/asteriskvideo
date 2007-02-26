@@ -7,6 +7,7 @@
 class H223ALReceiver
 {
 public:
+	//H223ALReceiver interface
 	virtual void Send(BYTE b)=0;
 	virtual void SendClosingFlag()=0;
 };
@@ -17,6 +18,7 @@ public:
 	//H223ALSender interface
 	virtual H223MuxSDU* GetNextPDU()=0;
 	virtual void OnPDUCompleted()=0;
+	virtual int IsSegmentable() = 0;
 };
 
 class H223SDUListener

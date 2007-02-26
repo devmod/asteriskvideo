@@ -14,8 +14,8 @@ public:
 	H223MuxSDU(BYTE *b,int len);
 	~H223MuxSDU();
 	
-	void Push(BYTE b);
-	void Push(BYTE *b,int len);
+	int	 Push(BYTE b);
+	int  Push(BYTE *b,int len);
 	BYTE Pop();
 	BYTE *GetPointer() {return buffer;}
 	int	 Length();

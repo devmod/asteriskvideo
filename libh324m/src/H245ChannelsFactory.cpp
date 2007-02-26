@@ -222,9 +222,9 @@ int H245ChannelsFactory::OnEstablishIndication(int number, H245Channel *channel)
 	chan->remoteChannel = number;
 
 	//Set receiving layer
-	chan->SetReceiverLayer(2);
+	chan->SetReceiverLayer(channel->GetAdaptationLayer(),channel->IsSegmentable());
 
-	Debug("-Creating receiving layer [%d,%d,%x,%d,%d]\n",local,number,chan->GetReceiver(),channel->GetType(),chan->type);
+	Debug("-Creating receiving layer [%d,%d,%x,%d,%d,%d,%d]\n",local,number,chan->GetReceiver(),channel->GetType(),chan->type,channel->GetAdaptationLayer(),channel->IsSegmentable());
 
 	//Append to demuxer && accept
 	return demuxer.SetChannel(number,chan->GetReceiver());
@@ -246,10 +246,14 @@ int H245ChannelsFactory::OnEstablishConfirm(int number)
 	H324MMediaChannel * chan = it->second;
 
 	//Set sender layer
-	chan->SetSenderLayer(2);
+	//This should be set upon an incomming h245channel from lc
+	if (chan->type == e_Audio)
+		chan->SetSenderLayer(e_al2WithoutSequenceNumbers,false);
+	else
+		chan->SetSenderLayer(e_al2WithoutSequenceNumbers,true);
 
-	Debug("-Creating sending layer [%d,2,%x]\n",number,chan->GetSender());
-
+	Debug("-Creating  layer [%d,2,%x,%d]\n",number,chan->GetSender(),chan->GetSender()->IsSegmentable());
+	
 	//Set muxer
 	return muxer.SetChannel(number,chan->GetSender());
 }

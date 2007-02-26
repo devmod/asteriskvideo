@@ -15,6 +15,15 @@ enum MediaCodec
 	e_H263	= 1
 };
 
+enum AdaptationLayer {
+	e_unknown,
+	e_al1Framed,
+	e_al1NotFramed,
+	e_al2WithoutSequenceNumbers,
+	e_al2WithSequenceNumbers,
+	e_al3
+};
+
 class Frame
 {
 public:

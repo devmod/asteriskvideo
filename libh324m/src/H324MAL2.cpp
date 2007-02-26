@@ -23,28 +23,40 @@
 #include "crc8.h"
 
 /****************** Receiver **************/
-H223AL2Receiver::H223AL2Receiver(int useSequenceNumbers,H223SDUListener* listener)
+H223AL2Receiver::H223AL2Receiver(int segmentable,H223SDUListener* listener,int useSequenceNumbers)
 {
 	//Set sn parameter
 	useSN = useSequenceNumbers;
 	//Save listener
 	sduListener = listener;
+	//Set segmentable
+	segmentableChannel = segmentable;
 }
 
 H223AL2Receiver::~H223AL2Receiver()
 {
-
 }
 
 void H223AL2Receiver::Send(BYTE b)
 {
 	//Enque in sdu
 	sdu.Push(b);
+
+	//If it's non segmentable and got enougth data
+	if (!segmentableChannel && sdu.Length() > 160)
+	{
+		//Send SDU
+		sduListener->OnSDU(sdu.GetPointer(),sdu.Length());
+		//Clean sdu
+		sdu.Clean();
+
+		Debug("-Send non segmentable 160\n");
+	}
 }
 
 void H223AL2Receiver::SendClosingFlag()
 {
-	//Debug("-AL2 Frame received\n");
+	Debug("-AL2 Frame received\n");
 
 	//Crc
 	CRC8 crc;
@@ -64,7 +76,7 @@ void H223AL2Receiver::SendClosingFlag()
 	//Set data
 	crc.Add(data,dataLen-1);
 
-	//Debug("-AL2 Frame [%x,%x,%x,%d]\n",data[dataLen-1],crc.Calc(),this,dataLen);
+	Debug("-AL2 Frame [%x,%x,%x,%d]\n",data[dataLen-1],crc.Calc(),this,dataLen);
 
 	{
 		char name[256];
@@ -87,22 +99,51 @@ clean:
 }
 
 /****************** Sender **************/
-H223AL2Sender::H223AL2Sender(int useSequenceNumbers)
+H223AL2Sender::H223AL2Sender(int segmentable,int useSequenceNumbers)
 {
 	//Set sn parameter
 	useSN = useSequenceNumbers;
 	sn = 0;
+	//Set segmentable flag
+	segmentableChannel = segmentable;
+	//If it's non segmentable
+	if(!segmentableChannel)
+		//Create sdu
+		noSegSDU = new H223MuxSDU();
+	else
+		//No sdu
+		noSegSDU = NULL;
 }
 
 H223AL2Sender::~H223AL2Sender()
 {
+	//Clean sdus pending
+	while(frameList.size()>0)
+	{
+		//Delete front
+		delete frameList.front();
+		//Remove
+		frameList.pop_front();
+	}
+	//Clean if not seg
+	if (noSegSDU)
+		//Delete
+		delete noSegSDU;
 }
 
 H223MuxSDU* H223AL2Sender::GetNextPDU()
 {
+	//If it's non segmentable
+	if (!segmentableChannel)
+		//return SDU
+		return noSegSDU;
+
 	//Check frame list
 	if (frameList.size()==0)
 		return NULL;
+
+	Debug("-AL2 GetNextPDU\n");
+
 
 	//return first element
 	return frameList.front();
@@ -110,6 +151,15 @@ H223MuxSDU* H223AL2Sender::GetNextPDU()
 
 void H223AL2Sender::OnPDUCompleted()
 {
+	Debug("-AL2 OnPDUCompleted\n");
+
+	//If it's non segmentable
+	if (!segmentableChannel)
+		//Shouldn't get to here
+		return;
+
+	Debug("-AL2 segmentable\n");
+
 	//Get sdu
 	H223MuxSDU *sdu = frameList.front();
 
@@ -122,7 +172,7 @@ void H223AL2Sender::OnPDUCompleted()
 
 int H223AL2Sender::SendPDU(BYTE *buffer,int len)
 {
-	//Debug("-AL2 SendPDU\n");
+	Debug("-AL2 SendPDU\n");
 	{
 		char name[256];
 		sprintf(name,"/tmp/media_out_%x.raw",(unsigned int)this);
@@ -130,6 +180,12 @@ int H223AL2Sender::SendPDU(BYTE *buffer,int len)
 		write(fd,buffer,len);
 		close(fd);
 	}
+	//If it's non segmentable
+	if (!segmentableChannel)
+		//Append data to sdu
+		return noSegSDU->Push(buffer,len);
+
+	Debug("-AL2 segmentable\n");
 
 	//Crc
 	CRC8 crc;
@@ -158,3 +214,7 @@ int H223AL2Sender::SendPDU(BYTE *buffer,int len)
 	return true;
 }
 
+int H223AL2Sender::IsSegmentable()
+{
+	return segmentableChannel;
+}

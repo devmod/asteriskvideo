@@ -10,7 +10,7 @@ class H223AL2Receiver :
 {
 public:
 	//Constructor
-	H223AL2Receiver(int useSequenceNumbers,H223SDUListener* listener);
+	H223AL2Receiver(int segmentable,H223SDUListener* listener,int useSequenceNumbers);
 	virtual ~H223AL2Receiver();
 
 	//H223ALReceiver interface
@@ -18,9 +18,11 @@ public:
 	virtual void SendClosingFlag();
 
 private:
-	int	 useSN;
+	int	useSN;
+	int segmentableChannel;
 	H223SDUListener* sduListener;
 	H223MuxSDU sdu;
+	
 };
 
 
@@ -29,7 +31,7 @@ class H223AL2Sender :
 {
 public:
 	//Constuctor
-	H223AL2Sender(int useSequenceNumbers);
+	H223AL2Sender(int segmentable,int useSequenceNumbers);
 	virtual ~H223AL2Sender();
 
 	//Methods
@@ -38,11 +40,13 @@ public:
 	//H223ALSender interface
 	virtual H223MuxSDU* GetNextPDU();
 	virtual void OnPDUCompleted();
-
+	virtual int IsSegmentable();
 private:
 	int useSN;
+	int segmentableChannel;
 	BYTE sn;
-	H223MuxSDUList frameList;
+	H223MuxSDUList	frameList;
+	H223MuxSDU*		noSegSDU;
 };
 
 #endif

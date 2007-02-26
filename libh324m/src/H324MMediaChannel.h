@@ -33,8 +33,8 @@ public:
 	//SDUListener interface
 	virtual void OnSDU(BYTE* data,DWORD length);
 
-	int SetSenderLayer(int number);
-	int SetReceiverLayer(int number);
+	int SetSenderLayer(AdaptationLayer layer, int segmentable);
+	int SetReceiverLayer(AdaptationLayer layer, int segmentable);
 
 	//Methods
 	Frame* GetFrame();

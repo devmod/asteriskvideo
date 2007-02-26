@@ -21,12 +21,17 @@
  */
 #include "H245Channel.h"
 
-H245Channel::H245Channel(MediaType t,H245_Capability &c) 
+
+H245Channel::H245Channel(MediaType mediaType,H245_Capability &cap,AdaptationLayer layer,int segmentable)
 {
 	//Set type
-	type = t;
+	type = mediaType;
 	//Clone capability
-	capability = (H245_Capability *)c.Clone();
+	capability = (H245_Capability *)cap.Clone();
+	//Get adaptation layer
+	adaptationLayer = layer;
+	//Get segmentable
+	segmentableChannel = segmentable;
 }
 
 H245Channel::H245Channel(H245_OpenLogicalChannel & open) 
@@ -55,10 +60,45 @@ H245Channel::H245Channel(H245_OpenLogicalChannel & open)
 			}
 			break;
 	}
+
+	//Get muxer parameters
+	H245_H223LogicalChannelParameters & h223 = open.m_forwardLogicalChannelParameters.m_multiplexParameters;
+
+	//Get adaptation layer
+	switch(h223.m_adaptationLayerType.GetTag())
+	{
+		case H245_H223LogicalChannelParameters_adaptationLayerType::e_al1Framed:
+			// AL1
+			adaptationLayer = e_al1Framed;
+			break;
+		case H245_H223LogicalChannelParameters_adaptationLayerType::e_al1NotFramed:
+			// AL1
+			adaptationLayer = e_al1NotFramed;
+			break;
+		case H245_H223LogicalChannelParameters_adaptationLayerType::e_al2WithoutSequenceNumbers:
+			// AL2
+			adaptationLayer = e_al2WithoutSequenceNumbers;
+			break;
+		case H245_H223LogicalChannelParameters_adaptationLayerType::e_al2WithSequenceNumbers:
+			// AL2
+			adaptationLayer = e_al2WithSequenceNumbers;
+			break;
+		case H245_H223LogicalChannelParameters_adaptationLayerType::e_al3:
+			// AL3
+			adaptationLayer = e_al3;
+			break;
+		default:
+			// uh?
+			adaptationLayer = e_unknown;
+	}
+
+	//Get segmentable flag
+	segmentableChannel = h223.m_segmentableFlag; 
 }
 
 int H245Channel::BuildChannelPDU(H245_OpenLogicalChannel & open)
 {
+	//Depending on media type
 	switch(type)
 	{
 		case e_Video:
@@ -72,17 +112,60 @@ int H245Channel::BuildChannelPDU(H245_OpenLogicalChannel & open)
 			open.m_forwardLogicalChannelParameters.m_dataType.SetTag(H245_DataType::e_audioData);
 			//Set audio capabilities
 			(H245_AudioCapability &) open.m_forwardLogicalChannelParameters.m_dataType = (H245_AudioCapability&)*capability;
+			break;
 	}
 
 	//Mux Capabilities
 	open.m_forwardLogicalChannelParameters.m_multiplexParameters.SetTag(H245_OpenLogicalChannel_forwardLogicalChannelParameters_multiplexParameters::e_h223LogicalChannelParameters);
 	//Set h223
 	H245_H223LogicalChannelParameters & h223 = open.m_forwardLogicalChannelParameters.m_multiplexParameters;
-	h223.m_adaptationLayerType.SetTag(H245_H223LogicalChannelParameters_adaptationLayerType::e_al2WithoutSequenceNumbers);
+	//Depending on the type of muxin
+	switch(adaptationLayer)
+	{
+		case e_al1Framed:
+			// AL1
+			h223.m_adaptationLayerType.SetTag(H245_H223LogicalChannelParameters_adaptationLayerType::e_al1Framed);
+			break;
+		case e_al1NotFramed:
+			// AL1
+			h223.m_adaptationLayerType.SetTag(H245_H223LogicalChannelParameters_adaptationLayerType::e_al1NotFramed);
+			break;
+		case e_al2WithoutSequenceNumbers:
+			// AL2
+			h223.m_adaptationLayerType.SetTag(H245_H223LogicalChannelParameters_adaptationLayerType::e_al2WithoutSequenceNumbers);
+			break;
+		case e_al2WithSequenceNumbers:
+			// AL2
+			h223.m_adaptationLayerType.SetTag(H245_H223LogicalChannelParameters_adaptationLayerType::e_al2WithSequenceNumbers);
+			break;
+		case e_al3:
+			// AL3
+			h223.m_adaptationLayerType.SetTag(H245_H223LogicalChannelParameters_adaptationLayerType::e_al3);
+			break;
+		case e_unknown:
+			// uh?
+			return 0;
+	}
 
-	h223.m_segmentableFlag = true; 
+	//Set segmentable flag
+	h223.m_segmentableFlag = segmentableChannel; 
+
+	//Exit
 	return 1;
 }
+
+AdaptationLayer H245Channel::GetAdaptationLayer()
+{
+	//Return adaptation layer
+	return adaptationLayer;
+}
+
+int H245Channel::IsSegmentable()
+{
+	//Is channel segmentable?
+	return segmentableChannel;
+}
+
 
 #if 0
 		/*H245_H223LogicalChannelParameters_adaptationLayerType_al3 &al3 = h223.m_adaptationLayerType;
