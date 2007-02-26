@@ -61,6 +61,7 @@ struct mp4track {
 	MP4TrackId track;
 	MP4TrackId hint;
 	bool first;
+	bool intra;
 	unsigned char frame[65535];
 	int length;
 	int sampleId;
@@ -91,17 +92,17 @@ static int mp4_rtp_write_audio(struct mp4track *t, struct ast_frame *f)
 	return 0;
 }
 
-static void mp4_rtp_write_video_frame(struct mp4track *t, int samples, bool intra)
+static void mp4_rtp_write_video_frame(struct mp4track *t, int samples)
 {
 	ast_log(LOG_DEBUG, "Saving #%d:%d:%d %d samples %d size of video\n", t->sampleId, t->track, t->hint, samples, t->length);
 
 	/* Save rtp hint */
-	MP4WriteRtpHint(t->mp4, t->hint, samples, intra);
+	MP4WriteRtpHint(t->mp4, t->hint, samples, t->intra);
 	/* Save video frame */
-	MP4WriteSample(t->mp4, t->track, t->frame, t->length, samples, 0, intra);
+	MP4WriteSample(t->mp4, t->track, t->frame, t->length, samples, 0, t->intra);
 }
 
-static int mp4_rtp_write_video(struct mp4track *t, struct ast_frame *f, int payload, bool intra)
+static int mp4_rtp_write_video(struct mp4track *t, struct ast_frame *f, int payload, bool intra, int skip, unsigned char * prependBuffer, int prependLength)
 {
 	/* rtp mark */
 	bool mBit = f->subclass & 0x1;
@@ -111,12 +112,15 @@ static int mp4_rtp_write_video(struct mp4track *t, struct ast_frame *f, int payl
 		/* If we hava a sample */
 		if (t->sampleId > 0) {
 			/* Save frame */
-			mp4_rtp_write_video_frame(t, f->samples, intra);
+			mp4_rtp_write_video_frame(t, f->samples);
 			/* Reset buffer length */
 			t->length = 0;
 		}
 		/* Reset first mark */
 		t->first = 0;
+
+		/* Save intra flag */
+		t->intra = intra;
 
 		/* Next frame */
 		t->sampleId++;
@@ -134,14 +138,24 @@ static int mp4_rtp_write_video(struct mp4track *t, struct ast_frame *f, int payl
 	if (payload > 0)
 		MP4AddRtpImmediateData(t->mp4, t->hint, f->data, payload);
 
+	/* If we have to prepend */
+	if (prependLength)
+	{
+		/* Prepend data to video buffer */
+		memcpy(t->frame + t->length, (char*)prependBuffer, prependLength);
+
+		/* Inc length */
+		t->length += prependLength;
+	}
+
 	/* Set hint reference to video data */
-	MP4AddRtpSampleData(t->mp4, t->hint, t->sampleId, (u_int32_t) t->length, f->datalen - payload);
+	MP4AddRtpSampleData(t->mp4, t->hint, t->sampleId, (u_int32_t) t->length, f->datalen - payload - skip);
 
 	/* Copy the video data to buffer */
-	memcpy(t->frame + t->length, (char*)f->data + payload, f->datalen - payload);
+	memcpy(t->frame + t->length, (char*)f->data + payload + skip, f->datalen - payload - skip);
 
 	/* Increase stored buffer length */
-	t->length += f->datalen - payload;
+	t->length += f->datalen - payload - skip;
 
 	/* If it's the las packet in a frame */
 	if (mBit)
@@ -590,6 +604,11 @@ static int mp4_save(struct ast_channel *chan, void *data)
 				videoTrack.sampleId = 0;
 				videoTrack.first = 1;
 			}
+			/* No skip and no add */
+			int skip = 0;
+			unsigned char *prependBuffer = NULL;
+			int prependLength = 0;
+			intra = 0;
 
 			/* Check codec */
 			if (f->subclass & AST_FORMAT_H263) {
@@ -599,15 +618,29 @@ static int mp4_save(struct ast_channel *chan, void *data)
 				payload = 4;
 			} else if (f->subclass & AST_FORMAT_H263_PLUS) {
 				/* Check if it's an intra frame */
-				intra = (((unsigned char *) (f->data))[0] & 0x04) != 0;
+				unsigned char p = ((unsigned char *) (f->data))[0] & 0x04;
+				unsigned char v = ((unsigned char *) (f->data))[0] & 0x02;
+				unsigned char plen = ((((unsigned char *) (f->data))[0] & 0x1 ) << 5 ) | (((unsigned char *) (f->data))[1] >> 3);
+				unsigned char pebit = ((unsigned char *) (f->data))[0] & 0x7;
 				/* payload length */
 				payload = 2;
+				/* skip rest of headers */
+				skip = plen + v;
+				/* If its first packet of frame*/
+				if (p)
+				{
+					/* Check for intra in stream */
+					intra = !(((unsigned char *) (f->data))[4] & 0x02);
+					/* Prepend open code */
+					prependBuffer = "\0\0";
+					prependLength = 2;
+				} 
 			} else
 				/* Unknown codec nothing to do */
 				break;
 
 			/* Write rtp video packet */
-			mp4_rtp_write_video(&videoTrack, f, payload, intra);
+			mp4_rtp_write_video(&videoTrack, f, payload, intra, skip, prependBuffer , prependLength);
 
 		} else if (f->frametype == AST_FRAME_DTMF) {
 		}
@@ -619,7 +652,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 	/* Save last video frame if needed */
 	if (videoTrack.sampleId > 0)
 		/* Save frame */
-		mp4_rtp_write_video_frame(&videoTrack, 0, intra);
+		mp4_rtp_write_video_frame(&videoTrack, 0);
 
 	/* Close file */
 	MP4Close(mp4);
