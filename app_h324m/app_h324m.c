@@ -155,10 +155,9 @@ static void* create_h324m_frame(struct ast_frame* f)
 	{
 		case AST_FRAME_VOICE:
 			/* Check audio type */
-			if (f->subclass & AST_FORMAT_AMR)
+			if (!(f->subclass & AST_FORMAT_AMR))
 				/* exit */
 				break;
-			printf("Create h324m AMR frame\n");
 			/* Create frame */
 			return FrameCreate(MEDIA_AUDIO, CODEC_AMR, (unsigned char *)f->data, f->datalen);
 		case AST_FRAME_VIDEO:
@@ -175,7 +174,7 @@ static void* create_h324m_frame(struct ast_frame* f)
 				/* Get header */
 				unsigned char p = framedata[0] & 0x04;
 				unsigned char v = framedata[0] & 0x02;
-				unsigned char plen = ((framedata[0] & 0x1 ) << 5 ) || (framedata[1] >> 3);
+				unsigned char plen = ((framedata[0] & 0x1 ) << 5 ) | (framedata[1] >> 3);
 				unsigned char pebit = framedata[0] & 0x7;
 				/* skip header*/
 				framedata += 2+plen;
@@ -475,13 +474,13 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	struct ast_channel *pseudo;
 	struct ast_channel *where;
 
-	ast_log(LOG_DEBUG, "h324m_loopback\n");
+	ast_log(LOG_DEBUG, "h324m_call\n");
 
 	/* Lock module */
 	u = ast_module_user_add(chan);
 
 	/* Request new channel */
-	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_H263_PLUS | AST_FORMAT_AMR , data, &reason);
+	pseudo = ast_request("Local", AST_FORMAT_ALAW | AST_FORMAT_ULAW, data, &reason);
  
 	/* If somthing has gone wrong */
 	if (!pseudo)
