@@ -123,8 +123,6 @@ int H324MMediaChannel::SetReceiverLayer(AdaptationLayer layer, int segmentable)
 
 void H324MMediaChannel::OnSDU(BYTE* data,DWORD length)
 {
-	Debug ("-H324MMediaChannel::OnSDU");
-
 	MediaCodec codec;
 	//Depending on the type
 	if (type == e_Audio)
@@ -156,8 +154,8 @@ int H324MMediaChannel::SendFrame(Frame *frame)
 		return 0;
 
 	//Initial sdu length
-	int len = 0;
-    int pos = 0;
+	DWORD len = 0;
+    DWORD pos = 0;
 
 	//Sen up to max size
 	while (pos<frame->dataLength)
@@ -169,6 +167,7 @@ int H324MMediaChannel::SendFrame(Frame *frame)
 		else
 			//Send 512
 			len = 512;
+
 		//Send
 		((H223AL2Sender*)sender)->SendPDU(frame->data+pos,len);
 		//Increase len

@@ -105,9 +105,14 @@ void H223Demuxer::EndPDU(H223Flag &flag)
 		if ((channel!=-1) && (al[channel]!=NULL))
 			//Send the closing pdu to the last channel
 			al[channel]->SendClosingFlag();
-	} else
+	} else {
 		//Log
 		log->SetDemuxInfo(-6,"end");
+		//if there is non-segmentable channel
+		if ((channel!=-1) && (al[channel]!=NULL) && !al[channel]->IsSegmentable())
+			//Send the closing pdu to the last channel
+			al[channel]->SendClosingFlag();
+	}
 		
 }
 

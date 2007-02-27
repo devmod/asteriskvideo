@@ -194,6 +194,8 @@ BYTE H223Muxer::Multiplex()
 		switch(state)
 		{
 			case NONE:
+				//Reset channel
+				channel = -1;
 				//If we have to finish last packet
 				if (!pm)
 				{
@@ -263,8 +265,8 @@ BYTE H223Muxer::Multiplex()
 					//Send the byte
 					return b;
 				}
-				//If we hav finished the sdu
-				if (pm)
+				//If we have finished the sdu or the channel is non-segmentable
+				if (pm || (channel!= -1 && !senders[channel]->IsSegmentable()))
 				{
 					//Remove the last sdu from the channel
 					sdus.erase(channel);

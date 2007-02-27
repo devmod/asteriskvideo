@@ -178,7 +178,7 @@ int H245ChannelsFactory::SetRemoteCapabilities(H245Capabilities* remoteCapabilit
 	for(ChannelMap::iterator it = channels.begin(); it != channels.end(); it++)
 	{
 		//Get channel
-		H324MMediaChannel *chan = it->second;
+		//H324MMediaChannel *chan = it->second;
 		
 		//Here we should set an H245Channel to a H324MChannel
 	}
@@ -224,7 +224,7 @@ int H245ChannelsFactory::OnEstablishIndication(int number, H245Channel *channel)
 	//Set receiving layer
 	chan->SetReceiverLayer(channel->GetAdaptationLayer(),channel->IsSegmentable());
 
-	Debug("-Creating receiving layer [%d,%d,%x,%d,%d,%d,%d]\n",local,number,chan->GetReceiver(),channel->GetType(),chan->type,channel->GetAdaptationLayer(),channel->IsSegmentable());
+	Debug("-Creating receiving layer [%d,%d,%x,%d,%d,%d,%d]\n",local,number,chan->GetReceiver(),(int)channel->GetType(),chan->type,channel->GetAdaptationLayer(),channel->IsSegmentable());
 
 	//Append to demuxer && accept
 	return demuxer.SetChannel(number,chan->GetReceiver());

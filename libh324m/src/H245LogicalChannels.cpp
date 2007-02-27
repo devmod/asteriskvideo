@@ -113,7 +113,7 @@ int H245LogicalChannels::ReleaseRequest(int channelNumber)
 			//Change state
 			out[channelNumber] = e_AwaitingRelease;
 			//H324ControlPDU pdu;
-			H245_CloseLogicalChannel & open = pdu.BuildCloseLogicalChannel(channelNumber);
+			//H245_CloseLogicalChannel & open = pdu.BuildCloseLogicalChannel(channelNumber);
 			//Send pdu
   			return connection.WriteControlPDU(pdu);
 		}
@@ -122,7 +122,7 @@ int H245LogicalChannels::ReleaseRequest(int channelNumber)
 			//Change state
 			out[channelNumber] = e_AwaitingRelease;
 			//H324ControlPDU pdu;
-			H245_CloseLogicalChannel & open = pdu.BuildCloseLogicalChannel(channelNumber);
+			//H245_CloseLogicalChannel & open = pdu.BuildCloseLogicalChannel(channelNumber);
 			//Send pdu
   			return connection.WriteControlPDU(pdu);
 		}

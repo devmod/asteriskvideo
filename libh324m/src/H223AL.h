@@ -10,6 +10,7 @@ public:
 	//H223ALReceiver interface
 	virtual void Send(BYTE b)=0;
 	virtual void SendClosingFlag()=0;
+	virtual int IsSegmentable() = 0;
 };
 
 class H223ALSender

@@ -85,6 +85,11 @@ clean:
 	sdu.Clean();
 }
 
+int H223AL2Receiver::IsSegmentable()
+{
+	return segmentableChannel;
+}
+
 /****************** Sender **************/
 H223AL2Sender::H223AL2Sender(int segmentable,int useSequenceNumbers)
 {

@@ -15,6 +15,7 @@ public:
 	//H223ALReceiver interface
 	virtual void Send(BYTE b);
 	virtual void SendClosingFlag();
+	virtual int IsSegmentable();
 
 private:
 	int segmentableChannel;

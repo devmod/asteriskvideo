@@ -43,6 +43,11 @@ void H223AL3Receiver::SendClosingFlag()
 {
 }
 
+int H223AL3Receiver::IsSegmentable()
+{
+	return segmentableChannel;
+}
+
 /****************** Sender **************/
 H223AL3Sender::H223AL3Sender(int segmentable)
 {
