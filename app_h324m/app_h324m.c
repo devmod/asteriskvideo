@@ -57,7 +57,15 @@ static char *name_video_loopback = "video_loopback";
 static char *syn_video_loopback = "video_loopback";
 static char *des_video_loopback = "  video_loopback():  Video loopback.\n";
 
-static struct ast_frame* create_ast_frame(void *frame)
+static short blockSize[16] = { 12, 13, 15, 17, 19, 20, 26, 31,  5, -1, -1, -1, -1, -1, -1, -1};
+
+struct video_tr
+{
+	unsigned char tr;
+	unsigned int samples;
+};
+
+static struct ast_frame* create_ast_frame(void *frame, struct video_tr *vtr)
 {
 	int mark = 0;
 	struct ast_frame* send;
@@ -74,21 +82,24 @@ static struct ast_frame* create_ast_frame(void *frame)
 			if (FrameGetCodec(frame)!=CODEC_AMR)
 				/* exit */
 				return NULL;
-			printf("Create AMR frame\n");
 			/* Create frame */
-			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + framelength);
+			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + framelength + 2);
 			/* Set data*/
 			send->data = (void*)send + AST_FRIENDLY_OFFSET;
 			send->datalen = framelength;
+			/* Set header cmr */
+			((unsigned char*)(send->data))[0] = 0xF0;
+			/* Set mode */
+			((unsigned char*)(send->data))[1] = (framedata[0] & 0x78) | 0x04;
 			/* Copy */
-			memcpy(send->data, framedata, framelength);
+			memcpy(send->data+2, framedata, framelength);
 			/* Set video type */
 			send->frametype = AST_FRAME_VOICE;
 			/* Set codec value */
 			send->subclass = AST_FORMAT_AMR;
 			/* Rest of values*/
 			send->src = "h324m";
-			send->samples = framelength;
+			send->samples = 160;
 			send->delivery.tv_usec = 0;
 			send->delivery.tv_sec = 0;
 			send->mallocd = 0;
@@ -104,6 +115,16 @@ static struct ast_frame* create_ast_frame(void *frame)
 			/* if it¡s first */
 			if (framedata[0]==0 && framedata[1]==0)
 			{
+				/* Get time reference */
+				unsigned char tr = (framedata[0] << 6) & 0xC0; 	// 2 LS bits out of the 3rd byte
+				tr |= (framedata[1] >> 2) & 0x3F; 	// 6 MS bits out of the 4th byte
+				/* calculate samples */
+				if (tr < vtr->tr)
+					vtr->samples = ((256+tr) - vtr->tr) * 1000;
+				else
+					vtr->samples = (tr - vtr->tr) * 1000;
+				/* Save tr */
+				vtr->tr = tr;
 				/* No data*/
 				send->data = (void*)send + AST_FRIENDLY_OFFSET;
 				send->datalen = framelength;
@@ -132,7 +153,7 @@ static struct ast_frame* create_ast_frame(void *frame)
 			send->subclass = AST_FORMAT_H263_PLUS | mark;
 			/* Rest of values*/
 			send->src = "h324m";
-			send->samples = 9000;
+			send->samples = vtr->samples;
 			send->delivery.tv_usec = 0;
 			send->delivery.tv_sec = 0;
 			send->mallocd = 0;
@@ -144,12 +165,20 @@ static struct ast_frame* create_ast_frame(void *frame)
 	return NULL;
 }
 
-static void* create_h324m_frame(struct ast_frame* f)
+struct h324m_packetizer
 {
-	/* Data & length */
-	unsigned char *framedata = NULL;
-	int framelength = 0;
-	
+	unsigned char *framedata;
+	unsigned char *offset;
+        int framelength;
+	int num;
+	int max;
+};
+
+static int init_h324m_packetizer(struct h324m_packetizer *pak,struct ast_frame* f)
+{
+	/* Empty data */
+	memset(pak,0,sizeof(struct h324m_packetizer));
+
 	/* Depending on the type */
 	switch (f->frametype)
 	{
@@ -157,49 +186,96 @@ static void* create_h324m_frame(struct ast_frame* f)
 			/* Check audio type */
 			if (!(f->subclass & AST_FORMAT_AMR))
 				/* exit */
-				break;
-			/* Create frame */
-			return FrameCreate(MEDIA_AUDIO, CODEC_AMR, (unsigned char *)f->data, f->datalen);
+				return 0;
+			/* Get data & length */
+			pak->framedata = (unsigned char *)f->data;
+			pak->framelength = f->datalen;
+			/* Read toc until no mark found, skip first byte */
+			while ((++pak->max<pak->framelength) && (pak->framedata[pak->max] & 0x80)) {}
+			/* Check lenght */
+			if (pak->max >= pak->framelength)
+				/* Exit */	
+				return 0;
+			/* Set offset */
+			pak->offset = pak->framedata + pak->max + 1;
+			/* Good one */
+			return 1;
 		case AST_FRAME_VIDEO:
 			/* Depending on the codec */
 			if (f->subclass & AST_FORMAT_H263) 
 			{
 				/* Get data & length without rfc 2190 (only A packets ) */
-				framedata = (unsigned char *)f->data+4;
-				framelength = f->datalen-4;
+				pak->framedata = (unsigned char *)f->data+4;
+				pak->framelength = f->datalen-4;
 			} else if (f->subclass & AST_FORMAT_H263_PLUS) {
 				/* Get initial data */
-				framedata = (unsigned char *)f->data;
-				framelength = f->datalen;
+				pak->framedata = (unsigned char *)f->data;
+				pak->framelength = f->datalen;
 				/* Get header */
-				unsigned char p = framedata[0] & 0x04;
-				unsigned char v = framedata[0] & 0x02;
-				unsigned char plen = ((framedata[0] & 0x1 ) << 5 ) | (framedata[1] >> 3);
-				unsigned char pebit = framedata[0] & 0x7;
+				unsigned char p = pak->framedata[0] & 0x04;
+				unsigned char v = pak->framedata[0] & 0x02;
+				unsigned char plen = ((pak->framedata[0] & 0x1 ) << 5 ) | (pak->framedata[1] >> 3);
+				unsigned char pebit = pak->framedata[0] & 0x7;
 				/* skip header*/
-				framedata += 2+plen;
-				framelength -= 2+plen;
+				pak->framedata += 2+plen;
+				pak->framelength -= 2+plen;
 				/* Check */
 				if (v)
 				{
 					/* Increase ini */
-					framedata++;
-					framelength--;
+					pak->framedata++;
+					pak->framelength--;
 				}
 				/* Check p bit */
 				if (p)
 				{
 					/* Decrease ini */
-					framedata -= 2;
-					framelength += 2;
+					pak->framedata -= 2;
+					pak->framelength += 2;
 					/* Append 0s */	
-					framedata[0] = 0;
-					framedata[1] = 0;
+					pak->framedata[0] = 0;
+					pak->framedata[1] = 0;
 				}
 			} else
 				break;
+			/* Only 1 packet */
+			pak->max = 1;
+			/* Exit */
+			return 1;
+
+	}
+	/* Nothing to do */
+	return 0;
+}
+
+static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f)
+{
+	/* if not more */
+	if (pak->num++ == pak->max)
+		/* Exit */
+		return NULL;
+
+	/* Depending on the type */
+	switch (f->frametype)
+	{
+		case AST_FRAME_VOICE:
+		{
+			/* Check audio type */
+			if (!(f->subclass & AST_FORMAT_AMR))
+				/* exit */
+				break;
+			/* Get mode */
+			unsigned char mode = pak->framedata[pak->num] >> 3 & 0x0f;
+			/* Get blockSize */
+			unsigned bs = blockSize[mode];
+			/* Inc offset first*/
+			pak->offset += bs;
+			/* Create frame */	
+			return FrameCreate(MEDIA_AUDIO, CODEC_AMR, pak->offset - bs, bs);
+		}
+		case AST_FRAME_VIDEO:
 			/* Create frame */
-			return FrameCreate(MEDIA_VIDEO, CODEC_H263, framedata, framelength);
+			return FrameCreate(MEDIA_VIDEO, CODEC_H263, pak->framedata, pak->framelength);
 	}
 	/* NOthing */
 	return NULL;
@@ -276,6 +352,8 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	struct ast_frame *f;
 	struct ast_frame *send;
 	struct ast_module_user *u;
+	struct h324m_packetizer pak;
+	struct video_tr vtr= {0,0};
 	void*  frame;
 	char*  input;
 	int    reason = 0;
@@ -380,7 +458,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 				while ((frame=H324MSessionGetFrame(id))!=NULL)
 				{
 					/* Packetize outgoing frame */
-					if ((send=create_ast_frame(frame))!=NULL)
+					if ((send=create_ast_frame(frame,&vtr))!=NULL)
 						/* Send frame */
 						ast_write(pseudo,send);
 					/* Delete frame */
@@ -423,13 +501,15 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 			} else if (f->frametype == AST_FRAME_DTMF) {
 				
 			} else {
-				/* Create frame */
-				if ((frame=create_h324m_frame(f))!=NULL) {
-					/* Send frame */
-					H324MSessionSendFrame(id,frame);
-					/* Delete frame */
-					FrameDestroy(frame);
-				}
+				/* Init packetizer */
+				if (init_h324m_packetizer(&pak,f))
+					/* Create frame */
+					while ((frame=create_h324m_frame(&pak,f))!=NULL) {
+						/* Send frame */
+						H324MSessionSendFrame(id,frame);
+						/* Delete frame */
+						FrameDestroy(frame);
+					}
 			}
 			/* Delete frame */
 			ast_frfree(f);
@@ -466,6 +546,8 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	struct ast_frame *f;
 	struct ast_frame *send;
 	struct ast_module_user *u;
+	struct h324m_packetizer pak;
+	struct video_tr vtr = {0,0};
 	void*  frame;
 	char*  input;
 	int    reason = 0;
@@ -588,7 +670,7 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 				while ((frame=H324MSessionGetFrame(id))!=NULL)
 				{
 					/* Packetize outgoing frame */
-					if ((send=create_ast_frame(frame))!=NULL)
+					if ((send=create_ast_frame(frame,&vtr))!=NULL)
 						/* Send frame */
 						ast_write(chan,send);
 					/* Delete frame */
@@ -635,12 +717,15 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 				if (f->subclass == AST_CONTROL_HANGUP)
 					/* exit */
 					reason = AST_CAUSE_NORMAL_CLEARING;
- 			/* Create frame */
-			} else if ((frame=create_h324m_frame(f))!=NULL) {
-				/* Send frame */
-				H324MSessionSendFrame(id,frame);
-				/* Delete frame */
-				FrameDestroy(frame);
+				/* Init packetizer */
+			} else if (init_h324m_packetizer(&pak,f)) {
+				/* Create frame */
+				while ((frame=create_h324m_frame(&pak,f))!=NULL) {
+					/* Send frame */
+					H324MSessionSendFrame(id,frame);
+					/* Delete frame */
+					FrameDestroy(frame);
+				}
 			}
 			/* Delete frame */
 			ast_frfree(f);
