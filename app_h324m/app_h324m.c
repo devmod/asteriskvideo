@@ -176,6 +176,8 @@ struct h324m_packetizer
 
 static int init_h324m_packetizer(struct h324m_packetizer *pak,struct ast_frame* f)
 {
+	int i;
+
 	/* Empty data */
 	memset(pak,0,sizeof(struct h324m_packetizer));
 
@@ -199,7 +201,7 @@ static int init_h324m_packetizer(struct h324m_packetizer *pak,struct ast_frame* 
 			/* Set offset */
 			pak->offset = pak->framedata + pak->max + 1;
 			/* Move toc to the beggining so we can overwrite the byte before the frame */
-			for (int i=0;i<pak->max;i++)
+			for (i=0;i<pak->max;i++)
 				/* copy */
 				pak->framedata[i] = pak->framedata[i+1];
 			/* Good one */
@@ -272,9 +274,9 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 			unsigned char mode = pak->framedata[pak->num-1] >> 3 & 0x0f;
 			/* Get blockSize */
 			unsigned bs = blockSize[mode];
-			/* Overwrite previous byte with header*/
-			pak->offset[0] = (mode << 3) | 0x04;;
-			/* Inc offset first*/
+			/* Overwrite previous byte with header */
+			pak->offset[-1] = (mode << 3) | 0x04;;
+			/* Inc offset first */
 			pak->offset += bs;
 			/* Create frame */	
 			return FrameCreate(MEDIA_AUDIO, CODEC_AMR, pak->offset - bs - 1, bs + 1);
