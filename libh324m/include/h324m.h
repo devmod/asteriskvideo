@@ -12,6 +12,7 @@
 extern "C"
 {
 #endif
+void 	TIFFReverseBits(unsigned char* buffer,int length);
 
 void*	H324MSessionCreate();
 void	H324MSessionDestroy(void * id);
