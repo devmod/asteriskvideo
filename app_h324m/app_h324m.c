@@ -272,15 +272,17 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 			if (!(f->subclass & AST_FORMAT_AMR))
 				/* exit */
 				break;
+			/* Convert to if2 */
+			/* Get header */
+			unsigned char header = pak->framedata[pak->num-1];
+			/* Reverse header */
+			TIFFReverseBits(&header,1);
 			/* Get mode */
-			unsigned char mode = pak->framedata[pak->num-1] >> 3 & 0x0f;
+			unsigned char mode = (header >> 3 ) & 0x0f;
 			/* Get blockSize */
 			unsigned bs = blockSize[mode];
-			/* Convert to if2 */
 			/* Reverse bits */
 			TIFFReverseBits(pak->offset,bs);
-			/* Revese mode */
-			TIFFReverseBits(&mode,1);
 			/* Pad the last */
 			pak->offset[bs-1] = 0;
 			/* For each byte */
