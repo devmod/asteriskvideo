@@ -256,6 +256,8 @@ static int init_h324m_packetizer(struct h324m_packetizer *pak,struct ast_frame* 
 
 static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f)
 {
+	int i = 0;
+
 	/* if not more */
 	if (pak->num++ == pak->max)
 		/* Exit */
@@ -274,12 +276,23 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 			unsigned char mode = pak->framedata[pak->num-1] >> 3 & 0x0f;
 			/* Get blockSize */
 			unsigned bs = blockSize[mode];
-			/* Overwrite previous byte with header */
-			pak->offset[-1] = (mode << 3) | 0x04;;
+			/* Convert to if2 */
+			/* Reverse bits */
+			TIFFReverseBits(pak->offset,bs);
+			/* Revese mode */
+			TIFFReverseBits(&mode,1);
+			/* Pad the last */
+			pak->offset[bs-1] = 0;
+			/* For each byte */
+			for (i=bs-1; i>0; i--)
+				//Move bits
+				pak->offset[i] = (pak->offset[i] << 4) | (pak->offset[i-1] >>  4);
+			//Set first byte
+			pak->offset[0] = (pak->offset[0] << 4) | mode;
 			/* Inc offset first */
 			pak->offset += bs;
 			/* Create frame */	
-			return FrameCreate(MEDIA_AUDIO, CODEC_AMR, pak->offset - bs - 1, bs + 1);
+			return FrameCreate(MEDIA_AUDIO, CODEC_AMR, pak->offset - bs, bs);
 		}
 		case AST_FRAME_VIDEO:
 			/* Create frame */
