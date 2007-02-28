@@ -15,7 +15,7 @@ int main(int argc, char** argv)
 	//Check params
 	if (argc<3)
 	{
-		printf("usage: if2amr <input-file> <output-file>\n");
+		printf("usage: amr2if <input-file> <output-file>\n");
 		return 1;
 	}
 
@@ -39,8 +39,10 @@ int main(int argc, char** argv)
 		return 2;
 	}
 
-	//Write amr header
-	write(fdOut,"#!AMR\n",6);
+	unsigned char buffer[1024];
+
+	//Read amr header
+	read(fdIn,buffer,6);
 
 	//frame header
 	unsigned char header;
@@ -48,10 +50,11 @@ int main(int argc, char** argv)
 	//Read all frames
 	while(read(fdIn,&header,1))
 	{
-		unsigned char buffer[1024];
+		//Reverse
+		TIFFReverseBits(&header,1);
 
 		//Get frame mode
-		unsigned char mode = header & 0x0F;
+		unsigned char mode = (header >> 3) & 0x0F; 
 
 		//Get frame size
 		short size = blockSize[mode];
@@ -59,26 +62,27 @@ int main(int argc, char** argv)
 		printf("-Frame [%.2x,%.2x,%d]\n",header,mode,size);
 
 		//Read frame size
-		if (read(fdIn,buffer+1,size-1)!=size-1)
+		if (read(fdIn,buffer,size)!=size)
 			//Exit
 			break;
 
-		//Set header
-		buffer[0] = (mode << 3) | 0x04;
+		//Reverse
+		TIFFReverseBits(buffer,size);
+
+		//Pad the last
+		buffer[size-1] = 0;
 
 		//For each byte
-		for (int i=size; i>1; i--)
+		for (int i=size-1; i>0; i--)
 			//Move bits
 			buffer[i] = (buffer[i] << 4) | (buffer[i-1] >>  4);
 
 		//Set first byte
-		buffer[1] = (buffer[1] << 4) | (header >> 4);
+		buffer[0] = (buffer[0] << 4) | mode;
 
-		//Reverse
-		TIFFReverseBits(buffer+1,size);
 			
 		//Save frame
-		write(fdOut,buffer,size+1);	
+		write(fdOut,buffer,size);	
 	}	
 	
 	//close files
