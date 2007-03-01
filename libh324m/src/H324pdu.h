@@ -118,7 +118,7 @@ class H324ControlPDU : public H245_MultimediaSystemControlMessage
       unsigned sequenceNumber
     );
 
-    H245_MultiplexEntrySendReject & H324ControlPDU::BuildMultiplexEntrySendReject(
+    H245_MultiplexEntrySendReject & BuildMultiplexEntrySendReject(
       unsigned sequenceNumber
     );
 
