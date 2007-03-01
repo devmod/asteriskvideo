@@ -1,6 +1,6 @@
 extern "C" 
 {
-#include "src/bits.h"
+#include "bits.c"
 }
 
 #include "src/H324MSession.h"

@@ -1,8 +1,7 @@
 CXXFLAGS = -DP_USE_PRAGMA -g -D_REENTRANT -O3 -Wall -fPIC -DPIC -DPTRACING
 CFLAGS = -DP_USE_PRAGMA -g -D_REENTRANT -O3 -Wall -fPIC -DPIC -DPTRACING
 
-SRC = bits.c \
-        golay.c \
+SRC = golay.c \
 	crc8.cpp \
 	crc16.cpp \
 	Timer.cpp \

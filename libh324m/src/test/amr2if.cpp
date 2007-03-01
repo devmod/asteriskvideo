@@ -79,7 +79,6 @@ int main(int argc, char** argv)
 
 		//Set first byte
 		buffer[0] = (buffer[0] << 4) | mode;
-
 			
 		//Save frame
 		write(fdOut,buffer,size);	
