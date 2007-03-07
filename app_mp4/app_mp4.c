@@ -592,7 +592,21 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					/* Set payload type for hint track */
 					type = 96;
 					MP4SetHintTrackRtpPayload(mp4, hintVideo, "H263-1998", &type, 0, NULL, 1, 0);
-				} else
+				} else if (f->subclass & AST_FORMAT_H264) {
+					/* Should parse video packet to get this values */
+					unsigned char AVCProfileIndication 	= 2;
+					unsigned char AVCLevelIndication	= 1;
+					unsigned char AVCProfileCompat		= 1;
+					MP4Duration h264FrameDuration		= 1.0/30;
+					/* Create video track */
+					video = MP4AddH264VideoTrack(mp4, 9000, h264FrameDuration, 176, 144, AVCProfileIndication, AVCProfileCompat, AVCLevelIndication,  3);
+					/* Create video hint track */
+					hintVideo = MP4AddHintTrack(mp4, video);
+					/* Set payload type for hint track */
+					type = 99;
+					MP4SetHintTrackRtpPayload(mp4, hintVideo, "H264", &type, 0, NULL, 1, 0);
+
+				}
 					/* Unknown codec nothing to do */
 					break;
 
@@ -635,7 +649,17 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					prependBuffer = "\0\0";
 					prependLength = 2;
 				} 
-			} else
+			} else if (f->subclass & AST_FORMAT_H264) {
+				/* All intra */
+				intra = 1;
+				/* Save all to the rtp payload */
+				payload = f->datalen;
+				/* Don't add frame data to payload */
+				skip = f->datalen;
+				/* And add the data to the frame but not associated with the hint track */
+				prependBuffer = f->data+1;
+				prependLength = f->datalen-1;
+			} else 
 				/* Unknown codec nothing to do */
 				break;
 
