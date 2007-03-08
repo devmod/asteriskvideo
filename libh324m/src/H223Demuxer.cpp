@@ -94,6 +94,12 @@ void H223Demuxer::StartPDU(H223Flag &flag)
 
 void H223Demuxer::EndPDU(H223Flag &flag)
 {
+
+	for(std::map<int,H223ALReceiver*>::iterator it = al.begin(); it != al.end(); it++)
+	{
+		if(!it->second->IsSegmentable())
+			it->second->SendClosingFlag();
+	}
 	
 	//If the flag is the complement
 	if (flag.complement)
@@ -184,8 +190,10 @@ void H223Demuxer::Demultiplex(BYTE b)
 				//And return
 				return;
 			
-			//Set end PDU
-			EndPDU(flag);
+			
+			//Set end PDU if not stuffing
+			if(header.mpl)
+				EndPDU(flag);
 
 			//Start the next PDU
 			StartPDU(flag);

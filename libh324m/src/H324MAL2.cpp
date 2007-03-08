@@ -45,6 +45,10 @@ void H223AL2Receiver::Send(BYTE b)
 
 void H223AL2Receiver::SendClosingFlag()
 {
+	//Check empty
+	if	(sdu.Length() == 0)
+		return;
+
 	//Crc
 	CRC8 crc;
 

@@ -141,25 +141,30 @@ int H223Muxer::GetBestMC(int max)
 		while(j<max)
 		{
 			//Get next channel for table
-			int c = table->GetChannel(i,j++);
+			int c = table->GetChannel(i,j);
 
 			//If we don't have a mux for that channel
 			if (c==-1 || sduLen[c]==0)
 				break;
 
+			 //If channel is non-segmentble and it was already ended
+			if (!senders[c]->IsSegmentable() && (len[c] == sduLen[c]))
+				//Exit
+				break;
+			
 			//Increase counter
 			len[c]++;
-
-			//Do we have more on this channel?
-			if(len[c] == sduLen[c])
+			j++;
+			
+			//If channel is segmentble and it has ended
+			if (senders[c]->IsSegmentable() && (len[c] == sduLen[c]))
 			{
-				//If channel is segmentble
-				if (senders[c]->IsSegmentable())
-					//Finish sdu
-					end = 1;
+				//Finish sdu
+				end = 1;
 				//Exit
 				break;
 			}
+
 		}
 
 		//Calculate ratio
@@ -168,7 +173,7 @@ int H223Muxer::GetBestMC(int max)
 		//For each sdu
 		for (int k=0;k<256;k++)
 			if (len[k]>0)
-				ratio +=  (float)sduLen[k]/len[k];
+				ratio +=  (float)len[k]/sduLen[k];
 
 		//If the ratio is better
 		if (ratio>best)
@@ -265,13 +270,24 @@ BYTE H223Muxer::Multiplex()
 					//Send the byte
 					return b;
 				}
-				//If we have finished the sdu or the channel is non-segmentable
-				if (pm || (channel!= -1 && !senders[channel]->IsSegmentable()))
+				//Remove all empty sdus
 				{
-					//Remove the last sdu from the channel
-					sdus.erase(channel);
-					//Set the event
-					senders[channel]->OnPDUCompleted();
+					H223MuxSDUMap::iterator it = sdus.begin();
+					while(it!=sdus.end())
+					{
+						//Get channel and sdu
+						int number		= it->first;
+						H223MuxSDU* sdu = it->second;
+						//If it's empty
+						if ((sdu!=NULL) && (sdu->Length()==0))
+						{
+							//Erase
+							sdus.erase(it++);
+							//Set event
+							senders[number]->OnPDUCompleted();
+						} else
+							++it;
+					}
 				}
 
 				//No state

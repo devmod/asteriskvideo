@@ -56,6 +56,9 @@ int main(int argc, char** argv)
 		//Get frame size
 		short size = blockSize[mode];
 
+		if(size == -1)
+			continue;
+
 		printf("-Frame [%.2x,%.2x,%d]\n",header,mode,size);
 
 		//Read frame size
