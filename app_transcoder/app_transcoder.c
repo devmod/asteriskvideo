@@ -145,6 +145,13 @@ void * VideoTranscoderEncode(void *param)
 	/* Until stoped */
 	while (!vtc->end)
 	{
+		/* Calculate sleep time */
+		tv.tv_sec  = 0;
+		tv.tv_usec = 1000000/vtc->fps;
+
+		/* Sleep */
+        	select(0,0,0,0,&tv);
+
 		/* If there are new pic*/
 		if (vtc->newPic)
 		{
@@ -214,13 +221,6 @@ void * VideoTranscoderEncode(void *param)
 			/* Reset new pic flag */
 			vtc->newPic = 0;
 		}
-
-		/* Calculate sleep time */
-		tv.tv_sec  = 0;
-		tv.tv_usec = 1000000/vtc->fps;
-
-		/* Sleep */
-        	select(0,0,0,0,&tv);
 	}
 
 	/* Exit */
@@ -230,26 +230,77 @@ void * VideoTranscoderEncode(void *param)
 
 static struct VideoTranscoder * VideoTranscoderCreate(struct ast_channel *channel,char *format)
 {
+	char *i;
+
+	/* Check params */
+	if (strncasecmp(format,"h263",4))
+		/* Only h263 output by now*/
+		return NULL;
+
 	/* Create transcoder */
 	struct VideoTranscoder *vtc = (struct VideoTranscoder *) malloc(sizeof(struct VideoTranscoder));
 
 	/* Set channel */
 	vtc->channel	= channel;
 
-	/* Set parameters */
+	/* Set default parameters */
 	vtc->format 	= 0;
-	vtc->fps	= 6;
-	vtc->bitrate 	= 52000;
-	vtc->qMin	= 2;
-	vtc->qMax	= 16;
-	vtc->gop_size	= 50;
-	
+	vtc->fps	= -1;
+	vtc->bitrate 	= -1;
+	vtc->qMin	= -1;
+	vtc->qMax	= -1;
+	vtc->gop_size	= -1;
+
+	/* Get first parameter */
+	i = strchr(format,'@');
+
+	/* Parse param */
+	while (i)
+	{
+		/* skip separator */
+		i++;
+
+		/* compare */
+		if (strncasecmp(i,"qcif",4)==0)
+		{
+			/* Set qcif */
+			vtc->format = 0;
+		} else if (strncasecmp(i,"cif",3)==0) {
+			/* Set cif */
+			vtc->format = 1;
+		} else if (strncasecmp(i,"fps=",4)==0) {
+			/* Set fps */
+			vtc->fps = atoi(i+4);
+		} else if (strncasecmp(i,"kb=",3)==0) {
+			/* Set bitrate */
+			vtc->bitrate = atoi(i+3)*1024;
+		} else if (strncasecmp(i,"qmin=",5)==0) {
+			/* Set qMin */
+			vtc->qMin = atoi(i+5);
+		} else if (strncasecmp(i,"qmax=",5)==0) {
+			/* Set qMax */
+			vtc->qMax = atoi(i+5);
+		} else if (strncasecmp(i,"gs=",3)==0) {
+			/* Set gop size */
+			vtc->gop_size = atoi(i+3);
+		}
+
+		/* Find next param*/
+		i = strchr(i,'/');
+	}
+
+	printf("-Transcoder [f=%d,fps=%d,kb=%d,qmin=%d,qmax=%d,gs=%d]\n",vtc->format,vtc->fps,vtc->bitrate,vtc->qMin,vtc->qMax,vtc->gop_size);
+
 	/* Depending on the format */
 	switch(vtc->format)
 	{
 		case 0:
 			vtc->encoderWidth  = 176;
 			vtc->encoderHeight = 144;
+			break;
+		case 1:
+			vtc->encoderWidth  = 352;
+			vtc->encoderHeight = 288;
 			break;
 	}	
 
@@ -296,23 +347,46 @@ static struct VideoTranscoder * VideoTranscoderCreate(struct ast_channel *channe
         //vtc->encoderCtx->rtp_callback       = RtpCallback;
         //vtc->encoderCtx->opaque             = vtc;
 
-        /* Bitrate fps */
-        vtc->encoderCtx->bit_rate           = vtc->bitrate;
-        vtc->encoderCtx->bit_rate_tolerance = 1;
-        vtc->encoderCtx->time_base    	    = (AVRational){1,vtc->fps};/* frames per second */
-        vtc->encoderCtx->gop_size           = vtc->gop_size; // about one Intra frame per second
+        /* Bitrate */
+	if (vtc->bitrate>0)
+	{
+		/* Set encoder params */
+		vtc->encoderCtx->bit_rate           = vtc->bitrate;
+        	vtc->encoderCtx->bit_rate_tolerance = 1;
+	}
+
+	/* fps*/
+	if (vtc->fps>0)
+		/* set encoder params*/
+        	vtc->encoderCtx->time_base    	    = (AVRational){1,vtc->fps};/* frames per second */
+
+	/* gop size */
+	if (vtc->gop_size>0)
+		/* set encoder params*/
+        	vtc->encoderCtx->gop_size           = vtc->gop_size; // about one Intra frame per second
+
+	/* Bitrate */
+	if (vtc->bitrate>0)
+	{
+		/* set encoder params*/
+		vtc->encoderCtx->rc_min_rate        = vtc->bitrate;
+		vtc->encoderCtx->rc_max_rate        = vtc->bitrate;
+	}	
+
+	/* qMin */
+	if (vtc->qMin>0)
+		vtc->encoderCtx->mb_qmin = vtc->encoderCtx->qmin= vtc->qMin;
+	/* qMax */
+	if (vtc->qMax>0)
+		vtc->encoderCtx->mb_qmax = vtc->encoderCtx->qmax= vtc->qMax;
 
         /* Video quality */
-        vtc->encoderCtx->rc_min_rate        = vtc->bitrate;
-        vtc->encoderCtx->rc_max_rate        = vtc->bitrate;
         vtc->encoderCtx->rc_buffer_size     = vtc->bufferSize;
         vtc->encoderCtx->rc_qsquish         = 0; //ratecontrol qmin qmax limiting method.
         vtc->encoderCtx->max_b_frames       = 0;
-        vtc->encoderCtx->mb_qmin = vtc->encoderCtx->qmin= vtc->qMin;
-        vtc->encoderCtx->mb_qmax = vtc->encoderCtx->qmax= vtc->qMax;
-        vtc->encoderCtx->i_quant_factor     = (float)-0.6;
+        /*vtc->encoderCtx->i_quant_factor     = (float)-0.6;
         vtc->encoderCtx->i_quant_offset     = (float)0.0;
-        vtc->encoderCtx->b_quant_factor     = (float)1.5;
+        vtc->encoderCtx->b_quant_factor     = (float)1.5;*/
 
         /* Flags */
         vtc->encoderCtx->mb_decision = FF_MB_DECISION_SIMPLE;
@@ -543,19 +617,49 @@ static int app_transcode(struct ast_channel *chan, void *data)
 	struct VideoTranscoder *fwd = NULL;
 	struct VideoTranscoder *rev = NULL;
 
+	char *fwdParams;
+	char *revParams;
+	char *local;
+	char *a;
+	char *b;
+
+
+	/* Find fwd params */
+	if (!(a=strchr((char*)data,'|')))
+		return 0;
+
+	/* Find local channel params */
+	if (!(b=strchr(a+1,'|')))
+		return 0;
+
+	/* Set local params */
+	fwdParams = strndup((char*)data,a-(char*)data);
+	local 	  = strndup(a+1,b-a-1);
+	revParams = strndup(b+1,strlen((char*)data)-(b-(char*)data)-1);
+
+	printf("-transcoding [%s,%s,%s]\n",fwdParams,local,revParams);
+
 	/* Lock module */
 	u = ast_module_user_add(chan);
 
+
 	/* Request new channel */
-	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_MPEG4 | AST_FORMAT_H263_PLUS | chan->rawreadformat, data, &reason);
+	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_MPEG4 | AST_FORMAT_H263_PLUS | chan->rawreadformat, local, &reason);
  
 	/* If somthing has gone wrong */
 	if (!pseudo)
 		/* goto end */
 		goto end; 
 
-	/* Create context */
-	rev = VideoTranscoderCreate(chan,"");
+	/* Create contexts */
+	fwd = VideoTranscoderCreate(chan,fwdParams);
+	rev = VideoTranscoderCreate(chan,revParams);
+
+	/* Free params */
+	free(fwdParams);
+	free(local);
+	free(revParams);
+
 
 	/* Set caller id */
 	ast_set_callerid(pseudo, chan->cid.cid_num, chan->cid.cid_name, chan->cid.cid_num);
