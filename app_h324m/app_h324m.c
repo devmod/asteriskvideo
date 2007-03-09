@@ -112,7 +112,7 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_tr *vtr)
 				return NULL;
 			/* Create frame */
 			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 2 + framelength);
-			/* if it¡s first */
+			/* if its first */
 			if (framedata[0]==0 && framedata[1]==0)
 			{
 				/* Get time reference */
@@ -275,8 +275,6 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 			/* Convert to if2 */
 			/* Get header */
 			unsigned char header = pak->framedata[pak->num-1];
-			/* Reverse header */
-			TIFFReverseBits(&header,1);
 			/* Get mode */
 			unsigned char mode = (header >> 3 ) & 0x0f;
 			/* Get blockSize */
