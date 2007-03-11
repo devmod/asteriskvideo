@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Sergio Garcia Murillo <sergio.garcia@ydilo.com>
+ * Sergio Garcia Murillo <sergio.garcia@fontventa.com>
  *
  * See http://www.asterisk.org for more information about
  * the Asterisk project. Please do not directly contact
@@ -174,7 +174,7 @@ struct mp4rtp {
 	unsigned int sampleId;
 	unsigned short numHintSamples;
 	unsigned short packetIndex;
-	int frameSamples;
+	unsigned int frameSamples;
 	int frameSize;
 	int frameTime;
 	int frameType;
@@ -207,7 +207,11 @@ static int mp4_rtp_read(struct mp4rtp *p)
 
 		/* Get sample timestamp */
 		p->frameTime = MP4GetSampleTime(p->mp4, p->hint, p->sampleId);
+	} else {
+		/* Reset frame samples */
+		p->frameSamples = 0;
 	}
+
 
 	/* if it's the last */
 	if (p->packetIndex + 1 == p->numHintSamples)
@@ -215,6 +219,9 @@ static int mp4_rtp_read(struct mp4rtp *p)
 
 	/* malloc frame & data */
 	f = (struct ast_frame *) malloc(sizeof(struct ast_frame) + 1500);
+
+	/* Unset */
+	memset(f, 0, sizeof(struct ast_frame) + 1500);
 
 	/* Let mp4 lib allocate memory */
 	f->data = (void*)f + AST_FRIENDLY_OFFSET;
@@ -225,15 +232,21 @@ static int mp4_rtp_read(struct mp4rtp *p)
 	f->frametype = p->frameType;
 	f->subclass = p->frameSubClass;
 
-	/* Set number of samples */
-	f->samples = p->frameSamples;
 	f->delivery.tv_usec = 0;
 	f->delivery.tv_sec = 0;
 	f->mallocd = 0;
 
 	/* If it's video set the mark of last rtp packet */
 	if (f->frametype == AST_FRAME_VIDEO)
+	{
+		/* Set mark bit */
 		f->subclass |= last;
+		/* Set number of samples */
+		f->samples = p->frameSamples * (90000 / p->timeScale);
+	} else {
+		/* Set number of samples */
+		f->samples = p->frameSamples;
+	}
 
 	/* Read next rtp packet */
 	if (!MP4ReadRtpPacket(
