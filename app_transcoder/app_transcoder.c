@@ -88,6 +88,27 @@ struct VideoTranscoder
 	pthread_t encoderThread;
 };
 
+struct RFC2190H263HeadersBasic
+{
+        //F=0             F=1
+        //P=0   I/P frame       I/P mode b
+        //P=1   B frame         B fame mode C
+        unsigned int trb:9;
+        unsigned int tr:3;
+        unsigned int dbq:2;
+        unsigned int r:3;
+        unsigned int a:1;
+        unsigned int s:1;
+        unsigned int u:1;
+        unsigned int i:1;
+        unsigned int src:3;
+        unsigned int ebits:3;
+        unsigned int sbits:3;
+        unsigned int p:1;
+        unsigned int f:1;
+};
+
+
 void RtpCallback(struct AVCodecContext *avctx, void *data, int size, int mb_nb);
 void * VideoTranscoderEncode(void *param);
 
@@ -545,18 +566,103 @@ void RtpCallback(struct AVCodecContext *avctx, void *data, int size, int mb_nb)
 	vtc->mb+=mb_nb;
 }
 
-static int rfc2190_append(unsigned char *dest,unsigned char *buffer, unsigned bufferLen)
+static int rfc2190_append(unsigned char *dest, unsigned int destLen, unsigned char *buffer, unsigned int bufferLen)
 {
-	/* Just copy */
-	memcpy(dest,buffer,bufferLen);
+
+	/* Check length */
+	if (bufferLen<sizeof(struct RFC2190H263HeadersBasic))
+		/* exit */
+		return 0;
+
+	/* Get headers */
+	unsigned int x = ntohl(*(unsigned int *)buffer);
+
+	/* Set headers */
+	struct RFC2190H263HeadersBasic *headers = (struct RFC2190H263HeadersBasic *)x;
+
+	/* Get ini */
+	unsigned char* in = buffer + sizeof(struct RFC2190H263HeadersBasic);
+	unsigned int  len = sizeof(struct RFC2190H263HeadersBasic);
+
+	/* If C type */
+	if (headers->f)
+	{
+		/* Skip rest of header */
+		in+=4;
+		len-=4;
+	}
+
+	/* Skip first bits */
+	in[0] &= 0xff >> headers->sbits;
+
+	/* Skip end bits */
+	if (len>0)
+		in[len-1] &= 0xff << headers->ebits;
+
+	/* Mix first and end byte */
+	if(headers->sbits!=0 && destLen>0)
+	{
+		/* Append to previous byte */
+		dest[destLen-1] |= in[0];
+		/* Skip first */
+		in++;
+		len--;
+	}
+
+	/* Copy the rest */
+	memcpy(dest+destLen,in,len);
+
 	/* Return added */
-	return bufferLen;
+	return len;
 }
 
-static int mpeg4_append(unsigned char *dest,unsigned char *buffer, unsigned bufferLen)
+static int rfc2429_append(unsigned char *dest, unsigned int destLen, unsigned char *buffer, unsigned int bufferLen)
+{
+	/* Check length */
+	if (bufferLen<2)
+		/* exit */
+		return 0;
+
+	 /* Get header */
+	unsigned char p = buffer[0] & 0x04;
+	unsigned char v = buffer[0] & 0x02;
+	unsigned char plen = ((buffer[0] & 0x1 ) << 5 ) | (buffer[1] >> 3);
+	unsigned char pebit = buffer[0] & 0x7;
+
+	/* Get ini */
+	unsigned char* in = buffer+2+plen;
+	unsigned int  len = bufferLen-2-plen;
+
+	/* Check */
+	if (v)
+	{
+		/* Increase ini */
+		in++;
+		len--;
+	}
+
+	/* Check p bit */
+	if (p)
+	{
+		/* Decrease ini */
+		in -= 2;
+		len += 2;
+		/* Append 0s */
+		buffer[0] = 0;
+		buffer[1] = 0;
+	}
+
+	/* Copy the rest */
+	memcpy(dest+destLen,in,len);
+
+	/* Return added */
+	return len;
+}
+
+static int mpeg4_append(unsigned char *dest, unsigned int destLen, unsigned char *buffer, unsigned int bufferLen)
 {
 	/* Just copy */
-	memcpy(dest,buffer,bufferLen);
+	memcpy(dest+destLen,buffer,bufferLen);
 	/* Return added */
 	return bufferLen;
 }
@@ -574,25 +680,25 @@ static int VideoTranscoderWrite(struct VideoTranscoder *vtc, int codec, unsigned
 		/* Check codec */
 		VideoTranscoderSetDecoder(vtc,CODEC_ID_H263);
 		/* Depacketize */
-		vtc->frameLen += rfc2190_append(vtc->frame+vtc->frameLen,buffer,bufferLen);
+		vtc->frameLen += rfc2190_append(vtc->frame,vtc->frameLen,buffer,bufferLen);
 
 	} else if (codec & AST_FORMAT_H263_PLUS) {
 		/* Check codec */
 		VideoTranscoderSetDecoder(vtc,CODEC_ID_H263);
 		/* Depacketize */
-		vtc->frameLen += rfc2190_append(vtc->frame+vtc->frameLen,buffer,bufferLen);
+		vtc->frameLen += rfc2429_append(vtc->frame,vtc->frameLen,buffer,bufferLen);
 
 	} else if (codec & AST_FORMAT_H264) {
 		/* Check codec */
 		VideoTranscoderSetDecoder(vtc,CODEC_ID_H264);
 		/* Depacketize */
-		vtc->frameLen += rfc2190_append(vtc->frame+vtc->frameLen,buffer,bufferLen);
+		vtc->frameLen += mpeg4_append(vtc->frame,vtc->frameLen,buffer,bufferLen);
 
 	} else if (codec & AST_FORMAT_MPEG4) {
 		/* Check codec */
 		VideoTranscoderSetDecoder(vtc,CODEC_ID_MPEG4);
 		/* Depacketize */
-		vtc->frameLen += mpeg4_append(vtc->frame+vtc->frameLen,buffer,bufferLen);
+		vtc->frameLen += mpeg4_append(vtc->frame,vtc->frameLen,buffer,bufferLen);
 
 	}else{
 		printf("-Unknown codec [%d]\n",codec);
