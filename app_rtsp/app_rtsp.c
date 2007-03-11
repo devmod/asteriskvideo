@@ -186,7 +186,6 @@ static void GetUdpPorts(int *a,int *b,int *p,int *q)
 	/* Create audio sockets */
 	while ( *p%2 || *p+1!=*q )
 	{
-		printf("[%d,%d,%d,%d]\n",*a,*b,*p,*q);
 		/* Close first */
 		close(*a);
 		/* Move one forward */
@@ -1135,6 +1134,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 			
 			/* malloc frame & data */
 			sendFrame = (struct ast_frame *) malloc(sizeof(struct ast_frame) + rtpSize);
+			/* Clean frame */
+			memset(sendFrame,0,sizeof(struct ast_frame) + rtpSize);
 			/* Set data pointer */
 			rtpBuffer = (void*)sendFrame + AST_FRIENDLY_OFFSET;
 
@@ -1160,7 +1161,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 			rtp->pt;
 
 			/* Get timestamp */
-			int ts = ntohl(rtp->ts);
+			unsigned int ts = ntohl(rtp->ts);
 			 
 			/* Set frame data */
 			sendFrame->data = rtpBuffer+ini;
@@ -1192,10 +1193,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 				else
 					/* Set number of samples to 0 */
 					sendFrame->samples = 0;
-				/* If last */
-				if (rtp->m)
-					/* Save ts */
-					lastVideo = ts;
+				/* Save ts */
+				lastVideo = ts;
 			}
 
 			/* Set mark */
