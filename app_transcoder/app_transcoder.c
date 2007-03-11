@@ -98,6 +98,9 @@ static void SendVideoFrame(struct VideoTranscoder *vtc, void *data, int size, in
 	/* Create frame */
 	send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 2 + size);
 
+	/* clean */
+	memset(send,0,sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 2 + size);
+
 	/* if it¡s first */
 	if (first)
 	{
@@ -109,6 +112,8 @@ static void SendVideoFrame(struct VideoTranscoder *vtc, void *data, int size, in
 		/* Set header */
 		((unsigned char*)(send->data))[0] = 0x04;
 		((unsigned char*)(send->data))[1] = 0x00; 
+		/* Set timestamp */
+		send->samples = 90000/vtc->fps;
 	} else {
 		/* No data*/
 		send->data = (void*)send + AST_FRIENDLY_OFFSET;
@@ -118,6 +123,8 @@ static void SendVideoFrame(struct VideoTranscoder *vtc, void *data, int size, in
 		/* Set header */
 		((unsigned char*)(send->data))[0] = 0x00;
 		((unsigned char*)(send->data))[1] = 0x00;
+		/* Set timestamp */
+		send->samples = 0;
 	}
 
 	/* Set video type */
@@ -126,7 +133,6 @@ static void SendVideoFrame(struct VideoTranscoder *vtc, void *data, int size, in
 	send->subclass = AST_FORMAT_H263_PLUS | last;
 	/* Rest of values*/
 	send->src = "h324m";
-	send->samples = 90000/vtc->fps;
 	send->delivery.tv_usec = 0; //(vtc->sent_bytes*8000)/vtc->bitrate;
 	send->delivery.tv_sec = 0;
 	send->mallocd = 0;
