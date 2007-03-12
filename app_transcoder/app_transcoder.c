@@ -51,6 +51,7 @@ struct VideoTranscoder
 	AVCodec         *decoder;
         AVCodecContext  *decoderCtx;
         AVFrame         *decoderPic;
+	int		decoderOpened;
 
 	char*	pictures[2];
 	int	picIndex;
@@ -362,6 +363,7 @@ static struct VideoTranscoder * VideoTranscoderCreate(struct ast_channel *channe
 	vtc->encoder = avcodec_find_encoder(CODEC_ID_H263);
 	/* No decoder still */
 	vtc->decoder = NULL;
+	vtc->decoderOpened = 0;
 
 	/* Picture data */
 	vtc->encoderCtx->pix_fmt 	= PIX_FMT_YUV420P;
@@ -452,8 +454,11 @@ static int VideoTranscoderDestroy(struct VideoTranscoder *vtc)
 	/* Free decoder */
 	if (vtc->decoderCtx)
 	{
-		/* Close */
-		avcodec_close(vtc->decoderCtx);
+		/*If already open */
+		if (vtc->decoderOpened)
+			/* Close */
+			avcodec_close(vtc->decoderCtx);
+		/* Free */
         	free(vtc->decoderCtx);
 	}
 	/* Free pic */
@@ -538,6 +543,11 @@ static void VideoTranscoderSetDecoder(struct VideoTranscoder *vtc,int codec)
 		/* Exit */
 		return;
 
+	/*If already open */
+	if (vtc->decoderOpened)
+		/* Close previous one */
+		avcodec_close(vtc->decoderCtx);
+
 	/* Get decoder */
 	vtc->decoder = avcodec_find_decoder(codec);
 
@@ -552,6 +562,9 @@ static void VideoTranscoderSetDecoder(struct VideoTranscoder *vtc,int codec)
 
         /* Open */
         avcodec_open(vtc->decoderCtx, vtc->decoder);
+
+	/* We are open*/
+	vtc->decoderOpened = 1;
 }
 
 
@@ -751,9 +764,12 @@ static int app_transcode(struct ast_channel *chan, void *data)
 
 	printf("-transcoding [%s,%s,%s]\n",fwdParams,local,revParams);
 
+	/* Create contexts */
+	fwd = VideoTranscoderCreate(chan,fwdParams);
+	rev = VideoTranscoderCreate(chan,revParams);
+
 	/* Lock module */
 	u = ast_module_user_add(chan);
-
 
 	/* Request new channel */
 	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_MPEG4 | AST_FORMAT_H263_PLUS | chan->rawreadformat, local, &reason);
@@ -763,15 +779,10 @@ static int app_transcode(struct ast_channel *chan, void *data)
 		/* goto end */
 		goto end; 
 
-	/* Create contexts */
-	fwd = VideoTranscoderCreate(chan,fwdParams);
-	rev = VideoTranscoderCreate(chan,revParams);
-
 	/* Free params */
 	free(fwdParams);
 	free(local);
 	free(revParams);
-
 
 	/* Set caller id */
 	ast_set_callerid(pseudo, chan->cid.cid_num, chan->cid.cid_name, chan->cid.cid_num);
@@ -912,7 +923,7 @@ end:
 	/* Unlock module*/
 	ast_module_user_remove(u);
 
-	/* Without hangup** Without hangup*/
+	/* Exit without hangup*/
 	return 0;
 }
 
