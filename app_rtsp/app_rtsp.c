@@ -368,7 +368,7 @@ static int RtspPlayerSetupAudio(struct RtspPlayer* player,const char *url)
 	} else {
 		/* Prepare request */
 		snprintf(request,1024,
-				"SETUP rtsp://%s%s%s RTSP/1.0\r\n"
+				"SETUP rtsp://%s%s/%s RTSP/1.0\r\n"
 				"CSeq: %d\r\n"
 				"%s"
 				"Transport: RTP/AVP;unicast;client_port=%d-%d\r\n"
@@ -420,7 +420,7 @@ static int RtspPlayerSetupVideo(struct RtspPlayer* player,const char *url)
 	} else {
 		/* Prepare request */
 		snprintf(request,1024,
-				"SETUP rtsp://%s%s%s RTSP/1.0\r\n"
+				"SETUP rtsp://%s%s/%s RTSP/1.0\r\n"
 				"CSeq: %d\r\n"
 				"%s"
 				"Transport: RTP/AVP;unicast;client_port=%d-%d\r\n"
@@ -579,6 +579,8 @@ static struct SDPMedia* CreateMedia(char *buffer,int bufferLen)
 		media->formats[i]->control 	= NULL;
 	}
 
+	printf("-creating media [%d,%s]\n",media->num,strndup(buffer,bufferLen));
+
 	/* Return media */
 	return media;
 }
@@ -620,11 +622,18 @@ static struct SDPContent* CreateSDP(char *buffer,int bufferLen)
 	sdp->video = NULL;
 
 	/* Read each line */
-	while ( (j=strstr(i,"\r\n")) != NULL)
+	while ( (j=strstr(i,"\n")) != NULL)
 	{
 		/* if it¡s not enougth data */
-		if (j-i<=2)
+		if (j-i<=1)
 			goto next;
+
+		/* If previous is a \r" */
+		if (j[-1]=='\r')
+			/* Decrease end */
+			j--;
+
+		printf("-line [%s]\n",strndup(i,j-i));
 
 		/* Check header */
 		if (strncmp(i,"m=",2)==0) 
@@ -680,20 +689,38 @@ static struct SDPContent* CreateSDP(char *buffer,int bufferLen)
 				}
 			/* Inc medias */
 			n++;
-
+			
 		} else if (strncmp(i,"a=control:",10)==0){
 			/* if not in media */
 			if (!media)
 				goto next;
 			/* If more than formats */
-			if ((n==0) || (n>media->num))
+			if (n>media->num)
 				goto next;
-			/* Get control */
-			 media->formats[n-1]->control = strndup(i+10,j-i-10);
+			/* If it's previous to the ftmp */
+			if (n==0)
+			{
+				/* Set control for all */
+				for ( f=0; f<media->num; f++)
+					/* Set */
+					media->formats[f]->control = strndup(i+10,j-i-10);
+			} else  {
+				/* if already had control */
+				if (media->formats[n-1]->control)
+					/* Free it */
+					free(media->formats[n-1]->control);
+				/* Get new control */
+			 	media->formats[n-1]->control = strndup(i+10,j-i-10);
+			}
 		}
 next:
-		/* next line */
-		i = j+2;
+		/* if it's a \r */
+		if (j[0]=='\r')
+			/* skip \r\n to next line */
+			i = j+2;
+		else
+			/* skip \n to next line */
+			i = j+1;
 	}
 
 	/* Return sdp */
