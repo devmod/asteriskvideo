@@ -60,8 +60,8 @@ struct VideoTranscoder
 	int 	newPic;
 
 	char* 	frame;
-	int	frameSize;
-	int	frameLen;
+	unsigned int	frameSize;
+	unsigned int	frameLen;
 
 	/* Encoder */
 	AVCodec         *encoder;
@@ -69,8 +69,8 @@ struct VideoTranscoder
         AVFrame         *encoderPic;
 	
 	char* 	buffer;
-	int	bufferSize;
-	int	bufferLen;
+	unsigned int	bufferSize;
+	unsigned int	bufferLen;
 	int 	mb;
 	int	mb_total;
 	int 	sent_bytes;
@@ -113,7 +113,7 @@ struct RFC2190H263HeadersBasic
 void RtpCallback(struct AVCodecContext *avctx, void *data, int size, int mb_nb);
 void * VideoTranscoderEncode(void *param);
 
-static void SendVideoFrame(struct VideoTranscoder *vtc, void *data, int size, int first, int last)
+static void SendVideoFrame(struct VideoTranscoder *vtc, void *data, unsigned int size, int first, int last)
 {
 	struct ast_frame *send;
 
@@ -221,8 +221,8 @@ void * VideoTranscoderEncode(void *param)
 
 			int first = 1;
 			int last  = 0;
-			int sent  = 0;
-			int len   = 0;
+			unsigned int sent  = 0;
+			unsigned int len   = 0;
 			
 			/* Send */
 			while(sent<vtc->bufferLen)
@@ -489,7 +489,7 @@ static void VideoTranscoderCleanFrame(struct VideoTranscoder *vtc)
 	vtc->frameLen = 0;
 }
 
-static void VideoTranscoderDecodeFrame(struct VideoTranscoder *vtc)
+static int VideoTranscoderDecodeFrame(struct VideoTranscoder *vtc)
 {
 	char *bufDecode;
 	int got_picture;
@@ -504,7 +504,7 @@ static void VideoTranscoderDecodeFrame(struct VideoTranscoder *vtc)
 		/* Check size */
 		if(vtc->decoderCtx->width==0 || vtc->decoderCtx->height==0)
 			/* Exit */
-			return;
+			return 0;
 
 		/* Get pointer to frame */
 		bufDecode = vtc->pictures[vtc->picIndex];
@@ -534,6 +534,9 @@ static void VideoTranscoderDecodeFrame(struct VideoTranscoder *vtc)
 		/* Set new frame flag */
 		vtc->newPic = 1;
 	}
+
+	/* Got frame */
+	return got_picture;
 }
 
 static void VideoTranscoderSetDecoder(struct VideoTranscoder *vtc,int codec)
@@ -579,7 +582,7 @@ void RtpCallback(struct AVCodecContext *avctx, void *data, int size, int mb_nb)
 	vtc->mb+=mb_nb;
 }
 
-static int rfc2190_append(unsigned char *dest, unsigned int destLen, unsigned char *buffer, unsigned int bufferLen)
+static unsigned int rfc2190_append(unsigned char *dest, unsigned int destLen, unsigned char *buffer, unsigned int bufferLen)
 {
 
 	/* Check length */
@@ -629,7 +632,7 @@ static int rfc2190_append(unsigned char *dest, unsigned int destLen, unsigned ch
 	return len;
 }
 
-static int rfc2429_append(unsigned char *dest, unsigned int destLen, unsigned char *buffer, unsigned int bufferLen)
+static unsigned int rfc2429_append(unsigned char *dest, unsigned int destLen, unsigned char *buffer, unsigned int bufferLen)
 {
 	/* Check length */
 	if (bufferLen<2)
@@ -672,7 +675,7 @@ static int rfc2429_append(unsigned char *dest, unsigned int destLen, unsigned ch
 	return len;
 }
 
-static int mpeg4_append(unsigned char *dest, unsigned int destLen, unsigned char *buffer, unsigned int bufferLen)
+static unsigned int mpeg4_append(unsigned char *dest, unsigned int destLen, unsigned char *buffer, unsigned int bufferLen)
 {
 	/* Just copy */
 	memcpy(dest+destLen,buffer,bufferLen);
@@ -680,7 +683,7 @@ static int mpeg4_append(unsigned char *dest, unsigned int destLen, unsigned char
 	return bufferLen;
 }
 
-static int VideoTranscoderWrite(struct VideoTranscoder *vtc, int codec, unsigned char *buffer, unsigned bufferLen, int mark)
+static unsigned int VideoTranscoderWrite(struct VideoTranscoder *vtc, int codec, unsigned char *buffer, unsigned int bufferLen, int mark)
 {
 	/* If not enougth */
 	if (bufferLen + vtc->frameLen > vtc->frameSize);
@@ -720,11 +723,12 @@ static int VideoTranscoderWrite(struct VideoTranscoder *vtc, int codec, unsigned
 
 	/* If mark set */
 	if (mark)
+	{
 		/* Decode frame */
 		VideoTranscoderDecodeFrame(vtc);
-
-	/* Clean frame */
-	VideoTranscoderCleanFrame(vtc);
+		/* Clean frame */
+		VideoTranscoderCleanFrame(vtc);
+	}
 
 	return 1;
 }
@@ -772,7 +776,7 @@ static int app_transcode(struct ast_channel *chan, void *data)
 	u = ast_module_user_add(chan);
 
 	/* Request new channel */
-	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_MPEG4 | AST_FORMAT_H263_PLUS | chan->rawreadformat, local, &reason);
+	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_MPEG4 | AST_FORMAT_H263_PLUS | chan->rawwriteformat, local, &reason);
  
 	/* If somthing has gone wrong */
 	if (!pseudo)
