@@ -688,7 +688,6 @@ static unsigned int VideoTranscoderWrite(struct VideoTranscoder *vtc, int codec,
 	/* If not enougth */
 	if (bufferLen + vtc->frameLen > vtc->frameSize);
 		/* Clean frame */
-		VideoTranscoderCleanFrame(vtc);
 
 	/* Depending on the code */
 	if (codec & AST_FORMAT_H263)
