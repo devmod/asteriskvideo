@@ -58,6 +58,7 @@ static char *syn_video_loopback = "video_loopback";
 static char *des_video_loopback = "  video_loopback():  Video loopback.\n";
 
 static short blockSize[16] = { 12, 13, 15, 17, 19, 20, 26, 31,  5, -1, -1, -1, -1, -1, -1, -1};
+static short if2stuffing[16] = {5, 5, 6, 6, 0, 5, 0, 0, 5, 1, 6, 7, -1, -1, -1, 4};
 
 struct video_tr
 {
@@ -281,14 +282,21 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 			unsigned bs = blockSize[mode];
 			/* Reverse bits */
 			TIFFReverseBits(pak->offset,bs);
-			/* Pad the last */
-			pak->offset[bs-1] = 0;
+			/*create if2 last byte with stuffing bits and speach*/
+			unsigned char if2_last =  (pak->offset[bs - 1] & 0x0F) >> (if2stuffing[mode] - 4);
 			/* For each byte */
 			for (i=bs-1; i>0; i--)
 				//Move bits
 				pak->offset[i] = (pak->offset[i] << 4) | (pak->offset[i-1] >>  4);
 			//Set first byte
 			pak->offset[0] = (pak->offset[0] << 4) | mode;
+			/*Add last byte if needed*/
+			if(if2stuffing[mode] > 4)
+			{
+				bs++;
+				pak->offset[bs - 1] = if2_last;
+			}
+
 			/* Inc offset first */
 			pak->offset += bs;
 			/* Create frame */	
