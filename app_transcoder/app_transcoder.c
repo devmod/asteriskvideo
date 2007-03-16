@@ -22,7 +22,6 @@
  */
 
 #include <asterisk.h>
-#include <ffmpeg/avcodec.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -36,6 +35,9 @@
 #include <asterisk/pbx.h>
 #include <asterisk/module.h>
 #include <asterisk/causes.h>
+
+#include <ffmpeg/avcodec.h>
+#include <ffmpeg/swscale.h>
 
 #ifndef AST_FORMAT_AMR
 #define AST_FORMAT_AMR		(1 << 13)
@@ -87,6 +89,15 @@ struct VideoTranscoder
 
 	/* Encoder thread */
 	pthread_t encoderThread;
+
+	/* Resize */
+	struct SwsContext* resizeCtx;
+	int	resizeWidth;
+	int	resizeHeight;
+	char*	resizeBuffer;
+	int	resizeSrc[3];
+	int	resizeDst[3];
+	int	resizeFlags;
 };
 
 struct RFC2190H263HeadersBasic
@@ -163,6 +174,50 @@ static void SendVideoFrame(struct VideoTranscoder *vtc, void *data, unsigned int
 	vtc->channel->tech->write_video(vtc->channel, send);
 }
 
+static int VideoTranscoderSetResize(struct VideoTranscoder *vtc,int width,int height)
+{
+	/* If already resizing that size */
+	if (width==vtc->resizeWidth && height==vtc->resizeHeight)
+		/* Nothing to do */
+		return 1;
+
+	/* if got contex */
+	if (vtc->resizeCtx)
+		/* Free it */
+		sws_freeContext(vtc->resizeCtx);
+
+	/* Get new context */
+	vtc->resizeCtx = sws_getContext(vtc->width, vtc->height, PIX_FMT_YUV420P, vtc->encoderWidth, vtc->encoderHeight, PIX_FMT_YUV420P, vtc->resizeFlags, NULL, NULL, NULL);
+
+	/* Check */
+	if (!vtc->resizeCtx)
+		/* Exit */
+		return 0;
+
+	/* Set values */
+	vtc->resizeWidth = width;
+	vtc->resizeHeight = height;
+
+	/* Set values */
+	vtc->resizeSrc[0] = vtc->resizeWidth;
+	vtc->resizeSrc[1] = vtc->resizeWidth/2;
+	vtc->resizeSrc[2] = vtc->resizeWidth/2;
+	vtc->resizeDst[0] = vtc->encoderWidth;
+	vtc->resizeDst[1] = vtc->encoderWidth/2;
+	vtc->resizeDst[2] = vtc->encoderWidth/2;
+
+	/* If already alloc */
+	if (vtc->resizeBuffer)
+		/* Free */
+		free(vtc->resizeBuffer);
+
+	/* Malloc buffer for resized image */
+	vtc->resizeBuffer = malloc(vtc->encoderWidth*vtc->encoderHeight*3/2);
+
+	/* exit */
+	return 1;
+}
+
 void * VideoTranscoderEncode(void *param)
 {
         struct timeval tv;
@@ -189,24 +244,48 @@ void * VideoTranscoderEncode(void *param)
 			/* Change picture decoding index */
 			vtc->picIndex = !vtc->picIndex;
 
+
 			/* Recalc fps */
 			//ctx->frame_rate = (int)ctx->fps*ctx->frame_rate_base;
 
 			/* Do we need to resize the image */
 			if ( vtc->width!=vtc->encoderWidth || vtc->height!=vtc->encoderHeight)
 			{
-				printf("[%d,%d,%d,%d]\n", vtc->width,vtc->encoderWidth,vtc->height,vtc->encoderHeight);
-				/* Resize frame */
-				continue;
-			}
+				/* Set size */
+				if (!VideoTranscoderSetResize(vtc, vtc->width, vtc->height))
+					/* Next frame */
+					continue;
 
-			/* Set input picture data */
-			int numPixels = vtc->encoderWidth*vtc->encoderHeight;
+				/* src & dst */
+				unsigned char* src[3];
+				unsigned char* dst[3];
+
+				/* Set input picture data */
+				int numPixels = vtc->width*vtc->height;
+				int resPixels = vtc->encoderWidth*vtc->encoderHeight;
+
+				/* Set pointers */
+				src[0] = buffer;
+				src[1] = buffer+numPixels;
+				src[2] = buffer+numPixels*5/4;
+				dst[0] = vtc->resizeBuffer;
+				dst[1] = vtc->resizeBuffer+resPixels;
+				dst[2] = vtc->resizeBuffer+resPixels*5/4;
+
+				/* Resize frame */
+				sws_scale(vtc->resizeCtx, src, vtc->resizeSrc, 0, vtc->height, dst, vtc->resizeDst);
+
+				/* Set resized buffer */
+				buffer = vtc->resizeBuffer;
+			} 
 
 			/* Set counters */
 			vtc->mb = 0;
 			vtc->mb_total = ((vtc->encoderWidth+15)/16)*((vtc->encoderHeight+15)/16);
 			vtc->sent_bytes = 0;
+
+			/* Set input picture data */
+			int numPixels = vtc->encoderWidth*vtc->encoderHeight;
 
 			/* Set image data */
 			vtc->encoderPic->data[0] = buffer;
@@ -365,6 +444,14 @@ static struct VideoTranscoder * VideoTranscoderCreate(struct ast_channel *channe
 	vtc->decoder = NULL;
 	vtc->decoderOpened = 0;
 
+	/* No resize */
+	vtc->resizeCtx		= NULL;
+	vtc->resizeWidth	= 0;
+	vtc->resizeHeight	= 0;
+	vtc->resizeBuffer	= NULL;
+	/* Bicubic by default */
+	vtc->resizeFlags	= SWS_BICUBIC;
+
 	/* Picture data */
 	vtc->encoderCtx->pix_fmt 	= PIX_FMT_YUV420P;
 	vtc->encoderCtx->width		= vtc->encoderWidth;
@@ -475,6 +562,17 @@ static int VideoTranscoderDestroy(struct VideoTranscoder *vtc)
 	/* Free pic */
 	if (vtc->encoderPic)
         	free(vtc->encoderPic);
+
+	/* if got contex */
+	if (vtc->resizeCtx)
+		/* Free it */
+		sws_freeContext(vtc->resizeCtx);
+
+
+	/* Free resize buffer*/
+	if (vtc->resizeBuffer)
+		/* Free */
+		free(vtc->resizeBuffer);
 
 	/* Free */
 	free(vtc);
