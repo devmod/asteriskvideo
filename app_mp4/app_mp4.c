@@ -195,7 +195,6 @@ static int mp4_rtp_read(struct mp4rtp *p)
 		/* Get number of rtp packets for this sample */
 		if (!MP4ReadRtpHint(p->mp4, p->hint, p->sampleId, &p->numHintSamples)) {
 			ast_log(LOG_DEBUG, "MP4ReadRtpHint failed\n");
-			printf( "MP4ReadRtpHint failed\n");
 			return -1;
 		}
 
@@ -260,7 +259,6 @@ static int mp4_rtp_read(struct mp4rtp *p)
 				1				/* bool includePayload DEFAULT(true) */
 			)) {
 		ast_log(LOG_DEBUG, "Error reading packet [%d,%d]\n", p->hint, p->track);
-		printf( "Error reading packet [%d,%d]\n", p->hint, p->track);
 		return -1;
 	}
 
@@ -531,6 +529,8 @@ static int mp4_save(struct ast_channel *chan, void *data)
 	/* Lock module */
 	u = ast_module_user_add(chan);
 
+	printf(">mp4save\n");
+
 	/* Wait for data avaiable on channel */
 	while (ast_waitfor(chan, -1) > -1) {
 
@@ -619,9 +619,10 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					type = 99;
 					MP4SetHintTrackRtpPayload(mp4, hintVideo, "H264", &type, 0, NULL, 1, 0);
 
-				}
+				} else {
 					/* Unknown codec nothing to do */
 					break;
+				}
 
 				/* Set struct info */
 				videoTrack.mp4 = mp4;
@@ -672,9 +673,10 @@ static int mp4_save(struct ast_channel *chan, void *data)
 				/* And add the data to the frame but not associated with the hint track */
 				prependBuffer = f->data+1;
 				prependLength = f->datalen-1;
-			} else 
+			} else {
 				/* Unknown codec nothing to do */
 				break;
+			}
 
 			/* Write rtp video packet */
 			mp4_rtp_write_video(&videoTrack, f, payload, intra, skip, prependBuffer , prependLength);
@@ -696,6 +698,8 @@ static int mp4_save(struct ast_channel *chan, void *data)
 
 	/* Unlock module*/
 	ast_module_user_remove(u);
+
+	printf("<mp4save\n");
 
 	//Success
 	return 0;
