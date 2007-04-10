@@ -153,7 +153,10 @@ int H223MuxTable::GetChannel(int mc,int count)
 		return entries[mc]->fixed[count];
 
 	//It's in the repeating part
-	return entries[mc]->repeat[(count-entries[mc]->fixedLen) % entries[mc]->repeatLen];
+	if(entries[mc]->repeatLen>0)
+		return entries[mc]->repeat[(count-entries[mc]->fixedLen) % entries[mc]->repeatLen];
+	
+	return -1;
 }
 
 int H223MuxTable::AppendEntries(H223MuxTable &table,H223MuxTableEntryList &list)
@@ -233,49 +236,14 @@ H223MuxTable::H223MuxTable(const H245_MultiplexEntrySend & pdu)
 
 void H223MuxTable::BuildPDU(H245_MultiplexEntrySend & pdu)
 {
-	//Remove descriptors
+//Remove descriptors
 	pdu.m_multiplexEntryDescriptors.RemoveAll();
 
-/*
-	for (int k=1;k<3;k++)
-	{
-		//Create an entry
-		H245_MultiplexEntryDescriptor des;
-		H245_MultiplexElement fixed;
-
-		//Set channel number
-		des.m_multiplexTableEntryNumber.SetValue(k);
-
-		//Include elements
-		des.IncludeOptionalField(H245_MultiplexEntryDescriptor::e_elementList);
-
-		//Remove elements
-		des.m_elementList.RemoveAll();
-
-		//Set type 
-		fixed.m_type.SetTag(H245_MultiplexElement_type::e_logicalChannelNumber);
-
-		//And repeat count
-		fixed.m_repeatCount.SetTag(H245_MultiplexElement_repeatCount::e_untilClosingFlag);
-
-		//Set channel
-		((PASN_Integer &)fixed.m_type.GetObject()) = k;
-
-		//Append Element
-		des.m_elementList.Append((PASN_Object*)fixed.Clone());
-
-		//Append descriptor
-		pdu.m_multiplexEntryDescriptors.Append((PASN_Object*)des.Clone());
-	}
-
-	return;*/
-
 	//For each channel
-	for (int i=1;i<16;i++)
-		//If we have channel
-		if (entries[i])
+	for (int i=1; i<16; i++)
+	{
+		if(entries[i])
 		{
-			//Create an entry
 			H245_MultiplexEntryDescriptor des;
 
 			//Set channel number
@@ -287,86 +255,17 @@ void H223MuxTable::BuildPDU(H245_MultiplexEntrySend & pdu)
 			//Remove elements
 			des.m_elementList.RemoveAll();
 
-			//If we have fixed part
-			if (entries[i]->fixedLen>0)
+			//Switch into different cases for basic MultiplexEntryDescriptor	
+			//Only repeat part. e.g. {{LN1,RC3},{LCN2,RC4},RC UCF}
+			if(entries[i]->fixedLen==0 && entries[i]->repeatLen>0)
 			{
-				//Create fixed element
-				H245_MultiplexElement fixed;
-
-				//Set type 
-				fixed.m_type.SetTag(H245_MultiplexElement_type::e_subElementList);
-
-				//And repeat count
-				fixed.m_repeatCount.SetTag(H245_MultiplexElement_repeatCount::e_finite);
-
-				//Get it
-				H245_MultiplexElement_repeatCount &rc = (H245_MultiplexElement_repeatCount &)fixed.m_repeatCount;
-
-				//Get the list for the fixed
-				H245_ArrayOf_MultiplexElement &fixedList = fixed.m_type;
-
-				//Remove
-				fixedList.RemoveAll();
-
-				//Set to 1
-				((PASN_Integer &)rc.GetObject()) = 1;
-				
-				int repeatc;
-				BYTE mc;
-				for (int j=0;j<entries[i]->fixedLen;)
-				{
-					repeatc=0;
-					mc=entries[i]->fixed[j] ;
-					repeatc++;
-					if (j+1)
-					while (mc==entries[i]->fixed[j+repeatc])
-					{
-						repeatc++;
-						if ((j+repeatc)==entries[i]->fixedLen)
-							break;
-					}
-					j+=repeatc;
-
-				}
-				
-				//Loop fixed part
-				for (int j=0;j<entries[i]->fixedLen;j++)
-				{
-					H245_MultiplexElement el;
-
-					//Set type 
-					el.m_type.SetTag(H245_MultiplexElement_type::e_logicalChannelNumber);
-
-					//And repeat count
-					el.m_repeatCount.SetTag(H245_MultiplexElement_repeatCount::e_finite);
-
-					//Get it
-					H245_MultiplexElement_repeatCount &rc = (H245_MultiplexElement_repeatCount &)fixed.m_repeatCount;
-					//Get count
-					rc = (H245_MultiplexElement_repeatCount &)el.m_repeatCount;
-
-					//Set to rc to 1
-					((PASN_Integer &)rc.GetObject()) = 1;
-
-					//Set the channel
-					((PASN_Integer &)el.m_type.GetObject()) = entries[i]->fixed[j];
-
-					//Add element
-					fixedList.Append((PASN_Object*)el.Clone());
-				}
-				
-				//Append fixed
-				des.m_elementList.Append((PASN_Object*)fixed.Clone());
-			}
-
-			//If we have repeated part
-			if (entries[i]->repeatLen>0)
-			{
-				//Repeat part element
+				//This is item0
 				H245_MultiplexElement repeat;
 				
-				list<MyKey> mc_;				
-
+				list<MyKey> mc_;
+				
+				//Look how many logical channel we have in repeat part. If more then one,
+				//we have also subelementList
 				int repeatc;
 				BYTE mc=0;
 				MyKey key(mc,mc);
@@ -388,64 +287,129 @@ void H223MuxTable::BuildPDU(H245_MultiplexEntrySend & pdu)
 					mc_.push_back(key);
 					j+=repeatc;
 				}
-
-
-
-				if (mc_.size()>1)
+				
+				//We found more then one logical channel.
+				//For example {{LCN1,RC3},{LCN2,RC10},RC UCF}
+				//So we must indicate subelementList
+				if(mc_.size()>1)
 				{
-					//Set type 
+					//Add tag subelementList
 					repeat.m_type.SetTag(H245_MultiplexElement_type::e_subElementList);
 
-					//And repeat count
+					//If we have a repeat part, it must end with Closing Flag
 					repeat.m_repeatCount.SetTag(H245_MultiplexElement_repeatCount::e_untilClosingFlag);
-					//
-					//Get the list for the fixed
+
+					//Get list of subelement
 					H245_ArrayOf_MultiplexElement &repeatList = repeat.m_type;
 
-					//Remove
+					//Now add element to this list
 					repeatList.RemoveAll();
 					while(mc_.size()>0)
 					{
 						key=mc_.front();
 						mc_.pop_front();
+
+						//Create an element
 						H245_MultiplexElement el;
 
-						//Set type 
+						//Set type
 						el.m_type.SetTag(H245_MultiplexElement_type::e_logicalChannelNumber);
 
-						//And repeat count
+						//And repeat Count
 						el.m_repeatCount.SetTag(H245_MultiplexElement_repeatCount::e_finite);
-						//Get elem count
-						H245_MultiplexElement_repeatCount &rc = (H245_MultiplexElement_repeatCount &)el.m_repeatCount;
-						//Set to rc to 1
-						((PASN_Integer &)rc.GetObject()) = key.rc ;
 
-						//Set the channel
-						((PASN_Integer &)el.m_type.GetObject()) = key.lc ;
+						//Get element count
+						H245_MultiplexElement_repeatCount &rc = (H245_MultiplexElement_repeatCount &) el.m_repeatCount;
+						((PASN_Integer &)rc.GetObject()) = key.rc;
 
-						//Add element
-						repeatList.Append((PASN_Object*)el.Clone());
+						//Set logical channel
+						((PASN_Integer &)el.m_type.GetObject()) = key.lc;
+
+						//Finally add el to list
+						repeatList.Append((PASN_Object *)el.Clone());
 					}
 				}
+				//We found only one logical channel. e.g. {LCN1,RC UCF}
 				else
-				{	
+				{
+					//get the only logical channel
 					key=mc_.back();
-					//Set type 
+					
+					//Set type
 					repeat.m_type.SetTag(H245_MultiplexElement_type::e_logicalChannelNumber);
 
 					//And repeat count
 					repeat.m_repeatCount.SetTag(H245_MultiplexElement_repeatCount::e_untilClosingFlag);
 
 					//Set channel
-					((PASN_Integer &)repeat.m_type.GetObject()) = key.lc  ;
+					((PASN_Integer &)repeat.m_type.GetObject()) = key.lc;
 				}
 				mc_.clear();
-
-				//Append fixed
-				des.m_elementList.Append((PASN_Object*)repeat.Clone());
+				
+				//Append repeat to Descriptor
+				des.m_elementList.Append((PASN_Object *)repeat.Clone());
 			}
 
-			//Append descriptor
-			pdu.m_multiplexEntryDescriptors.Append((PASN_Object*)des.Clone());
+			//We have only fixed part. e.g. {LCN2, RC32}
+			else if(entries[i]->repeatLen==0 && entries[i]->fixedLen>0)
+			{
+				//Create an element;
+				H245_MultiplexElement fixed;
+
+				//Look how many logical channel we have in fixed part
+				list <MyKey> mc_;
+				int repeatc;
+				BYTE mc;
+				MyKey key(mc,mc);
+				for(int j=0; j<entries[i]->fixedLen-1;)
+				{
+					repeatc=0;
+					mc=entries[i]->fixed[j] ;
+					repeatc++;
+					if (j+1)
+					while (mc==entries[i]->fixed[j+repeatc])
+					{
+						repeatc++;
+						if ((j+repeatc)==entries[i]->fixedLen)
+							break;
+					}
+					key.lc = mc;
+					key.rc = repeatc;
+					mc_.push_back(key);
+					j+=repeatc;
+
+				}
+				
+				//Get all elements and append into des
+				while(mc_.size()>0)
+				{
+					key = mc_.front();
+					mc_.pop_front();
+					//Create an element
+					H245_MultiplexElement el;
+					//Set type
+					el.m_type.SetTag(H245_MultiplexElement_type::e_logicalChannelNumber);
+					//Set repeat count
+					el.m_repeatCount.SetTag(H245_MultiplexElement_repeatCount::e_finite);
+					//Get element count
+					H245_MultiplexElement_repeatCount &rc = (H245_MultiplexElement_repeatCount &)el.m_repeatCount;
+					//Set rc	
+					((PASN_Integer &)rc.GetObject()) = key.rc;
+					//Set the channel
+					((PASN_Integer &)el.m_type.GetObject()) = key.lc;
+					//Append to des
+					des.m_elementList.Append((PASN_Object*)el.Clone());
+				}
+				mc_.clear(); 
+			}
+			else 
+			//We have both fixed and repeat. e.g. {LCN1,RC32},{{LCN1,RC3},{LCN2,RC10},RC UCF}
+			{
+	
+			}
+			
+			//Append descriptor to pdu
+			pdu.m_multiplexEntryDescriptors.Append((PASN_Object *)des.Clone());
 		}
+	}
 }
