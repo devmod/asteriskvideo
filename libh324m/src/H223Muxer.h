@@ -19,6 +19,7 @@ public:
 
 	int Open(H223MuxTable *table);
 	int SetChannel(int channel,H223ALSender *sender);
+	int  Multiplex(BYTE *buffer,int length);
 	BYTE Multiplex();
 	int Close();
 

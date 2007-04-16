@@ -20,6 +20,7 @@ public:
 	int Open(H223MuxTable *table);
 	int SetChannel(int num,H223ALReceiver *receiver);
 	void Demultiplex(BYTE b);
+	int  Demultiplex(BYTE *buffer,int length);
 	int Close();
 
 private:

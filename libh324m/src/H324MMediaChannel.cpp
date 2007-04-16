@@ -22,7 +22,7 @@
 #include "H324MMediaChannel.h"
 
 
-H324MMediaChannel::H324MMediaChannel()
+H324MMediaChannel::H324MMediaChannel(int jitter)
 {
 		state = e_AwaitingEstablishment;
 		localChannel = 0;
@@ -30,6 +30,8 @@ H324MMediaChannel::H324MMediaChannel()
 		isBidirectional = 0;
 		sender = NULL;
 		receiver = NULL;
+		jitterPackets = jitter;
+		jitterActive = false;
 }
 
 H324MMediaChannel::~H324MMediaChannel()
@@ -137,7 +139,19 @@ Frame* H324MMediaChannel::GetFrame()
 {
 	//Check size
 	if (frameList.size()==0)
+	{
+		//Desactive jitter
+		jitterActive = false;
+		//No packet
 		return NULL;
+	}
+	//Check if sending sending or have enougth packets
+	if (!jitterActive && frameList.size()<jitterPackets)
+		//Don't send yet
+		return NULL;
+
+	//Jitter active
+	jitterActive = true;
 	//Get frame
 	Frame *frame = frameList.front();
 	//Remove
@@ -178,13 +192,13 @@ int H324MMediaChannel::SendFrame(Frame *frame)
 	return pos;
 }
 
-H324MAudioChannel::H324MAudioChannel()
+H324MAudioChannel::H324MAudioChannel(int jitter) : H324MMediaChannel(jitter)
 {
 	//Set audio type
 	type = e_Audio;
 }
 
-H324MVideoChannel::H324MVideoChannel()
+H324MVideoChannel::H324MVideoChannel() : H324MMediaChannel(0)
 {
 	//Set video type
 	type = e_Video;

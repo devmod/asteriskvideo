@@ -190,7 +190,17 @@ int H223Muxer::GetBestMC(int max)
 	return mc!=-1;
 }
 
-BYTE H223Muxer::Multiplex()
+int H223Muxer::Multiplex(BYTE *buffer,int length)
+{
+	//Mux
+	for (int i=0;i<length;i++)
+		buffer[i] = Multiplex();
+
+	//Ok
+	return 1;
+}
+
+inline BYTE H223Muxer::Multiplex()
 {
 	//Multiplex
 	while (1)

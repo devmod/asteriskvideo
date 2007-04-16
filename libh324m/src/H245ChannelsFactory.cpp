@@ -65,21 +65,13 @@ int H245ChannelsFactory::End()
 int H245ChannelsFactory::Demultiplex(BYTE *buffer,int length)
 {
 	//DeMux
-	for (int i=0;i<length;i++)
-		demuxer.Demultiplex(buffer[i]);
-
-	//Ok
-	return 1;
+	return demuxer.Demultiplex(buffer,length);
 }
 
 int H245ChannelsFactory::Multiplex(BYTE *buffer,int length)
 {
 	//Mux
-	for (int i=0;i<length;i++)
-		buffer[i] = muxer.Multiplex();
-
-	//Ok
-	return 1;
+	return  muxer.Multiplex();
 }
 
 int H245ChannelsFactory::CreateChannel(MediaType type)
@@ -91,7 +83,7 @@ int H245ChannelsFactory::CreateChannel(MediaType type)
 	{
 		case e_Audio:
 			//New audio channel
-			chan = new H324MAudioChannel();
+			chan = new H324MAudioChannel(3);
 			break;
 		case e_Video:
 			//New audio channel

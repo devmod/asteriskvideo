@@ -122,7 +122,18 @@ void H223Demuxer::EndPDU(H223Flag &flag)
 		
 }
 
-void H223Demuxer::Demultiplex(BYTE b)
+ int H223Demuxer::Demultiplex(BYTE *buffer,int length)
+{
+	//DeMux
+	for (int i=0;i<length;i++)
+		Demultiplex(buffer[i]);
+
+	//Ok
+	return 1;
+}
+
+
+inline void H223Demuxer::Demultiplex(BYTE b)
 {
 	//Append to logger
 	log->SetDemuxByte(b);

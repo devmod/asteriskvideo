@@ -21,7 +21,7 @@ public:
     };
 
 public:
-	H324MMediaChannel();
+	H324MMediaChannel(int jitter);
 	virtual ~H324MMediaChannel();
 
 	int Init();
@@ -52,13 +52,15 @@ private:
 	H223ALReceiver *receiver;
 	H223ALSender *sender;
 	list<Frame*> frameList;
+	int	jitterPackets;
+	int jitterActive;
 };
 
 class H324MAudioChannel : 
 	public H324MMediaChannel
 {
 public:
-	H324MAudioChannel();
+	H324MAudioChannel(int jitter);
 };
 
 class H324MVideoChannel :
