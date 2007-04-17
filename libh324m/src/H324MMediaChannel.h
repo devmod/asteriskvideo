@@ -21,10 +21,11 @@ public:
     };
 
 public:
-	H324MMediaChannel(int jitter);
+	H324MMediaChannel(int jitter,int delay);
 	virtual ~H324MMediaChannel();
 
 	int Init();
+	void Tick(DWORD value);
 	int End();
 
 	H223ALSender*  GetSender();
@@ -43,10 +44,12 @@ public:
 	int localChannel;
 	int remoteChannel;
 	int isBidirectional;
+	
 
 public:
 	MediaType type;
 	State state;
+	
 
 private:
 	H223ALReceiver *receiver;
@@ -54,13 +57,16 @@ private:
 	list<Frame*> frameList;
 	int	jitterPackets;
 	int jitterActive;
+	DWORD ticks;
+	DWORD minDelay;
+	DWORD nextPacket;
 };
 
 class H324MAudioChannel : 
 	public H324MMediaChannel
 {
 public:
-	H324MAudioChannel(int jitter);
+	H324MAudioChannel(int jitter,int delay);
 };
 
 class H324MVideoChannel :

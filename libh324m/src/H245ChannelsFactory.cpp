@@ -70,8 +70,19 @@ int H245ChannelsFactory::Demultiplex(BYTE *buffer,int length)
 
 int H245ChannelsFactory::Multiplex(BYTE *buffer,int length)
 {
+	//For all media channels
+	for(ChannelMap::iterator it = channels.begin(); it != channels.end(); ++it)
+	{
+		//Get channel
+		H324MMediaChannel *chan = it->second;
+		//Check for null
+		if (chan)
+			//Set time ticks
+			chan->Tick(length);
+	}
+
 	//Mux
-	return  muxer.Multiplex();
+	return  muxer.Multiplex(buffer,length);
 }
 
 int H245ChannelsFactory::CreateChannel(MediaType type)
@@ -83,7 +94,7 @@ int H245ChannelsFactory::CreateChannel(MediaType type)
 	{
 		case e_Audio:
 			//New audio channel
-			chan = new H324MAudioChannel(3);
+			chan = new H324MAudioChannel(3,160);
 			break;
 		case e_Video:
 			//New audio channel

@@ -22,16 +22,19 @@
 #include "H324MMediaChannel.h"
 
 
-H324MMediaChannel::H324MMediaChannel(int jitter)
+H324MMediaChannel::H324MMediaChannel(int jitter, int delay)
 {
-		state = e_AwaitingEstablishment;
-		localChannel = 0;
-		remoteChannel = 0;
-		isBidirectional = 0;
-		sender = NULL;
-		receiver = NULL;
-		jitterPackets = jitter;
-		jitterActive = false;
+	state = e_AwaitingEstablishment;
+	localChannel = 0;
+	remoteChannel = 0;
+	isBidirectional = 0;
+	sender = NULL;
+	receiver = NULL;
+	jitterPackets = jitter;
+	jitterActive = false;
+	minDelay = delay;
+	nextPacket = 0;
+	ticks = 0;
 }
 
 H324MMediaChannel::~H324MMediaChannel()
@@ -122,7 +125,11 @@ int H324MMediaChannel::SetReceiverLayer(AdaptationLayer layer, int segmentable)
 	//Exit
 	return 1;
 }
-
+void H324MMediaChannel::Tick(DWORD value)
+{
+	//Increase counter
+	ticks += value;
+}
 void H324MMediaChannel::OnSDU(BYTE* data,DWORD length)
 {
 	MediaCodec codec;
@@ -142,6 +149,8 @@ Frame* H324MMediaChannel::GetFrame()
 	{
 		//Desactive jitter
 		jitterActive = false;
+		//NO wait 
+		nextPacket = 0;
 		//No packet
 		return NULL;
 	}
@@ -152,6 +161,14 @@ Frame* H324MMediaChannel::GetFrame()
 
 	//Jitter active
 	jitterActive = true;
+
+	//If we have to wait
+	if (minDelay && nextPacket>ticks)
+		//Don't send yet
+		return NULL;
+
+	//Increase next send time
+	nextPacket = ticks + minDelay;
 	//Get frame
 	Frame *frame = frameList.front();
 	//Remove
@@ -192,13 +209,13 @@ int H324MMediaChannel::SendFrame(Frame *frame)
 	return pos;
 }
 
-H324MAudioChannel::H324MAudioChannel(int jitter) : H324MMediaChannel(jitter)
+H324MAudioChannel::H324MAudioChannel(int jitter,int delay) : H324MMediaChannel(jitter,delay)
 {
 	//Set audio type
 	type = e_Audio;
 }
 
-H324MVideoChannel::H324MVideoChannel() : H324MMediaChannel(0)
+H324MVideoChannel::H324MVideoChannel() : H324MMediaChannel(0,0)
 {
 	//Set video type
 	type = e_Video;
