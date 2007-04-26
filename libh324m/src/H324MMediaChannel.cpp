@@ -79,6 +79,8 @@ int H324MMediaChannel::SetSenderLayer(AdaptationLayer layer, int segmentable)
 		case e_al2WithoutSequenceNumbers:
 			// AL 2
 			sender = new H223AL2Sender(segmentable,false);
+			//Set jitterBuffer
+			((H223AL2Sender *)sender)->SetJitBuffer(jitterPackets, minDelay);
 			break;
 		case e_al2WithSequenceNumbers:
 			// AL 2
@@ -129,6 +131,8 @@ void H324MMediaChannel::Tick(DWORD value)
 {
 	//Increase counter
 	ticks += value;
+	if(sender)
+		((H223AL2Sender*)sender)->Tick( value);
 }
 void H324MMediaChannel::OnSDU(BYTE* data,DWORD length)
 {
@@ -147,28 +151,10 @@ Frame* H324MMediaChannel::GetFrame()
 	//Check size
 	if (frameList.size()==0)
 	{
-		//Desactive jitter
-		jitterActive = false;
-		//NO wait 
-		nextPacket = 0;
 		//No packet
 		return NULL;
 	}
 	//Check if sending sending or have enougth packets
-	if (!jitterActive && frameList.size()<jitterPackets)
-		//Don't send yet
-		return NULL;
-
-	//Jitter active
-	jitterActive = true;
-
-	//If we have to wait
-	if (minDelay && nextPacket>ticks)
-		//Don't send yet
-		return NULL;
-
-	//Increase next send time
-	nextPacket = ticks + minDelay;
 	//Get frame
 	Frame *frame = frameList.front();
 	//Remove

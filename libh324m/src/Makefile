@@ -5,6 +5,7 @@ SRC = golay.c \
 	crc8.cpp \
 	crc16.cpp \
 	Timer.cpp \
+	jitterBuffer.cpp \
 	H223Demuxer.cpp \
 	H223Flag.cpp \
 	H223Header.cpp \
@@ -35,7 +36,7 @@ SRC = golay.c \
 	H245_3.cpp \
 	H324pdu.cpp \
 	FileLogger.cpp \
-	Media.cpp
+	Media.cpp \
 
 	
 

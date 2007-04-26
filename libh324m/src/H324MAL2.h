@@ -4,6 +4,7 @@
 #include "H223AL.h"
 #include "H324pdu.h"
 #include "H223MuxSDU.h"
+#include "jitterBuffer.h"
 
 class H223AL2Receiver :
 	public H223ALReceiver
@@ -37,6 +38,8 @@ public:
 
 	//Methods
 	int SendPDU(BYTE *buffer,int len);
+	void SetJitBuffer(int packets, int delay);
+	void Tick(DWORD len);
 
 	//H223ALSender interface
 	virtual H223MuxSDU* GetNextPDU();
@@ -47,6 +50,7 @@ private:
 	int segmentableChannel;
 	BYTE sn;
 	H223MuxSDUList	frameList;
+	jitterBuffer jitBuf;
 };
 
 #endif

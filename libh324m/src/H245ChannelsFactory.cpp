@@ -94,7 +94,7 @@ int H245ChannelsFactory::CreateChannel(MediaType type)
 	{
 		case e_Audio:
 			//New audio channel
-			chan = new H324MAudioChannel(3,160);
+			chan = new H324MAudioChannel(50,160);
 			break;
 		case e_Video:
 			//New audio channel

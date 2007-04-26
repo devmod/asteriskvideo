@@ -96,6 +96,7 @@ int H223AL2Receiver::IsSegmentable()
 
 /****************** Sender **************/
 H223AL2Sender::H223AL2Sender(int segmentable,int useSequenceNumbers)
+	:jitBuf(0,0)
 {
 	//Set sn parameter
 	useSN = useSequenceNumbers;
@@ -168,8 +169,15 @@ int H223AL2Sender::SendPDU(BYTE *buffer,int len)
 	//Append crc
 	sdu->Push(crc.Calc());
 
-	//Enque sdu
-	frameList.push_back(sdu);
+	//Push sdu into jitterBuffer
+	jitBuf.Push( sdu );
+
+	//Look if we have sdu from jitterBuffer and send it
+    if(H223MuxSDU *outcomeSdu = jitBuf.GetSDU( ))
+    {
+            //Enque sdu
+            frameList.push_back(outcomeSdu);
+    }
 
 	//exit
 	return true;
@@ -179,3 +187,22 @@ int H223AL2Sender::IsSegmentable()
 {
 	return segmentableChannel;
 }
+
+void H223AL2Sender::SetJitBuffer( int packets, int delay)
+{
+	jitBuf.SetBuffer( packets, delay);
+}
+
+void H223AL2Sender::Tick( DWORD len )
+{
+	jitBuf.Tick( len );
+	//See also if we have Sdu to be sent
+	if(H223MuxSDU *outcomeSdu = jitBuf.GetSDU( ))
+    {
+        //Enque sdu
+    	frameList.push_back(outcomeSdu);
+    }
+}
+
+
+
