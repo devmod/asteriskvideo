@@ -21,26 +21,34 @@
 #define JITTER_H
 
 #include "H223MuxSDU.h"
+
 class jitterBuffer {
+public:
+	//Construtors
+	jitterBuffer(int minPackets, int minDelay);
+	~jitterBuffer();
+
+	void SetBuffer(int minPackets, int minDelay);
+	void Tick(DWORD len);
+	void Push(H223MuxSDU *sdu);
+	H223MuxSDU *GetSDU();
+	int GetSize();
+
+private:
 	struct env {
 		H223MuxSDU *sdu;
 		struct env *next;
 	};
+
 	int minPackets;
 	int minDelay;
 	bool wait;
 	DWORD ticks;
-	int nextPacket;
+	DWORD nextPacket;
 	struct env *buffer;
 	struct env *last;
 	int size;
-public:
-	jitterBuffer(int minPackets, int minDelay);
-	~jitterBuffer();
-	void Tick(DWORD len);
-	void Push(H223MuxSDU *sdu);
-	H223MuxSDU *GetSDU(void);
-	void SetBuffer(int minPackets, int minDelay);
-	int getSize();
 };
+
 #endif
+

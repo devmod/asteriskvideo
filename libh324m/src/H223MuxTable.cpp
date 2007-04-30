@@ -359,7 +359,7 @@ void H223MuxTable::BuildPDU(H245_MultiplexEntrySend & pdu)
 				//Look how many logical channel we have in fixed part
 				list <MyKey> mc_;
 				int repeatc;
-				BYTE mc;
+				BYTE mc = 0; // <- ???
 				MyKey key(mc,mc);
 				for(int j=0; j<entries[i]->fixedLen-1;)
 				{

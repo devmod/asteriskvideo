@@ -49,7 +49,7 @@ private:
 	int useSN;
 	int segmentableChannel;
 	BYTE sn;
-	H223MuxSDUList	frameList;
+	H223MuxSDU* pdu;
 	jitterBuffer jitBuf;
 };
 

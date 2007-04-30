@@ -103,52 +103,39 @@ H223AL2Sender::H223AL2Sender(int segmentable,int useSequenceNumbers)
 	sn = 0;
 	//Set segmentable flag
 	segmentableChannel = segmentable;
+	//NO sdu
+	pdu = NULL;
 }
 
 H223AL2Sender::~H223AL2Sender()
 {
-	//Clean sdus pending
-	while(frameList.size()>0)
-	{
-		//Delete front
-		delete frameList.front();
-		//Remove
-		frameList.pop_front();
-	}
+	//Delete sdu
+	delete pdu;
+	//Unlock jitters
+	jitBuf.SetBuffer(0,0);
+	//Delete the rest of the jitter buffer packets
+	while(jitBuf.GetSize())
+		//Delete first
+		delete jitBuf.GetSDU();
 }
 
 H223MuxSDU* H223AL2Sender::GetNextPDU()
 {
-	//Check frame list
-	if (frameList.size()==0)
-		return NULL;
+	//Get next element from jitter buffer
+	pdu = jitBuf.GetSDU();
 
-	//return first element
-	return frameList.front();
+	//Send 
+	return pdu;
 }
 
 void H223AL2Sender::OnPDUCompleted()
 {
-	//Get sdu
-	H223MuxSDU *sdu = frameList.front();
-
-	//Remove
-	frameList.pop_front();
-
 	//delete frame
-	delete sdu;
+	delete pdu;
 }
 
 int H223AL2Sender::SendPDU(BYTE *buffer,int len)
 {
-	{
-		char name[256];
-		sprintf(name,"/tmp/media_out_%x.raw",(unsigned int)this);
-		int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
-		write(fd,buffer,len);
-		close(fd);
-	}
-
 	//Crc
 	CRC8 crc;
 
@@ -172,36 +159,26 @@ int H223AL2Sender::SendPDU(BYTE *buffer,int len)
 	//Push sdu into jitterBuffer
 	jitBuf.Push( sdu );
 
-	//Look if we have sdu from jitterBuffer and send it
-    if(H223MuxSDU *outcomeSdu = jitBuf.GetSDU( ))
-    {
-            //Enque sdu
-            frameList.push_back(outcomeSdu);
-    }
-
 	//exit
 	return true;
 }
 
 int H223AL2Sender::IsSegmentable()
 {
+	//Return if the channel is segmentable or not
 	return segmentableChannel;
 }
 
-void H223AL2Sender::SetJitBuffer( int packets, int delay)
+void H223AL2Sender::SetJitBuffer(int packets,int delay)
 {
-	jitBuf.SetBuffer( packets, delay);
+	//Set the jitter buffer parameters
+	jitBuf.SetBuffer(packets,delay);
 }
 
-void H223AL2Sender::Tick( DWORD len )
+void H223AL2Sender::Tick(DWORD len)
 {
-	jitBuf.Tick( len );
-	//See also if we have Sdu to be sent
-	if(H223MuxSDU *outcomeSdu = jitBuf.GetSDU( ))
-    {
-        //Enque sdu
-    	frameList.push_back(outcomeSdu);
-    }
+	//Set jitter tick
+	jitBuf.Tick(len);
 }
 
 

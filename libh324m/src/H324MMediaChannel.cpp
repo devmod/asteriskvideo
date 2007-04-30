@@ -206,3 +206,4 @@ H324MVideoChannel::H324MVideoChannel() : H324MMediaChannel(0,0)
 	//Set video type
 	type = e_Video;
 }
+

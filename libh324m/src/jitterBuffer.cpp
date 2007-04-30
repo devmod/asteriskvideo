@@ -21,22 +21,36 @@
 
 jitterBuffer::jitterBuffer(int pack, int delay)
 {
-	minPackets = pack;
-	minDelay = delay;
-	wait = true;
-	ticks = 0;
+	//Initialize ticks
+	ticks	= 0;
 	nextPacket = 0;
-	size = 0;
-	buffer = last = 0;
+	//Initialize list
+	size	= 0;
+	buffer	= 0;
+	last	= 0;
+	//Set jitter parameters
+	SetBuffer(pack,delay);
 }
 
 jitterBuffer::~ jitterBuffer()
 {
-	
+	//Empty queue
+	while(size)
+	{
+		//Get next
+		struct env *tmp = buffer;
+		//Move to the next
+		buffer = buffer->next;
+		//Delete element
+		free(tmp);
+		//Descrease size
+		size--;
+	}
 }
 
 void jitterBuffer::Tick( DWORD len )
 {
+	//Increase counter
 	ticks += len;
 }
 
@@ -44,40 +58,47 @@ void jitterBuffer::Push( H223MuxSDU *sdu )
 {
 	//Create a new Envelop
 	struct env *newEl = (struct env *)malloc(sizeof(struct env));
+
 	//Inizialize element
 	newEl->sdu = sdu;
 	newEl->next = 0;
 
+	//Insert in the list
 	if(!size)
 	{
-		buffer = last = newEl;
-	}
-	else
-	{
+		//The first element
+		buffer = newEl;
+		last = newEl;
+	} else {
+		//Append to the last one
 		last->next = newEl;
 		last = last->next;
 	}
+
 	//Increase size;
 	size++;
-	//Unlock buffer if minPackets are reached
+
+	//Check if there are the minimum packets in the queue
 	if(wait && size>=minPackets)
+		//No more waiting
 		wait = false;
 }
 
-H223MuxSDU *jitterBuffer::GetSDU(void)
+H223MuxSDU *jitterBuffer::GetSDU()
 {
 	//If buffer is locked wait for minPackets size
 	if(wait)
+		//Don't send
 		return 0;
 
-	//Look if we have to pop-up an sdu
+	//Loff if we have waited the minimun delay between packets yet
 	if(minDelay && nextPacket>ticks)
-	{
 		//Don't send yet
 		return 0;
-	}
 
+	//Check size
 	if(!size)
+		//Don't send
 		return 0;
 
 	//Get sdu
@@ -86,31 +107,40 @@ H223MuxSDU *jitterBuffer::GetSDU(void)
 	//Pop front list
 	struct env *tmp = buffer;
 
+	//Move to the next
 	buffer = buffer->next;
 
+	//Delete element
 	free(tmp);
  
 	//Descrease size
 	size--;
 
-	//Calculate next send
+	//If there is delay set
 	if(minDelay)
+		//Calculate next send time
 		nextPacket = ticks + minDelay;
 
 	//If size now is 0, lock buffer till is reached minPacket size
 	if(size == 0)
 		wait = true;
 
+	//Return the sdu
 	return sdu;
 }
 
-int jitterBuffer::getSize(void)
+int jitterBuffer::GetSize()
 {
+	//Return number of packets in jitter
 	return size;
 }
 
-void jitterBuffer::SetBuffer( int packets, int delay )
+void jitterBuffer::SetBuffer(int packets,int delay )
 {
+	//Set minimun delay and minimun packets in jitter
 	minDelay = delay;
 	minPackets = packets;
+	//We need to wait if there are not enougth packets in the list
+	wait = (minPackets<size);
 }
+

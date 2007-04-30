@@ -227,8 +227,6 @@ int H245ChannelsFactory::OnEstablishIndication(int number, H245Channel *channel)
 	//Set receiving layer
 	chan->SetReceiverLayer(channel->GetAdaptationLayer(),channel->IsSegmentable());
 
-	Debug("-Creating receiving layer [%d,%d,%x,%d,%d,%d,%d]\n",local,number,chan->GetReceiver(),(int)channel->GetType(),chan->type,channel->GetAdaptationLayer(),channel->IsSegmentable());
-
 	//Append to demuxer && accept
 	return demuxer.SetChannel(number,chan->GetReceiver());
 }
@@ -255,8 +253,6 @@ int H245ChannelsFactory::OnEstablishConfirm(int number)
 	else
 		chan->SetSenderLayer(e_al2WithoutSequenceNumbers,true);
 
-	Debug("-Creating  layer [%d,2,%x,%d]\n",number,chan->GetSender(),chan->GetSender()->IsSegmentable());
-	
 	//Set muxer
 	return muxer.SetChannel(number,chan->GetSender());
 }
