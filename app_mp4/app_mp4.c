@@ -410,6 +410,9 @@ static int mp4_play(struct ast_channel *chan, void *data)
 		/* Send video */
 		videoNext = mp4_rtp_read(&video);
 
+	/* Calculate start time */
+	struct timeval tv = ast_tvnow();
+
 	/* Wait control messages or finish of both streams */
 	while (!(audioNext < 0 && videoNext < 0)) {
 		/* Get next time */
@@ -474,8 +477,19 @@ static int mp4_play(struct ast_channel *chan, void *data)
 				/* Free frame */
 				ast_frfree(f);
 			}
+
+			/* Calculate elapsed time */
+			ms = t - ast_tvdiff_ms(ast_tvnow(),tv);
 		}
 
+		/* Get new time */
+		struct timeval tvn = ast_tvnow();
+
+		/* Calculate elapsed */
+		t = ast_tvdiff_ms(tvn,tv);
+
+		/* Set new time */
+		tv = tvn;
 
 		/* Remove time */
 		if (audioNext > 0)
@@ -484,11 +498,11 @@ static int mp4_play(struct ast_channel *chan, void *data)
 			videoNext -= t;
 
 		/* if we have to send audio */
-		if (!audioNext > 0)
-			audioNext = mp4_rtp_read(&audio);
+		if (audioNext<=0)
+			audioNext += mp4_rtp_read(&audio);
 
 		/* or video */
-		if (!videoNext > 0)
+		if (videoNext<=0)
 			videoNext = mp4_rtp_read(&video);
 	}
 
