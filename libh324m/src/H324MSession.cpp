@@ -62,7 +62,7 @@ int H324MSession::Read(BYTE *buffer,int length)
 #ifdef DUMP_H223
 	char name[256];
 	sprintf(name,"/tmp/h223_%x_in.raw",(unsigned int)this);
-	int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
+	int fd = open(name,O_CREAT|O_WRONLY|O_APPEND, S_IRWXU | S_IRWXO);
 	write(fd,buffer,length);
 	close(fd);
 #endif
@@ -81,7 +81,7 @@ int H324MSession::Write(BYTE *buffer,int length)
 #ifdef DUMP_H223
 	char name[256];
 	sprintf(name,"/tmp/h223_%x_out.raw",(unsigned int)this);
-	int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
+	int fd = open(name,O_CREAT|O_WRONLY|O_APPEND, S_IRWXU | S_IRWXO);
 	write(fd,buffer,length);
 	close(fd);
 #endif

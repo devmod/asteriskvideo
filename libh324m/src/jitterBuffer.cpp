@@ -1,6 +1,6 @@
 /***************************************************************************
- *   Copyright (C) 2007 by francesco   *
- *   fremmi@ciccio   *
+ *   Copyright (C) 2007 by Francesco Emmi   *
+ *   francesco.emmi@a-tono.com   *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -119,11 +119,19 @@ H223MuxSDU *jitterBuffer::GetSDU()
 	//If there is delay set
 	if(minDelay)
 		//Calculate next send time
-		nextPacket = ticks + minDelay;
+		//If this is the first packet or buffer has been just unlocked
+		if(!nextPacket)
+			nextPacket = ticks + minDelay;
+		else
+			//If buffer is in unlock state
+			nextPacket += minDelay;
 
 	//If size now is 0, lock buffer till is reached minPacket size
 	if(size == 0)
+	{
 		wait = true;
+		nextPacket = 0;
+	}
 
 	//Return the sdu
 	return sdu;
@@ -141,6 +149,6 @@ void jitterBuffer::SetBuffer(int packets,int delay )
 	minDelay = delay;
 	minPackets = packets;
 	//We need to wait if there are not enougth packets in the list
-	wait = (minPackets<size);
+	wait = (minPackets>size);
 }
 
