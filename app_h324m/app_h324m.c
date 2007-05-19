@@ -114,7 +114,7 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_tr *vtr)
 			/* Create frame */
 			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 2 + framelength);
 			/* if its first */
-			if (framedata[0]==0 && framedata[1]==0  &&  framedata[2]&0xFC==0x80)
+			if (framedata[0] == 0 && framedata[1] == 0  &&  (framedata[2] & 0xFC) == 0x80)
 			{
 				/* Get time reference */
 				unsigned char tr = (framedata[2] << 6) & 0xC0; 	// 2 LS bits out of the 3rd byte
