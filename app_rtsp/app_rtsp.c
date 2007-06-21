@@ -76,6 +76,7 @@ static struct {
 	{ AST_FORMAT_H261, "H261"},
 	{ AST_FORMAT_H263, "H263"},
 	{ AST_FORMAT_H263_PLUS, "H263-1998"},
+	{ AST_FORMAT_H263_PLUS, "H263-2000"},
 	{ AST_FORMAT_H264, "H264"},
 	{ AST_FORMAT_MPEG4, "MP4V-ES"},
 };
@@ -296,8 +297,12 @@ static int SendRequest(int fd,char *request,int *end)
 	{
 		/* If failed connection*/
 		if (errno!=EAGAIN)
+		{
+			/* log */
+			ast_log(LOG_ERROR,"Error sending request [%d]\n",len,errno);
 			/* End */
 			*end = 0;
+		}
 		/* exit*/
 		return 0;
 	}
@@ -311,7 +316,7 @@ static int RtspPlayerDescribe(struct RtspPlayer *player,const char *url)
 	char request[1024];
 
 	/* Log */
-	printf(">DESCRIBE [%s]\n",url);
+	ast_log(LOG_WARNING,">DESCRIBE [%s]\n",url);
 
 	/* Prepare request */
 	snprintf(request,1024,
@@ -332,7 +337,7 @@ static int RtspPlayerDescribe(struct RtspPlayer *player,const char *url)
 	player->state = RTSP_DESCRIBE;
 	/* Increase seq */
 	player->cseq++;
-	printf("<DESCRIBE [%s]\n",url);
+	ast_log(LOG_WARNING,"<DESCRIBE [%s]\n",url);
 	/* ok */
 	return 1;
 }
@@ -343,7 +348,7 @@ static int RtspPlayerSetupAudio(struct RtspPlayer* player,const char *url)
 	char sessionheader[256];
 
 	/* Log */
-	printf("-SETUP AUDIO [%s]\n",url);
+	ast_log(LOG_WARNING,"-SETUP AUDIO [%s]\n",url);
 
 	/* if it got session */
 	if (player->numSessions)
@@ -395,7 +400,7 @@ static int RtspPlayerSetupVideo(struct RtspPlayer* player,const char *url)
 	char sessionheader[256];
 
 	/* Log */
-	printf("-SETUP VIDEO [%s]\n",url);
+	ast_log(LOG_WARNING,"-SETUP VIDEO [%s]\n",url);
 
 	/* if it got session */
 	if (player->numSessions)
@@ -447,7 +452,7 @@ static int RtspPlayerPlay(struct RtspPlayer* player)
 	int i;
 
 	/* Log */
-	printf("-PLAY [%s]\n",player->url);
+	ast_log(LOG_WARNING,"-PLAY [%s]\n",player->url);
 
 	/* if not session */
 	if (!player->numSessions)
@@ -486,7 +491,7 @@ static int RtspPlayerTeardown(struct RtspPlayer* player)
 	int i;
 
 	/* Log */
-	printf("-TEARDOWN\n");
+	ast_log(LOG_WARNING,"-TEARDOWN\n");
 
 	/* if not session */
 	if (!player->numSessions)
@@ -579,7 +584,8 @@ static struct SDPMedia* CreateMedia(char *buffer,int bufferLen)
 		media->formats[i]->control 	= NULL;
 	}
 
-	printf("-creating media [%d,%s]\n",media->num,strndup(buffer,bufferLen));
+	/* log */
+	ast_log(LOG_WARNING,"-creating media [%d,%s]\n",media->num,strndup(buffer,bufferLen));
 
 	/* Return media */
 	return media;
@@ -633,7 +639,8 @@ static struct SDPContent* CreateSDP(char *buffer,int bufferLen)
 			/* Decrease end */
 			j--;
 
-		printf("-line [%s]\n",strndup(i,j-i));
+		/* log */
+		ast_log(LOG_WARNING,"-line [%s]\n",strndup(i,j-i));
 
 		/* Check header */
 		if (strncmp(i,"m=",2)==0) 
@@ -846,8 +853,12 @@ static int RecvResponse(int fd,char *buffer,int *bufferLen,int bufferSize,int *e
 	{
 		/* If failed connection*/
 		if ((errno!=EAGAIN && errno!=EWOULDBLOCK) || !len)
+		{
+			/* log */
+			ast_log(LOG_ERROR,"Error receiving response [%d,%d]\n",len,errno);
 			/* End */
 			*end = 1;
+		}
 		/* exit*/
 		return 0;
 	} 
@@ -906,18 +917,29 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	struct RtspPlayer *player;
 	struct RtpHeader *rtp;
 
+	/* log */
+	ast_log(LOG_WARNING,">rtsp play\n");
+
 	/* Create player */
 	player = RtspPlayerCreate();
 
 	/* if error */
 	if (!player)
+	{
+		/* log */
+		ast_log(LOG_ERROR,"Couldn't create player\n");
 		/* exit */
 		return 0;
+	}
 
 	/* Connect player */
 	if (!RtspPlayerConnect(player,ip,port))
+	{
+		/* log */
+		ast_log(LOG_ERROR,"Couldn't connecting to %s:%d\n",ip,port);
 		/* end */
 		goto rtsp_play_clean;
+	}
 
 	/* Set arrays */
 	channels[0] = chan;
@@ -925,12 +947,18 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	infds[1] = player->audioRtp;
 	infds[2] = player->videoRtp;
 
-	printf("-rtsp_play loop\n");
 
 	/* Send request */
 	if (!RtspPlayerDescribe(player,url))
+	{
+		/* log */
+		ast_log(LOG_ERROR,"Couldn't handle DESCRIBE in %s\n",url);
 		/* end */
 		goto rtsp_play_end;
+	}
+
+	/* log */
+	ast_log(LOG_WARNING,"-rtsp play loop\n");
 
 	/* Loop */
 	while(!player->end)
@@ -959,6 +987,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 					if (player->state>RTSP_DESCRIBE)
 						/* Teardown */
 						RtspPlayerTeardown(player);
+					/* log */
+					ast_log(LOG_WARNING,"-Hangup\n");
 					/* exit */
 					player->end = 1;
 				}
@@ -970,7 +1000,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 			switch (player->state)
 			{
 				case RTSP_DESCRIBE:
-					printf("-Receiving describe\n");
+					/* log */
+					ast_log(LOG_WARNING,"-Receiving describe\n");
 					/* Read into buffer */
 					if (!RecvResponse(player->fd,buffer,&bufferLen,bufferSize,&player->end))
 						break;
@@ -986,8 +1017,12 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 						contentLength = GetHeaderValueInt(buffer,responseLen,"Content-Length");	
 						/* Is it sdp */
 						if (!CheckHeaderValue(buffer,responseLen,"Content-Type","application/sdp"))
+						{
+							/* log */
+							ast_log(LOG_ERROR,"Content-Type unknown\n");
 							/* End */
 							player->end = 1;
+						}
 						/* Get new length */
 						bufferLen -= responseLen;
 						/* Move data to begining */
@@ -1011,6 +1046,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 					/* If not sdp */
 					if (!sdp)
 					{
+						/* log */
+						ast_log(LOG_ERROR,"Couldn't parse SDP\n");
 						/* end */
 						player->end = 1;
 						/* exit */
@@ -1022,7 +1059,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 						/* Get first matching format */
 						for (i=0;i<sdp->audio->num;i++)
 						{
-							printf("-audio [%d,%d,%s]\n", sdp->audio->formats[i]->format, sdp->audio->formats[i]->payload ,sdp->audio->formats[i]->control);
+							/* log */
+							ast_log(LOG_WARNING,"-audio [%d,%d,%s]\n", sdp->audio->formats[i]->format, sdp->audio->formats[i]->payload ,sdp->audio->formats[i]->control);
 							/* if we have that */
 							if (sdp->audio->formats[i]->format & chan->nativeformats)
 							{
@@ -1040,7 +1078,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 						/* Get first matching format */
 						for (i=0;i<sdp->video->num;i++)
 						{
-							printf("-video [%d,%d,%s]\n", sdp->video->formats[i]->format, sdp->video->formats[i]->payload ,sdp->video->formats[i]->control);
+							/* log */
+							ast_log(LOG_WARNING,"-video [%d,%d,%s]\n", sdp->video->formats[i]->format, sdp->video->formats[i]->payload ,sdp->video->formats[i]->control);
 							/* if we have that */
 							if (sdp->video->formats[i]->format & chan->nativeformats)
 							{
@@ -1055,18 +1094,23 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 
 					/* if audio track */
 					if (audioControl)
+					{
 						/* Open audio */
 						RtspPlayerSetupAudio(player,audioControl);
-					else if (videoControl)
+					} else if (videoControl) {
 						/* Open video */
 						RtspPlayerSetupVideo(player,videoControl);
-					else
+					} else {
+						/* log */
+						ast_log(LOG_ERROR,"No media found\n");
 						/* end */
 						player->end = 1;
+					}
 					break;
 
 				case RTSP_SETUP_AUDIO:
-					printf("-Recv audio response\n");
+					/* log */
+					ast_log(LOG_WARNING,"-Recv audio response\n");
 					/* Read into buffer */
 					if (!RecvResponse(player->fd,buffer,&bufferLen,bufferSize,&player->end))
 						break;
@@ -1078,6 +1122,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 					/* Does it have content */
 					if (HasHeader(buffer,responseLen,"Content-Length"))
 					{
+						/* log */
+						ast_log(LOG_ERROR,"No content length\n");
 						/* Uh? */
 						player->end = 1;
 						/* break */
@@ -1085,8 +1131,9 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 					}
 					/* Get session */
 					if ( (session=GetHeaderValue(buffer,responseLen,"Session")) == 0)
-						
 					{
+						/* log */
+						ast_log(LOG_ERROR,"No session\n");
 						/* Uh? */
 						player->end = 1;
 						/* break */
@@ -1118,6 +1165,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 					/* Does it have content */
 					if (HasHeader(buffer,responseLen,"Content-Length"))
 					{
+						/* log */
+						ast_log(LOG_ERROR,"No content length\n");
 						/* Uh? */
 						player->end = 1;
 						/* break */
@@ -1126,6 +1175,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 					/* Get session if we don't have already one*/
 					if ( (session=GetHeaderValue(buffer,responseLen,"Session")) == 0)
 					{
+						/* log */
+						ast_log(LOG_ERROR,"No session\n");
 						/* Uh? */
 						player->end = 1;
 						/* break */
@@ -1222,10 +1273,10 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 					sendFrame->samples = 0;
 				/* Save ts */
 				lastVideo = ts;
+				/* Set mark */
+				sendFrame->subclass |= rtp->m;
 			}
 
-			/* Set mark */
-			sendFrame->subclass |= rtp->m;
 			/* Rest */
 			sendFrame->delivery.tv_usec = 0;
 			sendFrame->delivery.tv_sec = 0;
@@ -1233,12 +1284,16 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 			/* Send frame */
 			ast_write(chan,sendFrame);
 
-		} else if (player->state!=RTSP_PLAY) 
+		} else if (player->state!=RTSP_PLAY) {
+			/* log */
+			ast_log(LOG_ERROR,"-timedout and not conected");
 			/* Exit f timedout and not conected*/
 			player->end = 1;
+		}
 	}
 
-	printf("<rtsp_play");
+	/* log */
+	ast_log(LOG_WARNING,"-rtsp_play end loop");
 
 	/* If ther was a sdp */
 	if (sdp)
@@ -1252,6 +1307,9 @@ rtsp_play_clean:
 rtsp_play_end:
 	/* Destroy player */
 	RtspPlayerDestroy(player);
+
+	/* log */
+	ast_log(LOG_WARNING,"<rtsp_play");
 
 	/* Exit */	
 	return 0;
@@ -1435,7 +1493,7 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 	/* Get proto part */
 	if ((i=strstr(uri,"://"))==NULL)
 	{
-		printf("RTSP ERROR: Invalid uri %s\n",uri);
+		ast_log(LOG_ERROR,"RTSP ERROR: Invalid uri %s\n",uri);
 		return 0;
 	}
 
@@ -1489,7 +1547,7 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 		rtsp_play(chan,ip,port,url);
 
 	} else
-		printf("RTSP ERROR: Unknown protocol in uri %s\n",uri);
+		ast_log(LOG_ERROR,"RTSP ERROR: Unknown protocol in uri %s\n",uri);
 	
 	/* Unlock module*/
 	ast_module_user_remove(u);
