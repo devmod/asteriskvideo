@@ -299,7 +299,7 @@ static int SendRequest(int fd,char *request,int *end)
 		if (errno!=EAGAIN)
 		{
 			/* log */
-			ast_log(LOG_ERROR,"Error sending request [%d]\n",len,errno);
+			ast_log(LOG_ERROR,"Error sending request [%d]\n",errno);
 			/* End */
 			*end = 0;
 		}
@@ -884,7 +884,6 @@ static int GetResponseLen(char *buffer)
 
 static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 {
-	struct ast_channel *channels[1];
 	struct ast_frame *f;
 	struct ast_frame *sendFrame;
 
@@ -942,7 +941,6 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	}
 
 	/* Set arrays */
-	channels[0] = chan;
 	infds[0] = player->fd;
 	infds[1] = player->audioRtp;
 	infds[2] = player->videoRtp;
@@ -968,7 +966,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 		/* 10 seconds timeout */
 		ms = 10000;
 		/* Read from channels and fd*/
-		if (ast_waitfor_nandfds(channels,1,infds,3,NULL,&outfd,&ms))
+		if (ast_waitfor_nandfds(&chan,1,infds,3,NULL,&outfd,&ms))
 		{
 			/* Read frame */
 			f = ast_read(chan);
@@ -1235,9 +1233,6 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 			/* Increase length */
 			ini += rtp->cc;
 
-			/* Get type */
-			rtp->pt;
-
 			/* Get timestamp */
 			unsigned int ts = ntohl(rtp->ts);
 			 
@@ -1318,9 +1313,7 @@ rtsp_play_end:
 static int rtsp_tunnel(struct ast_channel *chan,char *ip, int port, char *url)
 {
 	struct sockaddr_in sendAddr;
-	struct ast_channel *channels[1];
 	struct ast_frame *f;
-	struct ast_frame *sendFrame;
 
 	int infds[1];
 	int outfd;
@@ -1371,7 +1364,6 @@ static int rtsp_tunnel(struct ast_channel *chan,char *ip, int port, char *url)
 
 
 	/* Set arrays */
-	channels[0] = chan;
 	infds[0] = rtsp;
 
 	/* Loop */
@@ -1380,7 +1372,7 @@ static int rtsp_tunnel(struct ast_channel *chan,char *ip, int port, char *url)
 		/* No output */
 		outfd = -1;
 		/* Read from channels and fd*/
-		if (ast_waitfor_nandfds(channels,1,infds,1,NULL,&outfd,&ms))
+		if (ast_waitfor_nandfds(&chan,1,infds,1,NULL,&outfd,&ms))
 		{
 			/* Read frame */
 			f = ast_read(chan);
