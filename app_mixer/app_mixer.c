@@ -83,19 +83,16 @@ static int join_exec(struct ast_channel *chan, void *data)
 
 	/* Create participant */
 	partId = CreateParticipant(mcu,room);
-	ast_log(LOG_WARNING,"created [%x]\n",chan);
 
 	/* Create audio and video rtp sockets */
 	audio = ast_rtp_new(sched,io,0,0);
 	video = ast_rtp_new(sched,io,0,0);
-	ast_log(LOG_WARNING,"new [%x]\n",chan);
 
 	/* Get local port address */
 	ast_rtp_get_us(audio,&addr);
 	audioPort = ntohs(addr.sin_port);
 	ast_rtp_get_us(video,&addr);
 	videoPort = ntohs(addr.sin_port);
-	ast_log(LOG_WARNING,"set [%x]\n",chan);
 
 	/* Set codecs */
 	SetVideoCodec(mcu,room,partId,H263,CIF,300,5);
@@ -108,7 +105,6 @@ static int join_exec(struct ast_channel *chan, void *data)
 	/* Start receiving in mcu side*/
 	StartReceivingAudio(mcu,room,partId,&remoteAudioPort);
 	StartReceivingVideo(mcu,room,partId,&remoteVideoPort);
-	ast_log(LOG_WARNING,"Loop [%x]\n",chan);
 
 	/* Set send data */
 	addr.sin_family      = AF_INET;
