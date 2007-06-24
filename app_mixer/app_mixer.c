@@ -67,7 +67,7 @@ static int join_exec(struct ast_channel *chan, void *data)
 	int infds[2];
 	int outfd;
 	int ms;
-	int comp=0;
+	int comp=1;
 
 	u = ast_module_user_add(chan);
 
