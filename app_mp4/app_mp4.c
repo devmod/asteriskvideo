@@ -633,7 +633,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					unsigned char AVCProfileCompat		= 1;
 					MP4Duration h264FrameDuration		= 1.0/30;
 					/* Create video track */
-					video = MP4AddH264VideoTrack(mp4, 9000, h264FrameDuration, 176, 144, AVCProfileIndication, AVCProfileCompat, AVCLevelIndication,  3);
+					video = MP4AddH264VideoTrack(mp4, 90000, h264FrameDuration, 176, 144, AVCProfileIndication, AVCProfileCompat, AVCLevelIndication,  3);
 					/* Create video hint track */
 					hintVideo = MP4AddHintTrack(mp4, video);
 					/* Set payload type for hint track */
