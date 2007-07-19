@@ -37,8 +37,8 @@
 #include <asterisk/module.h>
 #include <asterisk/causes.h>
 
-#ifndef AST_FORMAT_AMR
-#define AST_FORMAT_AMR (1 << 13)
+#ifndef AST_FORMAT_AMRNB
+#define AST_FORMAT_AMRNB 	(1 << 13)
 #endif
 
 static char *name_h324m_loopback = "h324m_loopback";
@@ -97,7 +97,7 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_tr *vtr)
 			/* Set video type */
 			send->frametype = AST_FRAME_VOICE;
 			/* Set codec value */
-			send->subclass = AST_FORMAT_AMR;
+			send->subclass = AST_FORMAT_AMRNB;
 			/* Rest of values*/
 			send->src = "h324m";
 			send->samples = 160;
@@ -187,7 +187,7 @@ static int init_h324m_packetizer(struct h324m_packetizer *pak,struct ast_frame* 
 	{
 		case AST_FRAME_VOICE:
 			/* Check audio type */
-			if (!(f->subclass & AST_FORMAT_AMR))
+			if (!(f->subclass & AST_FORMAT_AMRNB))
 				/* exit */
 				return 0;
 			/* Get data & length */
@@ -270,7 +270,7 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 		case AST_FRAME_VOICE:
 		{
 			/* Check audio type */
-			if (!(f->subclass & AST_FORMAT_AMR))
+			if (!(f->subclass & AST_FORMAT_AMRNB))
 				/* exit */
 				break;
 			/* Convert to if2 */
@@ -397,7 +397,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	u = ast_module_user_add(chan);
 
 	/* Request new channel */
-	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_H263_PLUS | AST_FORMAT_AMR, data, &reason);
+	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_H263_PLUS | AST_FORMAT_AMRNB, data, &reason);
  
 	/* If somthing has gone wrong */
 	if (!pseudo)
