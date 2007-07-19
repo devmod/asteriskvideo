@@ -44,8 +44,8 @@
 #include <asterisk/pbx.h>
 #include <asterisk/module.h>
 
-#ifndef AST_FORMAT_AMR
-#define AST_FORMAT_AMR (1 << 13)
+#ifndef AST_FORMAT_AMRNB
+#define AST_FORMAT_AMRNB 	(1 << 13)
 #endif 
 
 static char *app_play = "mp4play";
@@ -371,7 +371,7 @@ static int mp4_play(struct ast_channel *chan, void *data)
 				else if (strcmp("PCMA", audio.name) == 0)
 					audio.frameSubClass = AST_FORMAT_ALAW;
 				else if (strcmp("AMR", audio.name) == 0)
-					audio.frameSubClass = AST_FORMAT_AMR;
+					audio.frameSubClass = AST_FORMAT_AMRNB;
 
 			} else if (strcmp(type, MP4_VIDEO_TRACK_TYPE) == 0) {
 				/* it's video */
@@ -582,7 +582,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					type = 8;
 					payload = 0;
 					MP4SetHintTrackRtpPayload(mp4, hintAudio, "PCMA", &type, 0, NULL, 1, 0);
-				} else if (f->subclass & AST_FORMAT_AMR) {
+				} else if (f->subclass & AST_FORMAT_AMRNB) {
 					/* Create audio track */
 					audio = MP4AddAmrAudioTrack(mp4, 8000, 0, 0, 1, 0); /* Should check framesPerSample*/
 					/* Create audio hint track */
