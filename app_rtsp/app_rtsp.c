@@ -38,10 +38,12 @@
 #include <asterisk/pbx.h>
 #include <asterisk/module.h>
 
-#ifndef AST_FORMAT_AMR
-#define AST_FORMAT_AMR 		(1 << 13)
-#define AST_FORMAT_MPEG4        (1 << 22)
+#ifndef AST_FORMAT_AMRNB
+#define AST_FORMAT_AMRNB	(1 << 13)
 #endif 
+#ifndef AST_FORMAT_MPEG4
+#define AST_FORMAT_MPEG4        (1 << 22)
+#endif
 
 static char *name_rtsp = "rtsp";
 static char *syn_rtsp = "rtsp player";
@@ -71,7 +73,7 @@ static struct {
 	{ AST_FORMAT_ILBC, "iLBC"},
 	{ AST_FORMAT_G722, "G722"},
 	{ AST_FORMAT_G726_AAL2, "AAL2-G726-32"},
-	{ AST_FORMAT_AMR, "AMR"},
+	{ AST_FORMAT_AMRNB, "AMR"},
 	{ AST_FORMAT_JPEG, "JPEG"},
 	{ AST_FORMAT_PNG, "PNG"},
 	{ AST_FORMAT_H261, "H261"},
