@@ -348,6 +348,10 @@ static int app_h324m_loopback(struct ast_channel *chan, void *data)
 				if (FrameGetType(frame)==MEDIA_VIDEO)
 					/* Send it back */
 					H324MSessionSendFrame(id,frame);
+				/* uncomment the next lines to have audio loopback too
+				   Note: this can cause loopback/echo problems */
+				//if (FrameGetType(frame)==MEDIA_AUDIO)
+				//	H324MSessionSendFrame(id,frame);
 				/* Delete frame */
 				FrameDestroy(frame);
 			}
