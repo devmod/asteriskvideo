@@ -539,7 +539,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 					/* Send digit begin */
 					ast_senddigit_begin(pseudo,input[0]);
 					/* Send digit end */
-					ast_senddigit_end(pseudo,input[0]);
+					ast_senddigit_end(pseudo,input[0],100);
 					/* free data */
 					free(input);
 				}
@@ -751,7 +751,7 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 					/* Send digit begin */
 					ast_senddigit_begin(pseudo,input[0]);
 					/* Send digit end */
-					ast_senddigit_end(pseudo,input[0]);
+					ast_senddigit_end(pseudo,input[0],100);
 					/* free data */
 					free(input);
 				}
