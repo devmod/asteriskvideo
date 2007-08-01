@@ -57,8 +57,8 @@ static char *name_video_loopback = "video_loopback";
 static char *syn_video_loopback = "video_loopback";
 static char *des_video_loopback = "  video_loopback():  Video loopback.\n";
 
-static short blockSize[16] = { 12, 13, 15, 17, 19, 20, 26, 31,  5, -1, -1, -1, -1, -1, -1, -1};
-static short if2stuffing[16] = {5, 5, 6, 6, 0, 5, 0, 0, 5, 1, 6, 7, -1, -1, -1, 4};
+static short blockSize[16] = { 13, 14, 16, 18, 19, 21, 26, 31,  6, -1, -1, -1, -1, -1, -1, -1};
+static short if2stuffing[16] = {5,  5,  6,  6,  0,  5,  0,  0,  5,  1,  6,  7, -1, -1, -1,  4};
 
 struct video_tr
 {
@@ -84,16 +84,49 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_tr *vtr)
 				/* exit */
 				return NULL;
 			/* Create frame */
-			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + framelength + 2);
+			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + framelength + 3);
 			/* Set data*/
 			send->data = (void*)send + AST_FRIENDLY_OFFSET;
 			send->datalen = framelength;
 			/* Set header cmr */
 			((unsigned char*)(send->data))[0] = 0xF0;
-			/* Set mode */
-			((unsigned char*)(send->data))[1] = (framedata[0] & 0x78) | 0x04;
 			/* Copy */
-			memcpy(send->data+2, framedata, framelength);
+			memcpy(send->data+1, framedata, framelength);
+			
+			/*Convert IF2 into AMR MIME format*/
+
+			/*Get header*/
+			unsigned char header = ((unsigned char *)(send->data+1))[0];
+			/*Get mode*/
+			unsigned char mode = header & 0x0F;
+			/*Get number of stuffing bits*/
+			unsigned int stuf = if2stuffing[mode];
+			/*Get Block Size*/
+			unsigned int bs = blockSize[mode];
+
+
+			/*Reverse bytes*/
+			TIFFReverseBits(send->data+1, framelength);
+
+			//It amr has a byte more then if2
+			if(stuf < 4)
+			{
+				((unsigned char *)(send->data+1))[bs] = ((unsigned char *)(send->data+1))[bs - 1] << 4;
+				/*Increase size of frame*/
+				send->datalen++;
+			}
+			
+			//For each byte
+			int i;
+			for(i=bs-1; i>0; i--)
+			{
+				((unsigned char *)(send->data+1))[i] = ((unsigned char *)(send->data+1))[i] >> 4 | ((unsigned char *)(send->data+1))[i-1] << 4;
+			}
+
+			//Calculate first
+			((unsigned char *)(send->data+1))[0] = mode << 3 | 0x04;
+
+
 			/* Set video type */
 			send->frametype = AST_FRAME_VOICE;
 			/* Set codec value */
@@ -280,23 +313,26 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 			unsigned char mode = (header >> 3 ) & 0x0f;
 			/* Get blockSize */
 			unsigned bs = blockSize[mode];
-			/* Reverse bits */
-			TIFFReverseBits(pak->offset,bs);
-			/*create if2 last byte with stuffing bits and speach*/
-			unsigned char if2_last =  (pak->offset[bs - 1] & 0x0F) >> (if2stuffing[mode] - 4);
+			/*Get Stuffing bits*/
+			int stuf = if2stuffing[mode];
+
+			/*If amr and if2 frames has same size*/
+			if(!(stuf < 4))
+			{
+				pak->offset[bs - 1] = 0x00;
+			}
+			
 			/* For each byte */
 			for (i=bs-1; i>0; i--)
-				//Move bits
-				pak->offset[i] = (pak->offset[i] << 4) | (pak->offset[i-1] >>  4);
-			//Set first byte
-			pak->offset[0] = (pak->offset[0] << 4) | mode;
-			/*Add last byte if needed*/
-			if(if2stuffing[mode] > 4)
-			{
-				bs++;
-				pak->offset[bs - 1] = if2_last;
-			}
-
+				/*Move bits*/
+				pak->offset[i] = (pak->offset[i] >> 4) | (pak->offset[i-1] <<  4);
+			
+			/*Set first*/
+			pak->offset[0] = pak->offset[0] >> 4;
+			/*Reverse bits*/
+			TIFFReverseBits(pak->offset, bs);
+			/*Set mode*/
+			pak->offset[0] |= mode;
 			/* Inc offset first */
 			pak->offset += bs;
 			/* Create frame */	
