@@ -72,7 +72,7 @@ static int mp4_rtp_write_audio(struct mp4track *t, struct ast_frame *f, int payl
 	/* Next sample */
 	t->sampleId++;
 
-	ast_log(LOG_DEBUG, "Saving #%d:%d:%d %d samples %d size of audio\n", t->sampleId, t->track, t->hint, f->samples, f->datalen);
+	ast_log(LOG_DEBUG, "Saving #%d:%d:%d %d samples %d size of audio, payload=%d\n", t->sampleId, t->track, t->hint, f->samples, f->datalen,payload);
 
 	/* Add hint */
 	MP4AddRtpHint(t->mp4, t->hint);
@@ -531,7 +531,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 	MP4TrackId hintVideo = -1;
 	unsigned char type = 0;
 	bool intra = 0;
-	int payload;
+	int audio_payload, video_payload;
 
 	/* Check for file */
 	if (!data)
@@ -571,7 +571,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					hintAudio = MP4AddHintTrack(mp4, audio);
 					/* Set payload type for hint track */
 					type = 0;
-					payload = 0;
+					audio_payload = 0;
 					MP4SetHintTrackRtpPayload(mp4, hintAudio, "PCMU", &type, 0, NULL, 1, 0);
 				} else if (f->subclass & AST_FORMAT_ALAW) {
 					/* Create audio track */
@@ -580,7 +580,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					hintAudio = MP4AddHintTrack(mp4, audio);
 					/* Set payload type for hint track */
 					type = 8;
-					payload = 0;
+					audio_payload = 0;
 					MP4SetHintTrackRtpPayload(mp4, hintAudio, "PCMA", &type, 0, NULL, 1, 0);
 				} else if (f->subclass & AST_FORMAT_AMRNB) {
 					/* Create audio track */
@@ -589,7 +589,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					hintAudio = MP4AddHintTrack(mp4, audio);
 					/* Set payload type for hint track */
 					type = 98;
-					payload = 1;
+					audio_payload = 1;
 					MP4SetHintTrackRtpPayload(mp4, hintAudio, "AMR", &type, 0, NULL, 1, 0);
 					/* Unknown things */
 					MP4SetAudioProfileLevel(mp4, 0xFE);
@@ -604,7 +604,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 			}
 
 			/* Save audio rtp packet */
-			mp4_rtp_write_audio(&audioTrack, f, payload);
+			mp4_rtp_write_audio(&audioTrack, f, audio_payload);
 
 		} else if (f->frametype == AST_FRAME_VIDEO) {
 			/* Check if we have the video track */
@@ -664,7 +664,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 				/* Check if it's an intra frame */
 				intra = (((unsigned char *) (f->data))[1] & 0x10) != 0;
 				/* payload length */
-				payload = 4;
+				video_payload = 4;
 			} else if (f->subclass & AST_FORMAT_H263_PLUS) {
 				/* Check if it's an intra frame */
 				unsigned char p = ((unsigned char *) (f->data))[0] & 0x04;
@@ -672,7 +672,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 				unsigned char plen = ((((unsigned char *) (f->data))[0] & 0x1 ) << 5 ) | (((unsigned char *) (f->data))[1] >> 3);
 				unsigned char pebit = ((unsigned char *) (f->data))[0] & 0x7;
 				/* payload length */
-				payload = 2;
+				video_payload = 2;
 				/* skip rest of headers */
 				skip = plen + v;
 				/* If its first packet of frame*/
@@ -688,7 +688,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 				/* All intra */
 				intra = 1;
 				/* Save all to the rtp payload */
-				payload = f->datalen;
+				video_payload = f->datalen;
 				/* Don't add frame data to payload */
 				skip = f->datalen;
 				/* And add the data to the frame but not associated with the hint track */
@@ -700,7 +700,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 			}
 
 			/* Write rtp video packet */
-			mp4_rtp_write_video(&videoTrack, f, payload, intra, skip, prependBuffer , prependLength);
+			mp4_rtp_write_video(&videoTrack, f, video_payload, intra, skip, prependBuffer , prependLength);
 
 		} else if (f->frametype == AST_FRAME_DTMF) {
 		}
