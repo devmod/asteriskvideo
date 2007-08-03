@@ -282,7 +282,9 @@ static int init_h324m_packetizer(struct h324m_packetizer *pak,struct ast_frame* 
 			pak->max = 1;
 			/* Exit */
 			return 1;
-
+		default:
+			/* dummy statement to make compiler happy */
+			;
 	}
 	/* Nothing to do */
 	return 0;
@@ -301,7 +303,6 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 	switch (f->frametype)
 	{
 		case AST_FRAME_VOICE:
-		{
 			/* Check audio type */
 			if (!(f->subclass & AST_FORMAT_AMRNB))
 				/* exit */
@@ -337,10 +338,12 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 			pak->offset += bs;
 			/* Create frame */	
 			return FrameCreate(MEDIA_AUDIO, CODEC_AMR, pak->offset - bs, bs);
-		}
 		case AST_FRAME_VIDEO:
 			/* Create frame */
 			return FrameCreate(MEDIA_VIDEO, CODEC_H263, pak->framedata, pak->framelength);
+		default:
+			/* dummy statement to make compiler happy */
+			;
 	}
 	/* NOthing */
 	return NULL;
