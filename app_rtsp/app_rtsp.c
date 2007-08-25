@@ -761,7 +761,7 @@ static int HasHeader(char *buffer,int bufferLen,char *header)
 		return 0;
 
 	/* Get Header */
-	i = strstr(buffer,header);
+	i = strcasestr(buffer,header);
 
 	/* If not found or not \r\n first*/
 	if (i<buffer+2)
@@ -841,7 +841,7 @@ static int CheckHeaderValue(char *buffer,int bufferLen,char *header,char*value)
 		return 0;
 
 	/* Return value */
-	return (strncmp(buffer+i,value,strlen(value))==0);
+	return (strncasecmp(buffer+i,value,strlen(value))==0);
 }
 
 
@@ -1121,10 +1121,10 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 						break;
 
 					/* Does it have content */
-					if (HasHeader(buffer,responseLen,"Content-Length"))
+					if (GetHeaderValueInt(buffer,responseLen,"Content-Length"))
 					{
 						/* log */
-						ast_log(LOG_ERROR,"No content length\n");
+						ast_log(LOG_ERROR,"Content length not expected\n");
 						/* Uh? */
 						player->end = 1;
 						/* break */
@@ -1164,7 +1164,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 						break;
 
 					/* Does it have content */
-					if (HasHeader(buffer,responseLen,"Content-Length"))
+					if (GetHeaderValueInt(buffer,responseLen,"Content-Length"))
 					{
 						/* log */
 						ast_log(LOG_ERROR,"No content length\n");
