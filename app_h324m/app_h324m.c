@@ -515,7 +515,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	u = ast_module_user_add(chan);
 
 	/* Request new channel */
-	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_H263_PLUS | AST_FORMAT_AMRNB | AST_FORMAT_ULAW, data, &reason);
+	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_H263_PLUS | AST_FORMAT_AMRNB , data, &reason);
  
 	/* If somthing has gone wrong */
 	if (!pseudo)
