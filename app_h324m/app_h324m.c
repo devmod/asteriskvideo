@@ -186,9 +186,17 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			{
 				/* Set data*/
 				send->data = (void*)send + AST_FRIENDLY_OFFSET;
-				send->datalen = vt->bufferLength;
-				/* Copy */
-				memcpy(send->data+2, vt->buffer+2, vt->bufferLength-2);
+				/* If it's not empty */
+				if (vt->bufferLength)
+				{
+					/* Set data len */
+					send->datalen = vt->bufferLength;
+					/* Copy */
+					memcpy(send->data+2, vt->buffer+2, vt->bufferLength-2);
+				} else {
+					/* Only header part by bow */
+					send->datalen = 2;
+				}
 				/* Set header */
 				((unsigned char*)(send->data))[0] = 0x04;
 				((unsigned char*)(send->data))[1] = 0x00; 
@@ -196,8 +204,10 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 				/* Set data*/
 				send->data = (void*)send + AST_FRIENDLY_OFFSET;
 				send->datalen =  vt->bufferLength + 2  ;
-				/* Copy */
-				memcpy(send->data+2, vt->buffer, vt->bufferLength);
+				/* If it's not empty */
+				if (vt->bufferLength)
+					/* Copy */
+					memcpy(send->data+2, vt->buffer, vt->bufferLength);
 				/* Set header */
 				((unsigned char*)(send->data))[0] = 0x00;
 				((unsigned char*)(send->data))[1] = 0x00;
