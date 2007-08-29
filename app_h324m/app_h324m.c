@@ -60,15 +60,21 @@ static char *des_video_loopback = "  video_loopback():  Video loopback.\n";
 static short blockSize[16] = { 13, 14, 16, 18, 19, 21, 26, 31,  6, -1, -1, -1, -1, -1, -1, -1};
 static short if2stuffing[16] = {5,  5,  6,  6,  0,  5,  0,  0,  5,  1,  6,  7, -1, -1, -1,  4};
 
-struct video_tr
+struct video_creator
 {
 	unsigned char tr;
 	unsigned int samples;
+	unsigned char first;
+	unsigned char buffer[1500];
+	unsigned int bufferLength;
 };
 
-static struct ast_frame* create_ast_frame(void *frame, struct video_tr *vtr)
+static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 {
 	int mark = 0;
+	int i = 0;
+	int found = 0;
+	int len;
 	struct ast_frame* send;
 
 	/* Get data & size */
@@ -117,7 +123,6 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_tr *vtr)
 			}
 			
 			//For each byte
-			int i;
 			for(i=bs-1; i>0; i--)
 			{
 				((unsigned char *)(send->data+1))[i] = ((unsigned char *)(send->data+1))[i] >> 4 | ((unsigned char *)(send->data+1))[i-1] << 4;
@@ -144,53 +149,107 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_tr *vtr)
 			if (FrameGetCodec(frame)!=CODEC_H263)
 				/* exit */
 				return NULL;
-			/* Create frame */
-			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 2 + framelength);
-			/* if its first */
-			if (framedata[0] == 0 && framedata[1] == 0  &&  (framedata[2] & 0xFC) == 0x80)
+			/* Search from the begining */
+			i = 0;
+			found = 0;
+			/* Try to find begining of frame */
+			while (!found && i<framelength-4)
 			{
-				/* Get time reference */
-				unsigned char tr = (framedata[2] << 6) & 0xC0; 	// 2 LS bits out of the 3rd byte
-				tr |= (framedata[3] >> 2) & 0x3F; 	// 6 MS bits out of the 4th byte
-				/* calculate samples */
-				if (tr < vtr->tr)
-					vtr->samples = ((256+tr) - vtr->tr) * 1000;
+				/* Check if we found start code */
+				if (framedata[i] == 0 && framedata[i+1] == 0  &&  (framedata[i+2] & 0xFC) == 0x80)
+					/* We found it */
+					found = 1;
 				else
-					vtr->samples = (tr - vtr->tr) * 1000;
-				/* Save tr */
-				vtr->tr = tr;
-				/* No data*/
+					/* Increase pointer */
+					i++;
+			}
+
+			/* If still in the same frame */
+			if (found)
+			{
+				/* Send what was on the buffer plus the beggining of the packet*/
+				len = vt->bufferLength + i;
+				/* Last packet */
+				mark = 1;
+			} else {
+				/* Send only what was on the buffer */
+				len =  vt->bufferLength;
+				/* Not last packet */
+				mark = 0;
+			}
+
+			/* Create frame */
+			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 2 + len);
+				
+			/* if its first pcaket of a frame */
+			if (vt->first)
+			{
+				/* Set data*/
 				send->data = (void*)send + AST_FRIENDLY_OFFSET;
-				send->datalen = framelength;
+				send->datalen = vt->bufferLength;
 				/* Copy */
-				memcpy(send->data+2, framedata+2, framelength-2);
+				memcpy(send->data+2, vt->buffer+2, vt->bufferLength-2);
 				/* Set header */
 				((unsigned char*)(send->data))[0] = 0x04;
 				((unsigned char*)(send->data))[1] = 0x00; 
-				/* Set mark */
-				mark = 1;
 			} else {
-				/* No data*/
+				/* Set data*/
 				send->data = (void*)send + AST_FRIENDLY_OFFSET;
-				send->datalen =  framelength + 2  ;
+				send->datalen =  vt->bufferLength + 2  ;
 				/* Copy */
-				memcpy(send->data+2, framedata, framelength);
+				memcpy(send->data+2, vt->buffer, vt->bufferLength);
 				/* Set header */
 				((unsigned char*)(send->data))[0] = 0x00;
 				((unsigned char*)(send->data))[1] = 0x00;
-				/* Unset mark */
-				mark = 0;
 			}
+			/* If we have to send the begging of this frame */
+			if (i>0 && found)
+			{
+				/* Copy the begining to the packet to send*/
+				memcpy(send->data+send->datalen,framedata,i);
+				/* Increase size */
+				send->datalen += i;
+				/* Copy the rest to the buffer */
+				memcpy(vt->buffer,framedata+i,framelength-i);
+				/* Set buffer length */
+				vt->bufferLength = framelength-i;
+			} else {
+				/* Copy the whole packet to the buffer */
+				memcpy(vt->buffer,framedata,framelength);
+				/* Set buffer length */
+				vt->bufferLength = framelength;
+			}
+
 			/* Set video type */
 			send->frametype = AST_FRAME_VIDEO;
 			/* Set codec value */
 			send->subclass = AST_FORMAT_H263_PLUS | mark;
 			/* Rest of values*/
 			send->src = "h324m";
-			send->samples = vtr->samples;
+			send->samples = vt->samples;
 			send->delivery.tv_usec = 0;
 			send->delivery.tv_sec = 0;
 			send->mallocd = 0;
+
+			/* If the next packet is from a different frame */
+			if (mark)
+			{
+				/* Get time reference of next sample */
+				unsigned char tr = (vt->buffer[2] << 6) & 0xC0; 	// 2 LS bits out of the 3rd byte
+				tr |= (vt->buffer[3] >> 2) & 0x3F; 	// 6 MS bits out of the 4th byte
+				/* calculate samples */
+				if (tr < vt->tr)
+					vt->samples = ((256+tr) - vt->tr) * 1000;
+				else
+					vt->samples = (tr - vt->tr) * 1000;
+				/* Save tr */
+				vt->tr = tr;
+				/* Set it's the first */
+				vt->first = 1;
+			} else {
+				/* Next it's not first */
+				vt->first = 0;
+			}
 			/* Send */
 			return send;
 	}
@@ -425,7 +484,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	struct ast_frame *send;
 	struct ast_module_user *u;
 	struct h324m_packetizer pak;
-	struct video_tr vtr= {0,0};
+	struct video_creator vt;
 	void*  frame;
 	char*  input;
 	int    reason = 0;
@@ -434,13 +493,19 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	struct ast_channel *pseudo;
 	struct ast_channel *where;
 
+	/* Initial values of vt */
+	vt.bufferLength = 0;
+	vt.samples = 0;
+	vt.tr = 0;
+	vt.first = 1;
+
 	ast_log(LOG_DEBUG, "h324m_loopback\n");
 
 	/* Lock module */
 	u = ast_module_user_add(chan);
 
 	/* Request new channel */
-	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_H263_PLUS | AST_FORMAT_AMRNB, data, &reason);
+	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_H263_PLUS | AST_FORMAT_AMRNB | AST_FORMAT_ULAW, data, &reason);
  
 	/* If somthing has gone wrong */
 	if (!pseudo)
@@ -530,7 +595,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 				while ((frame=H324MSessionGetFrame(id))!=NULL)
 				{
 					/* Packetize outgoing frame */
-					if ((send=create_ast_frame(frame,&vtr))!=NULL)
+					if ((send=create_ast_frame(frame,&vt))!=NULL)
 						/* Send frame */
 						ast_write(pseudo,send);
 					/* Delete frame */
@@ -619,7 +684,7 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	struct ast_frame *send;
 	struct ast_module_user *u;
 	struct h324m_packetizer pak;
-	struct video_tr vtr = {0,0};
+	struct video_creator vt;
 	void*  frame;
 	char*  input;
 	int    reason = 0;
@@ -627,6 +692,12 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	struct ast_channel *channels[2];
 	struct ast_channel *pseudo;
 	struct ast_channel *where;
+
+	/* Initial values of vt */
+	vt.bufferLength = 0;
+	vt.samples = 0;
+	vt.tr = 0;
+	vt.first = 1;
 
 	ast_log(LOG_DEBUG, "h324m_call\n");
 
@@ -742,7 +813,7 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 				while ((frame=H324MSessionGetFrame(id))!=NULL)
 				{
 					/* Packetize outgoing frame */
-					if ((send=create_ast_frame(frame,&vtr))!=NULL)
+					if ((send=create_ast_frame(frame,&vt))!=NULL)
 						/* Send frame */
 						ast_write(chan,send);
 					/* Delete frame */
