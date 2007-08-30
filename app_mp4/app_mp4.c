@@ -193,12 +193,13 @@ static int mp4_rtp_read(struct mp4rtp *p)
 	struct ast_frame *f;
 	int next = 0;
 	int last = 0;
+	int first = 0;
 
 	/* If it's first packet of a frame */
 	if (!p->numHintSamples) {
 		/* Get number of rtp packets for this sample */
 		if (!MP4ReadRtpHint(p->mp4, p->hint, p->sampleId, &p->numHintSamples)) {
-			ast_log(LOG_DEBUG, "MP4ReadRtpHint failed\n");
+			ast_log(LOG_DEBUG, "MP4ReadRtpHint failed [%d,%d]\n", p->hint,p->sampleId);
 			return -1;
 		}
 
@@ -210,18 +211,17 @@ static int mp4_rtp_read(struct mp4rtp *p)
 
 		/* Get sample timestamp */
 		p->frameTime = MP4GetSampleTime(p->mp4, p->hint, p->sampleId);
-	} else {
-		/* Reset frame samples */
-		p->frameSamples = 0;
-	}
 
+		/* Set first flag */
+		first = 1;
+	} 
 
 	/* if it's the last */
 	if (p->packetIndex + 1 == p->numHintSamples)
 		last = 1;
 
 	/* malloc frame & data */
-	f = (struct ast_frame *) malloc(sizeof(struct ast_frame) + 1500);
+	f = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 1500);
 
 	/* Unset */
 	memset(f, 0, sizeof(struct ast_frame) + 1500);
@@ -244,8 +244,10 @@ static int mp4_rtp_read(struct mp4rtp *p)
 	{
 		/* Set mark bit */
 		f->subclass |= last;
-		/* Set number of samples */
-		f->samples = p->frameSamples * (90000 / p->timeScale);
+		/* If it's the first packet of the frame */
+		if (first)
+			/* Set number of samples */
+			f->samples = p->frameSamples * (90000 / p->timeScale);
 	} else {
 		/* Set number of samples */
 		f->samples = p->frameSamples;
@@ -280,12 +282,15 @@ static int mp4_rtp_read(struct mp4rtp *p)
 
 	/* Set next send time */
 	if (!last && f->frametype == AST_FRAME_VIDEO)
+		/* Send next now if it's not the last packet of the frame */
+		/* This will send all the packets from the same frame without pausing between them */
+		/* FIX: should wait depending on bandwith */
 		next = 0;
 	else if (p->timeScale)
+		/* If it's from a different frame or it's audio */
 		next = (p->frameSamples * 1000) / p->timeScale;
 	else
 		next = -1;
-
 
 	/* exit next send time */
 	return next;
@@ -502,11 +507,11 @@ static int mp4_play(struct ast_channel *chan, void *data)
 			videoNext -= t;
 
 		/* if we have to send audio */
-		if (audioNext<=0)
+		if (audioNext<=0 && audio.name)
 			audioNext += mp4_rtp_read(&audio);
 
 		/* or video */
-		if (videoNext<=0)
+		if (videoNext<=0 && video.name)
 			videoNext = mp4_rtp_read(&video);
 	}
 
