@@ -43,7 +43,26 @@
 
 static char *name_h324m_loopback = "h324m_loopback";
 static char *syn_h324m_loopback = "H324m loopback mode";
-static char *des_h324m_loopback = "  h324m_loopback():  Estabish connection and loopback media.\n";
+static char *des_h324m_loopback = "  h324m_loopback([options]):  Establish H.324M connection and loopback media.\n"
+	"\n"
+	"Note: By default this function loops audio and video. Looping audio can cause\n"
+	"acoustic feedback. To prevent this you can turn it off using the 'a' option.\n"
+	"\n"
+	"Available options:\n"
+	" 'a': deactivate loopback of audio\n"
+	" 'v': deactivate loopback of video\n"
+	"\n"
+	"Note: This function just loops the h324m audio and video frames. Thus, there \n"
+	"is no conversion from h324m frames into Asterisk internal frame format. If  \n"
+	"you want to test the conversion from h324m frames to Asterisk frames and    \n"
+	"vice versa too, do not use h324m_loopback() but use h324m_gw() and the Echo()\n"
+	"application.\n"
+	"\n"
+	"Examples:\n"
+	" h324m_loopback(): loopback audio and video\n"
+	" h324m_loopback(a): deactivate loopback of audio\n"
+	" h324m_loopback(v): deactivate loopback of video\n"
+	" h324m_loopback(av): deactivate loopback of audio and video\n";
 
 static char *name_h324m_gw = "h324m_gw";
 static char *syn_h324m_gw = "H324m gateway";
@@ -55,7 +74,11 @@ static char *des_h324m_call = "  h324m_call():  Creates a pseudo channel for an 
 
 static char *name_video_loopback = "video_loopback";
 static char *syn_video_loopback = "video_loopback";
-static char *des_video_loopback = "  video_loopback():  Video loopback.\n";
+static char *des_video_loopback = "  video_loopback():  Video loopback.\n"
+	"This function just loops the Asterisk video frames. Thus, it is similar\n"
+	"to the Echo() application but only loops video (the Echo application loops\n"
+	"audio and video). To use this function with H324M calls you first have to use\n"
+	"the h324m_gw() function.\n";
 
 static short blockSize[16] = { 13, 14, 16, 18, 19, 21, 26, 31,  6, -1, -1, -1, -1, -1, -1, -1};
 static short if2stuffing[16] = {5,  5,  6,  6,  0,  5,  0,  0,  5,  1,  6,  7, -1, -1, -1,  4};
@@ -423,11 +446,21 @@ static int app_h324m_loopback(struct ast_channel *chan, void *data)
 	struct ast_frame *f;
 	struct ast_module_user *u;
 	void*  frame;
+	int loop_audio=1, loop_video=1;
 
 	ast_log(LOG_DEBUG, "h324m_loopback\n");
 
 	/* Lock module */
 	u = ast_module_user_add(chan);
+
+	if (strchr(data,'a')) {
+		/* deactivate audio loopback */
+		loop_audio=0;
+	}
+	if (strchr(data,'v')) {
+		/* deactivate video loopback */
+		loop_video=0;
+	}
 
 	/* Create session */
 	void* id = H324MSessionCreate();
@@ -452,14 +485,17 @@ static int app_h324m_loopback(struct ast_channel *chan, void *data)
 			/* Get frames */
 			while ((frame=H324MSessionGetFrame(id))!=NULL)
 			{
-				/* If it's video */
-				if (FrameGetType(frame)==MEDIA_VIDEO)
-					/* Send it back */
-					H324MSessionSendFrame(id,frame);
-				/* uncomment the next lines to have audio loopback too
-				   Note: this can cause loopback/echo problems */
-				//if (FrameGetType(frame)==MEDIA_AUDIO)
-				//	H324MSessionSendFrame(id,frame);
+				if (FrameGetType(frame)==MEDIA_VIDEO) {
+					if (loop_video) {
+						/* Send it back */
+						H324MSessionSendFrame(id,frame);
+					}
+				} else if (FrameGetType(frame)==MEDIA_AUDIO) {
+					if (loop_audio) {
+						/* Send it back. Note: this can cause loopback/echo problems */
+						H324MSessionSendFrame(id,frame);
+					}
+				}
 				/* Delete frame */
 				FrameDestroy(frame);
 			}
