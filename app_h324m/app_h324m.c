@@ -280,7 +280,7 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 				/* Change tr */
 				vt->tv = vt->tvnext;
 				/* Update samles */
-				vt->samples = ms*30;
+				vt->samples = ms*90;
 				/* Set it's the first */
 				vt->first = 1;
 			} else {
