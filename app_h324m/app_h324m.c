@@ -36,6 +36,7 @@
 #include <asterisk/pbx.h>
 #include <asterisk/module.h>
 #include <asterisk/causes.h>
+#include <asterisk/time.h>
 
 #ifndef AST_FORMAT_AMRNB
 #define AST_FORMAT_AMRNB 	(1 << 13)
@@ -85,7 +86,8 @@ static short if2stuffing[16] = {5,  5,  6,  6,  0,  5,  0,  0,  5,  1,  6,  7, -
 
 struct video_creator
 {
-	unsigned char tr;
+	struct timeval tv;
+	struct timeval tvnext;
 	unsigned int samples;
 	unsigned char first;
 	unsigned char buffer[1500];
@@ -194,6 +196,8 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 				len = vt->bufferLength + i;
 				/* Last packet */
 				mark = 1;
+				/* Update recived ts */
+				vt->tvnext = ast_tvnow();
 			} else {
 				/* Send only what was on the buffer */
 				len =  vt->bufferLength;
@@ -267,16 +271,16 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			/* If the next packet is from a different frame */
 			if (mark)
 			{
-				/* Get time reference of next sample */
-				unsigned char tr = (vt->buffer[2] << 6) & 0xC0; 	// 2 LS bits out of the 3rd byte
-				tr |= (vt->buffer[3] >> 2) & 0x3F; 	// 6 MS bits out of the 4th byte
-				/* calculate samples */
-				if (tr < vt->tr)
-					vt->samples = ((256+tr) - vt->tr) * 1000;
-				else
-					vt->samples = (tr - vt->tr) * 1000;
-				/* Save tr */
-				vt->tr = tr;
+				/* Calculate ms */
+				int ms = 0;
+				/* If it's not first*/
+				if (!ast_tvzero(vt->tv))
+					/* Get the difference in ms */
+					ms = ast_tvdiff_ms(vt->tvnext,vt->tv);
+				/* Change tr */
+				vt->tv = vt->tvnext;
+				/* Update samles */
+				vt->samples = ms*30;
 				/* Set it's the first */
 				vt->first = 1;
 			} else {
@@ -542,7 +546,10 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	/* Initial values of vt */
 	vt.bufferLength = 0;
 	vt.samples = 0;
-	vt.tr = 0;
+	vt.tv.tv_sec = 0;
+	vt.tv.tv_usec = 0;
+	vt.tvnext.tv_sec = 0;
+	vt.tvnext.tv_usec = 0;
 	vt.first = 1;
 
 	ast_log(LOG_DEBUG, "h324m_loopback\n");
@@ -742,7 +749,10 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	/* Initial values of vt */
 	vt.bufferLength = 0;
 	vt.samples = 0;
-	vt.tr = 0;
+	vt.tv.tv_sec = 0;
+	vt.tv.tv_usec = 0;
+	vt.tvnext.tv_sec = 0;
+	vt.tvnext.tv_usec = 0;
 	vt.first = 1;
 
 	ast_log(LOG_DEBUG, "h324m_call\n");
