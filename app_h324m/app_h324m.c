@@ -324,15 +324,17 @@ static int init_h324m_packetizer(struct h324m_packetizer *pak,struct ast_frame* 
 			pak->framedata = (unsigned char *)f->data;
 			pak->framelength = f->datalen;
 			/* Read toc until no mark found, skip first byte */
-			while ((++pak->max<pak->framelength) && (pak->framedata[pak->max] & 0x80)) {}
+			while ((++pak->max < pak->framelength) && (pak->framedata[pak->max] & 0x80)) {}
 			/* Check lenght */
 			if (pak->max >= pak->framelength)
 				/* Exit */	
 				return 0;
+			ast_log(LOG_DEBUG, "init_h324m_packetizer: found %d AMR frames inside ast_frame\n",pak->max);
 			/* Set offset */
-			pak->offset = pak->framedata + pak->max + 1;
-			/* Move toc to the beggining so we can overwrite the byte before the frame */
-			for (i=0;i<pak->max;i++)
+			pak->offset = pak->framedata + pak->max + 1; /* +1 because of CMR octet */
+			/* Move toc to the beginning so we can overwrite the byte before the frame */
+			/* This overwrites the CMR but it is not needed at all */
+			for (i=0;i < pak->max;i++)
 				/* copy */
 				pak->framedata[i] = pak->framedata[i+1];
 			/* Good one */
@@ -392,9 +394,12 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 	int i = 0;
 
 	/* if not more */
-	if (pak->num++ == pak->max)
+	if (pak->num == pak->max) {
 		/* Exit */
 		return NULL;
+	}
+	pak->num++;
+	ast_log(LOG_DEBUG, "create_h324m_frame: processing AMR frame #%d inside ast_frame\n",pak->num);
 
 	/* Depending on the type */
 	switch (f->frametype)
@@ -405,14 +410,30 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 				/* exit */
 				break;
 			/* Convert to if2 */
-			/* Get header */
+			/* Get header: pak->framedata starts with ToC as CMR was 
+			   overwritten in init_h324m_packetizer() */
 			unsigned char header = pak->framedata[pak->num-1];
 			/* Get mode */
 			unsigned char mode = (header >> 3 ) & 0x0f;
 			/* Get blockSize */
-			unsigned bs = blockSize[mode];
+			signed bs = blockSize[mode];
+			if (bs < 0) {
+				ast_log(LOG_DEBUG, "create_h324m_frame: error decoding AMR structure - AMR frame #%d has block size %d\n",
+					pak->num,bs);
+				/* exit */
+				break;
+			}
 			/*Get Stuffing bits*/
 			int stuf = if2stuffing[mode];
+
+			if (pak->offset + bs > pak->framedata + pak->framelength) {
+				ast_log(LOG_DEBUG, "create_h324m_frame: error decoding AMR structure - block exceeds buffer\n");
+				ast_log(LOG_DEBUG, "create_h324m_frame: pak->offset=%p;bs=%d, pak->framedata=%p,pak->framelength=%d\n",
+					pak->offset,bs,pak->framedata,pak->framelength);
+
+				/* exit */
+				break;
+			}
 
 			/*If amr and if2 frames has same size*/
 			if(!(stuf < 4))
@@ -693,6 +714,10 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 				
 			} else {
 				/* Init packetizer */
+if (f->frametype == AST_FRAME_VOICE) {
+			ast_log(LOG_DEBUG, "AST_FRAME_VOICE: subtype=%d; AST_FORMAT_AMRNB=%d\n",f->subclass,AST_FORMAT_AMRNB);
+			ast_log(LOG_DEBUG, "AST_FRAME_VOICE: f->data=%p, f->datalen=%d\n",f->data,f->datalen);
+}
 				if (init_h324m_packetizer(&pak,f))
 					/* Create frame */
 					while ((frame=create_h324m_frame(&pak,f))!=NULL) {
