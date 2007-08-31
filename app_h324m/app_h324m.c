@@ -114,11 +114,12 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			if (FrameGetCodec(frame)!=CODEC_AMR)
 				/* exit */
 				return NULL;
+			ast_log(LOG_DEBUG, "create_ast_frame: received AMR frame with %d bytes\n",framelength);
 			/* Create frame */
 			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + framelength + 3);
 			/* Set data*/
 			send->data = (void*)send + AST_FRIENDLY_OFFSET;
-			send->datalen = framelength;
+			send->datalen = framelength + 1; /* +1 because the the octet with the CMR */
 			/* Set header cmr */
 			((unsigned char*)(send->data))[0] = 0xF0;
 			/* Copy */
