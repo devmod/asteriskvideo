@@ -554,6 +554,9 @@ static int mp4_save(struct ast_channel *chan, void *data)
 
 	printf(">mp4save\n");
 
+	/* Send video update */
+	ast_indicate(chan, AST_CONTROL_VIDUPDATE);
+
 	/* Wait for data avaiable on channel */
 	while (ast_waitfor(chan, -1) > -1) {
 
