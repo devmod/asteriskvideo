@@ -13,3 +13,8 @@ test:	test.o
 clean:
 	make -C src/ clean
 	rm -f h324m.o test.o libh324m.so
+
+install:
+	cp include/h324m.h /usr/local/include/
+	cp libh324m.so /usr/local/lib/
+
