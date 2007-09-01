@@ -1062,17 +1062,20 @@ static int app_h324m_gw_answer(struct ast_channel *chan, void *data)
 			break;
 
 		/* Check frame type */
-		if (f->frametype == AST_FRAME_VIDEO) 
+		if (f->frametype == AST_FRAME_CONTROL) 
 		{
 			/* Check subtype */
 			switch(f->subclass)
 			{
 				case AST_CONTROL_HANGUP:
+					/* Log */
+					ast_log(LOG_DEBUG, "<h324m_gw_answer on HANGUP\n");
 					/* Free frame */
 					ast_frfree(f);
 					/* exit & Hang up */
 					return -1;
 				case AST_CONTROL_VIDUPDATE:
+					ast_log(LOG_DEBUG, "<h324m_gw_answer on VIDUPDATE\n");
 					/* Free frame */
 					ast_frfree(f);
 					/* Exit & continue */
@@ -1084,6 +1087,8 @@ static int app_h324m_gw_answer(struct ast_channel *chan, void *data)
 		/* Free frame */
 		ast_frfree(f);
 	}
+
+	ast_log(LOG_DEBUG, "<h324m_gw_answer\n");
 	
 	/* Exit */
 	return -1;
