@@ -96,10 +96,8 @@ void H223Demuxer::EndPDU(H223Flag &flag)
 {
 
 	for(std::map<int,H223ALReceiver*>::iterator it = al.begin(); it != al.end(); it++)
-	{
-		if(!it->second->IsSegmentable())
+		if(it->second && !it->second->IsSegmentable())
 			it->second->SendClosingFlag();
-	}
 	
 	//If the flag is the complement
 	if (flag.complement)
