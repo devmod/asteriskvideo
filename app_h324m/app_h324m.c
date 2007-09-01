@@ -682,11 +682,18 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 				{
 					/* Update state */
 					state = H324MSessionGetState(id);
+
+					/* Log */
+					ast_log(LOG_DEBUG, "H324M changed state %d\n", state);
 					
 					/* If connected */	
 					if (state==CALLSTATE_STABLISHED)
+					{
+						/* Log */
+						ast_log(LOG_DEBUG, "Connected, sending VIDUPDATE\n");
 						/* Indicate Video Update */
 						ast_indicate(pseudo, AST_CONTROL_VIDUPDATE);
+					}
 				}
 				/* Get frames */
 				while ((frame=H324MSessionGetFrame(id))!=NULL)
