@@ -95,9 +95,16 @@ void H223Demuxer::StartPDU(H223Flag &flag)
 void H223Demuxer::EndPDU(H223Flag &flag)
 {
 
+	//Send closing flag to all non segmentable channels
 	for(std::map<int,H223ALReceiver*>::iterator it = al.begin(); it != al.end(); it++)
-		if(it->second && !it->second->IsSegmentable())
-			it->second->SendClosingFlag();
+	{
+		//Get channel
+		H223ALReceiver *recv = it->second;
+		//If it's non seg
+		if(!recv->IsSegmentable())
+			//Send closing flag
+			recv->SendClosingFlag();
+	}
 	
 	//If the flag is the complement
 	if (flag.complement)
@@ -120,7 +127,7 @@ void H223Demuxer::EndPDU(H223Flag &flag)
 		
 }
 
- int H223Demuxer::Demultiplex(BYTE *buffer,int length)
+int H223Demuxer::Demultiplex(BYTE *buffer,int length)
 {
 	//DeMux
 	for (int i=0;i<length;i++)
