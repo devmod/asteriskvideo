@@ -112,6 +112,9 @@
 			<File
 				RelativePath=".\h324m.cpp">
 			</File>
+			<File
+				RelativePath="include\h324m.h">
+			</File>
 		</Filter>
 		<Filter
 			Name="libh324m"

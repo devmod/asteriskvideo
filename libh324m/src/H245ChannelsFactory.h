@@ -11,6 +11,13 @@
 #include "Media.h"
 #include <map>
 
+class H245ChannelsFactoryListener
+{
+public:
+	virtual int OnChannelStablished(int channel, MediaType type) = 0;
+	virtual int OnChannelReleased(int channel, MediaType type) = 0;
+};
+
 class H245ChannelsFactory
 {
 public:
@@ -30,7 +37,7 @@ public:
 	H245Capabilities* GetRemoteCapabilities();
 	int SetRemoteCapabilities(H245Capabilities* remoteCapabilities);
 
-	int Init(H223ALSender* controlSender,H223ALReceiver* controlReceiver);
+	int Init(H223ALSender* controlSender,H223ALReceiver* controlReceiver, H245ChannelsFactoryListener *listener);
 	int End();
 
 	int Demultiplex(BYTE *buffer,int length);
@@ -58,6 +65,7 @@ private:
 	H223Demuxer			demuxer;
 	ChannelMap			channels;
 	int					numChannels;
+	H245ChannelsFactoryListener *listener;
 };
 
 

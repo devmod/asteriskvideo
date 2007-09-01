@@ -5,6 +5,7 @@
 #include "H324MControlChannel.h"
 
 class H324MSession 
+	: public H245ChannelsFactoryListener
 {
 public:
 	//Enums
@@ -35,6 +36,10 @@ public:
 	//Cmds & indications
 	int		SendVideoFastUpdatePicture();
 	CallState	GetState();
+
+	//H245ChannelsFactoryListener
+	virtual int OnChannelStablished(int channel, MediaType type);
+	virtual int OnChannelReleased(int channel, MediaType type);
 	
 	//Mux & demux
 	int Read(BYTE *input,int length);

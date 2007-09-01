@@ -26,6 +26,8 @@
 
 H324MSession::H324MSession()
 {
+	//Set state
+	state = e_None;
 	//Create the control channel
 	controlChannel = new H324MControlChannel(&channels);
 	//Create audio channel
@@ -33,7 +35,7 @@ H324MSession::H324MSession()
 	//Create video channel
 	video = channels.CreateChannel(e_Video);
 	//Init channels
-	channels.Init(controlChannel,controlChannel);
+	channels.Init(controlChannel,controlChannel,this);
 }
 
 H324MSession::~H324MSession()
@@ -46,12 +48,16 @@ H324MSession::~H324MSession()
 
 int H324MSession::Init()
 {
+	//Set state
+	state = e_Setup;
 	//Call Setup
 	return controlChannel->CallSetup();
 }
 
 int H324MSession::End()
 {
+	//Set state
+	state = e_Hangup;
 	//Disconnect channels
 	return controlChannel->Disconnect();;
 }
@@ -126,4 +132,23 @@ int H324MSession::SendVideoFastUpdatePicture()
 H324MSession::CallState H324MSession::GetState()
 {
 	return state;
+}
+
+int H324MSession::OnChannelStablished(int channel, MediaType type)
+{
+	//Set state
+	if (state == e_Setup)
+		//Wait for next 
+		state = e_SetupMedia;
+	else
+		//Both stablised
+		state = e_Stablished;
+
+	return true;
+}
+
+int H324MSession::OnChannelReleased(int channel, MediaType type)
+{
+	//Not implemented yet
+	return true;
 }

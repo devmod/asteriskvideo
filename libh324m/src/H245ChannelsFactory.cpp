@@ -35,8 +35,11 @@ H245ChannelsFactory::~H245ChannelsFactory()
 {
 }
 
-int H245ChannelsFactory::Init(H223ALSender* controlSender,H223ALReceiver* controlReceiver)
+int H245ChannelsFactory::Init(H223ALSender* controlSender,H223ALReceiver* controlReceiver,H245ChannelsFactoryListener *listener)
 {
+	//Save listener
+	this->listener = listener;
+
 	//Set local table with control channel
 	localTable.SetEntry(0,"","0");
 	
@@ -227,6 +230,11 @@ int H245ChannelsFactory::OnEstablishIndication(int number, H245Channel *channel)
 	//Set receiving layer
 	chan->SetReceiverLayer(channel->GetAdaptationLayer(),channel->IsSegmentable());
 
+	//If the listener was setup
+	if(listener)
+		//Send event
+		listener->OnChannelStablished(chan->localChannel,chan->type);
+
 	//Append to demuxer && accept
 	return demuxer.SetChannel(number,chan->GetReceiver());
 }
@@ -252,6 +260,11 @@ int H245ChannelsFactory::OnEstablishConfirm(int number)
 		chan->SetSenderLayer(e_al2WithoutSequenceNumbers,false);
 	else
 		chan->SetSenderLayer(e_al2WithoutSequenceNumbers,true);
+
+	//If the listener was setup
+	if(listener)
+		//Send event
+		listener->OnChannelStablished(chan->localChannel,chan->type);
 
 	//Set muxer
 	return muxer.SetChannel(number,chan->GetSender());
