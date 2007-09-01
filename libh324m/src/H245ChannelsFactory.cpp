@@ -318,7 +318,7 @@ int H245ChannelsFactory::GetRemoteChannel(MediaType type)
 		H324MMediaChannel *channel = it->second;
 
 		//If have remote channel && same type
-		if (channel->type== frame->type)
+		if (channel->type==type)
 			//Return number
 			return channel->remoteChannel;
 	}

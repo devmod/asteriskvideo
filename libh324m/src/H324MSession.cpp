@@ -114,7 +114,7 @@ int	H324MSession::SendUserInput(const char *input)
 int H324MSession::SendVideoFastUpdatePicture()
 {
 	//Get remote video channel
-	int video = channels.GetRemoteChannel(MediaType::e_Video);
+	int video = channels.GetRemoteChannel(e_Video);
 	//If we have one
 	if (video)
 		//Send command
@@ -123,7 +123,7 @@ int H324MSession::SendVideoFastUpdatePicture()
 	return 0;
 }
 
-CallState H324MSession::GetState()
+H324MSession::CallState H324MSession::GetState()
 {
 	return state;
 }
