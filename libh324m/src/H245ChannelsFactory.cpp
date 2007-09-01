@@ -300,11 +300,28 @@ int H245ChannelsFactory::SendFrame(Frame* frame)
 		//Get channel
 		H324MMediaChannel *channel = it->second;
 		
-		//If have remote channel && same type
+		//If have local channel && same type
 		if ((channel->type== frame->type) && (channel->localChannel>0))
 			//Send frame
 			channel->SendFrame(frame);
 	}
 	//Not send
+	return 0;
+}
+
+int H245ChannelsFactory::GetRemoteChannel(MediaType type)
+{
+	//Loop throught channels
+	for (ChannelMap::iterator it = channels.begin(); it != channels.end(); it++)
+	{
+		//Get channel
+		H324MMediaChannel *channel = it->second;
+
+		//If have remote channel && same type
+		if (channel->type== frame->type)
+			//Return number
+			return channel->remoteChannel;
+	}
+	//No channel found
 	return 0;
 }

@@ -35,6 +35,7 @@ public:
 	//User input
 	char*	GetUserInput();
 	int		SendUserInput(const char* input);
+	int		SendVideoFastUpdatePicture(int channel);
 
 	//Method overrides from ccsrl
 	virtual int OnControlPDU(H324ControlPDU &pdu);

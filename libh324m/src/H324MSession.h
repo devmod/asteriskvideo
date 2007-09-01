@@ -10,11 +10,11 @@ public:
 	//Enums
 	enum CallState
 	{
-		e_None,
-		e_Setup,
-		e_SetupMedia,
-		e_Stablished,
-		e_Hangup
+		e_None			= 0,
+		e_Setup			= 1,
+		e_SetupMedia	= 2,
+		e_Stablished	= 3,
+		e_Hangup		= 4 
 	};
 
 	H324MSession();
@@ -31,6 +31,10 @@ public:
 	//User input functions
 	char*	GetUserInput();
 	int		SendUserInput(const char *input);
+
+	//Cmds & indications
+	int		SendVideoFastUpdatePicture();
+	CallState	GetState();
 	
 	//Mux & demux
 	int Read(BYTE *input,int length);

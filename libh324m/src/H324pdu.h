@@ -122,6 +122,10 @@ class H324ControlPDU : public H245_MultimediaSystemControlMessage
       unsigned sequenceNumber
     );
 
+	H245_MiscellaneousCommand & H324ControlPDU::BuilVideoFastUpdatePicture(
+	  unsigned channelNumber
+	);
+
 };
 
 

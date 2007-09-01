@@ -61,6 +61,16 @@ int  H324MSessionSendUserInput(void * id,char *input)
 	return ((H324MSession*)id)->SendUserInput((char*)input);
 }
 
+int  H324MSessionSendVideoFastUpdatePicture(void * id)
+{ 	
+	return ((H324MSession*)id)->SendVideoFastUpdatePicture();
+}
+
+int  H324MSessionGetState(void * id)
+{ 	
+	return ((H324MSession*)id)->GetState();
+}
+
 void * FrameCreate(int type, int codec, unsigned char * data, int len)
 {
 	return (void*)new Frame((MediaType)type,(MediaCodec)codec,data,len);

@@ -44,12 +44,10 @@ public:
 	int localChannel;
 	int remoteChannel;
 	int isBidirectional;
-	
 
 public:
 	MediaType type;
 	State state;
-	
 
 private:
 	H223ALReceiver *receiver;

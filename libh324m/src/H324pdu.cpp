@@ -378,6 +378,13 @@ H245_MultiplexEntrySendReject & H324ControlPDU::BuildMultiplexEntrySendReject(un
   return reject;
 }
 
+H245_MiscellaneousCommand & H324ControlPDU::BuilVideoFastUpdatePicture(unsigned channelNumber)
+{
+  H245_MiscellaneousCommand & cmd = Build(H245_CommandMessage::e_miscellaneousCommand);
+  cmd.m_logicalChannelNumber = channel;
+  cmd.m_type = H245_MiscellaneousCommand_type::e_videoFastUpdatePicture;
+  return cmd;
+}
 
 
 

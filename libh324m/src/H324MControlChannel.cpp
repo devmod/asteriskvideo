@@ -97,6 +97,15 @@ int H324MControlChannel::SendUserInput(const char* input)
 	return WriteControlPDU(pdu);
 }
 
+int H324MControlChannel::SendVideoFastUpdatePicture(int channel)
+{
+	H324ControlPDU pdu;
+	//Create command
+	pdu.BuilVideoFastUpdatePicture(channel);
+	//Send
+	return WriteControlPDU(pdu);
+}
+
 int H324MControlChannel::MediaSetup()
 {
 	//Get local capabilities

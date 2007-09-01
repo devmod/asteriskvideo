@@ -42,6 +42,8 @@ public:
 	int OnMuxTableIndication(H223MuxTable &table, H223MuxTableEntryList &list);
 	int OnMuxTableConfirm(H223MuxTableEntryList &list);
 
+	int GetRemoteChannel(MediaType type);
+
 	Frame* GetFrame();
 	int SendFrame(Frame *frame);
 
