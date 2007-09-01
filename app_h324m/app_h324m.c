@@ -73,6 +73,10 @@ static char *name_h324m_call = "h324m_call";
 static char *syn_h324m_call = "H324m call";
 static char *des_h324m_call = "  h324m_call():  Creates a pseudo channel for an outgoing h324m call.\n";
 
+static char *name_h324m_gw_answer = "h324m_gw_answer";
+static char *syn_h324m_gw_answer = "H324m Answer incoming call";
+static char *des_h324m_gw_answer = "  h324m_gw_answer():  Answer and incomming call from h324m_gw and waits for 3G negotiation.\n";
+
 static char *name_video_loopback = "video_loopback";
 static char *syn_video_loopback = "video_loopback";
 static char *des_video_loopback = "  video_loopback():  Video loopback.\n"
@@ -437,9 +441,7 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 
 			/*If amr and if2 frames has same size*/
 			if(!(stuf < 4))
-			{
 				pak->offset[bs - 1] = 0x00;
-			}
 			
 			/* For each byte */
 			for (i=bs-1; i>0; i--)
@@ -460,8 +462,7 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 			/* Create frame */
 			return FrameCreate(MEDIA_VIDEO, CODEC_H263, pak->framedata, pak->framelength);
 		default:
-			/* dummy statement to make compiler happy */
-			;
+			break;
 	}
 	/* NOthing */
 	return NULL;
@@ -479,14 +480,15 @@ static int app_h324m_loopback(struct ast_channel *chan, void *data)
 	/* Lock module */
 	u = ast_module_user_add(chan);
 
-	if (strchr(data,'a')) {
+	/* Check input paramaters */
+	if (strchr(data,'a')) 
 		/* deactivate audio loopback */
 		loop_audio=0;
-	}
-	if (strchr(data,'v')) {
+
+	/* Check input paramaters */
+	if (strchr(data,'v'))
 		/* deactivate video loopback */
 		loop_video=0;
-	}
 
 	/* Create session */
 	void* id = H324MSessionCreate();
@@ -495,8 +497,8 @@ static int app_h324m_loopback(struct ast_channel *chan, void *data)
 	H324MSessionInit(id);
 
 	/* Wait for data avaiable on channel */
-	while (ast_waitfor(chan, -1) > -1) {
-
+	while (ast_waitfor(chan, -1) > -1) 
+	{
 		/* Read frame from channel */
 		f = ast_read(chan);
 
@@ -505,22 +507,25 @@ static int app_h324m_loopback(struct ast_channel *chan, void *data)
 			break;
 
 		/* Check frame type */
-		if (f->frametype == AST_FRAME_VOICE) {
+		if (f->frametype == AST_FRAME_VOICE) 
+		{
 			/* read data */
 			H324MSessionRead(id, (unsigned char *)f->data, f->datalen);
 			/* Get frames */
 			while ((frame=H324MSessionGetFrame(id))!=NULL)
 			{
-				if (FrameGetType(frame)==MEDIA_VIDEO) {
-					if (loop_video) {
+				if (FrameGetType(frame)==MEDIA_VIDEO) 
+				{
+					/* If video loopback is activated */
+					if (loop_video) 
 						/* Send it back */
 						H324MSessionSendFrame(id,frame);
-					}
+
 				} else if (FrameGetType(frame)==MEDIA_AUDIO) {
-					if (loop_audio) {
+					/* If audio loopback is activated */
+					if (loop_audio)
 						/* Send it back. Note: this can cause loopback/echo problems */
 						H324MSessionSendFrame(id,frame);
-					}
 				}
 				/* Delete frame */
 				FrameDestroy(frame);
@@ -560,6 +565,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	void*  frame;
 	char*  input;
 	int    reason = 0;
+	int    state = 0;
 	int    ms;
 	struct ast_channel *channels[2];
 	struct ast_channel *pseudo;
@@ -596,7 +602,8 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 		goto clean_pseudo;
 
 	/* while not setup */
-	while (pseudo->_state!=AST_STATE_UP) {
+	while (pseudo->_state!=AST_STATE_UP) 
+	{
 		/* Wait for data */
 		if (ast_waitfor(pseudo, 0)<0)
 			/* error, timeout, or done */
@@ -608,9 +615,11 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 			/* done */ 
 			break;
 		/* If it's a control frame */
-		if (f->frametype == AST_FRAME_CONTROL) {
+		if (f->frametype == AST_FRAME_CONTROL) 
+		{
 			/* Dependinf on the event */
-			switch (f->subclass) {
+			switch (f->subclass) 
+			{
 				case AST_CONTROL_RINGING:       
 					break;
 				case AST_CONTROL_BUSY:
@@ -661,11 +670,24 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 			break;
 
 		/* If it's on h324m channel */
-		if (where==chan) {
+		if (where==chan) 
+		{
 			/* Check frame type */
-			if (f->frametype == AST_FRAME_VOICE) {
+			if (f->frametype == AST_FRAME_VOICE) 
+			{
 				/* read data */
 				H324MSessionRead(id, (unsigned char *)f->data, f->datalen);
+				/* If state changed */
+				if (state!=H324MSessionGetState(id))
+				{
+					/* Update state */
+					state = H324MSessionGetState(id);
+					
+					/* If connected */	
+					if (state==CALLSTATE_STABLISHED)
+						/* Indicate Video Update */
+						ast_indicate(pseudo, AST_CONTROL_VIDUPDATE);
+				}
 				/* Get frames */
 				while ((frame=H324MSessionGetFrame(id))!=NULL)
 				{
@@ -705,14 +727,29 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 			/* Delete frame */
 			ast_frfree(f);
 		} else {
-			/* Check for hangup */
-			if ((f->frametype == AST_FRAME_CONTROL)&& (f->subclass == AST_CONTROL_HANGUP)) {
-				/* exit */
-				reason = AST_CAUSE_NORMAL_CLEARING;
-			/* Check for DTMF */
+			/* Check type */
+			if (f->frametype == AST_FRAME_CONTROL) 
+			{
+				/* Check subtype */
+				switch(f->subclass)
+				{
+					case AST_CONTROL_HANGUP:
+						/* exit */
+						reason = AST_CAUSE_NORMAL_CLEARING;
+						break;
+					case AST_CONTROL_VIDUPDATE:
+						/* Send it */
+						H324MSessionSendVideoFastUpdatePicture(id);
+						break;
+					default:
+						break;
+				}
+
 			} else if (f->frametype == AST_FRAME_DTMF) {
-				
+				/* DTMF */
+
 			} else {
+				/* Media packet */	
 				/* Init packetizer */
 if (f->frametype == AST_FRAME_VOICE) {
 			ast_log(LOG_DEBUG, "AST_FRAME_VOICE: subtype=%d; AST_FORMAT_AMRNB=%d\n",f->subclass,AST_FORMAT_AMRNB);
@@ -803,7 +840,8 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 		goto clean_pseudo;
 
 	/* while not setup */
-	while (pseudo->_state!=AST_STATE_UP) {
+	while (pseudo->_state!=AST_STATE_UP) 
+	{
 		/* Wait for data */
 		if (ast_waitfor(pseudo, 0)<0)
 			/* error, timeout, or done */
@@ -815,9 +853,11 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 			/* done */ 
 			break;
 		/* If it's a control frame */
-		if (f->frametype == AST_FRAME_CONTROL) {
-			/* Dependinf on the event */
-			switch (f->subclass) {
+		if (f->frametype == AST_FRAME_CONTROL) 
+		{
+			/* Depending on the event */
+			switch (f->subclass) 
+			{
 				case AST_CONTROL_RINGING:       
 					break;
 				case AST_CONTROL_BUSY:
@@ -877,7 +917,8 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	ast_write(pseudo,send);
 
 	/* Wait for data avaiable on any channel */
-	while (!reason && (where = ast_waitfor_n(channels, 2, &ms)) != NULL) {
+	while (!reason && (where = ast_waitfor_n(channels, 2, &ms)) != NULL) 
+	{
 		/* Read frame from channel */
 		f = ast_read(where);
 
@@ -886,9 +927,11 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 			break;
 
 		/* If it's on h324m channel */
-		if (where==pseudo) {
+		if (where==pseudo) 
+		{
 			/* Check frame type */
-			if (f->frametype == AST_FRAME_VOICE) {
+			if (f->frametype == AST_FRAME_VOICE) 
+			{
 				/* read data */
 				H324MSessionRead(id, (unsigned char *)f->data, f->datalen);
 				/* Get frames */
@@ -929,7 +972,8 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 				ast_frfree(f);
 		} else {
 			/* Check frame type DTMF*/
-			if (f->frametype == AST_FRAME_DTMF) {
+			if (f->frametype == AST_FRAME_DTMF) 
+			{
 				char dtmf[2];
 				/* Get DTMF */
 				dtmf[0] = f->subclass;
@@ -982,6 +1026,63 @@ end:
 	return -1;
 }
 
+static int app_h324m_gw_answer(struct ast_channel *chan, void *data)
+{
+	struct ast_frame *f;
+	struct ast_module_user *u;
+
+	ast_log(LOG_DEBUG, ">h324m_gw_answer\n");
+
+	/* Lock module */
+	u = ast_module_user_add(chan);
+
+	/* Answer channel */
+	ast_answer(chan);
+
+	/* Check it's up */
+	if (chan->_state!=AST_STATE_UP)
+		/* Exit */
+		return -1;
+
+	/* Wait for vidupdate*/
+	while (ast_waitfor(chan, -1)>-1) 
+	{
+		/* Read frame from channel */
+		f = ast_read(chan);
+
+		/* if it's null */
+		if (f == NULL)
+			break;
+
+		/* Check frame type */
+		if (f->frametype == AST_FRAME_VIDEO) 
+		{
+			/* Check subtype */
+			switch(f->subclass)
+			{
+				case AST_CONTROL_HANGUP:
+					/* Free frame */
+					ast_frfree(f);
+					/* exit & Hang up */
+					return -1;
+				case AST_CONTROL_VIDUPDATE:
+					/* Free frame */
+					ast_frfree(f);
+					/* Exit & continue */
+					return 0;
+				default:
+					break;
+			}
+		}
+		/* Free frame */
+		ast_frfree(f);
+	}
+	
+	/* Exit */
+	return -1;
+		
+}
+
 static int app_video_loopback(struct ast_channel *chan, void *data)
 {
 	struct ast_frame *f;
@@ -993,8 +1094,8 @@ static int app_video_loopback(struct ast_channel *chan, void *data)
 	u = ast_module_user_add(chan);
 
 	/* Wait for data avaiable on channel */
-	while (ast_waitfor(chan, -1) > -1) {
-
+	while (ast_waitfor(chan, -1) > -1) 
+	{
 		/* Read frame from channel */
 		f = ast_read(chan);
 
@@ -1003,7 +1104,8 @@ static int app_video_loopback(struct ast_channel *chan, void *data)
 			break;
 
 		/* Check frame type */
-		if (f->frametype == AST_FRAME_VIDEO) {
+		if (f->frametype == AST_FRAME_VIDEO) 
+		{
 			/* deliver now */
 			f->delivery.tv_usec = 0;
 			f->delivery.tv_sec = 0;
@@ -1017,7 +1119,7 @@ static int app_video_loopback(struct ast_channel *chan, void *data)
 	/* Unlock module*/
 	ast_module_user_remove(u);
 
-	//Exit
+	/* Exit */
 	return 0;
 }
 
@@ -1028,6 +1130,7 @@ static int unload_module(void)
 	res = ast_unregister_application(name_h324m_loopback);
 	res &= ast_unregister_application(name_h324m_gw);
 	res &= ast_unregister_application(name_h324m_call);
+	res &= ast_unregister_application(name_h324m_gw_answer);
 	res &= ast_unregister_application(name_video_loopback);
 
 	ast_module_user_hangup_all();
@@ -1042,6 +1145,7 @@ static int load_module(void)
 	res = ast_register_application(name_h324m_loopback, app_h324m_loopback, syn_h324m_loopback, des_h324m_loopback);
 	res &= ast_register_application(name_h324m_gw, app_h324m_gw, syn_h324m_gw, des_h324m_gw);
 	res &= ast_register_application(name_h324m_call, app_h324m_call, syn_h324m_call, des_h324m_call);
+	res &= ast_register_application(name_h324m_gw_answer, app_h324m_gw_answer, syn_h324m_gw_answer, des_h324m_gw_answer);
 	res &= ast_register_application(name_video_loopback, app_video_loopback, syn_video_loopback, des_video_loopback);
 	return 0;
 }
