@@ -701,9 +701,6 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 					/* Packetize outgoing frame */
 					if ((send=create_ast_frame(frame,&vt))!=NULL)
 						/* Send frame */
-if (send->frametype == AST_FRAME_VOICE)
-{ ast_log(LOG_DEBUG, "h324m --> ast_frame: AMR has %d samples\n", ast_codec_get_samples(send));
-}
 						ast_write(pseudo,send);
 					/* Delete frame */
 					FrameDestroy(frame);
@@ -761,13 +758,11 @@ if (send->frametype == AST_FRAME_VOICE)
 			} else {
 				/* Media packet */	
 				/* Init packetizer */
-if (f->frametype == AST_FRAME_VOICE)
-{ ast_log(LOG_DEBUG, "ast_frame --> h324_frame: AMR has %d samples\n", ast_codec_get_samples(f));
-}
-if (f->frametype == AST_FRAME_VOICE) {
-			ast_log(LOG_DEBUG, "AST_FRAME_VOICE: subtype=%d; AST_FORMAT_AMRNB=%d\n",f->subclass,AST_FORMAT_AMRNB);
-			ast_log(LOG_DEBUG, "AST_FRAME_VOICE: f->data=%p, f->datalen=%d\n",f->data,f->datalen);
-}
+				/* if (f->frametype == AST_FRAME_VOICE) 
+				{
+					ast_log(LOG_DEBUG, "AST_FRAME_VOICE: subtype=%d; AST_FORMAT_AMRNB=%d\n",f->subclass,AST_FORMAT_AMRNB);
+					ast_log(LOG_DEBUG, "AST_FRAME_VOICE: f->data=%p, f->datalen=%d\n",f->data,f->datalen);
+				} */
 				if (init_h324m_packetizer(&pak,f))
 					/* Create frame */
 					while ((frame=create_h324m_frame(&pak,f))!=NULL) {
