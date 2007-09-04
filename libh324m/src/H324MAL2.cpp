@@ -71,7 +71,7 @@ void H223AL2Receiver::SendClosingFlag()
 
 	{
 		char name[256];
-		sprintf(name,"/tmp/media_%x.raw",(unsigned int)this);
+		sprintf(name,"/export/tmp/media_%x.raw",(unsigned int)this);
 		int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
 		write(fd,data+useSN,dataLen-useSN-1);
 		close(fd);

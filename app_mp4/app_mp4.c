@@ -67,12 +67,30 @@ struct mp4track {
 	int sampleId;
 };
 
+void dump_buffer_hex(const unsigned char * text, const unsigned char * buff, int len)
+{
+        int i;
+        unsigned char *temp;
+        temp = malloc(len*3+20); /* actually only len*3 would be needed, but negative values need more then 2 bytes*/
+        if (temp == NULL) {
+                ast_log(LOG_DEBUG, "app_mp4.c: dump_buffer_hex: failed to allocate buffer!\n");
+                return;
+        }
+        for (i=0;i<len;i++) {
+                sprintf( temp+3*i, "%02x ", buff[i]);
+        }
+        ast_log(LOG_DEBUG, "app_mp4.c: dump_buffer_hex: %s\n%s\n",text,temp);
+        free(temp);
+}
+
+
 static int mp4_rtp_write_audio(struct mp4track *t, struct ast_frame *f, int payload)
 {
 	/* Next sample */
 	t->sampleId++;
 
 	ast_log(LOG_DEBUG, "Saving #%d:%d:%d %d samples %d size of audio, payload=%d\n", t->sampleId, t->track, t->hint, f->samples, f->datalen,payload);
+dump_buffer_hex("AMR buffer",f->data,f->datalen);
 
 	/* Add hint */
 	MP4AddRtpHint(t->mp4, t->hint);
@@ -92,6 +110,7 @@ static int mp4_rtp_write_audio(struct mp4track *t, struct ast_frame *f, int payl
 
 	/* Write audio */
 	MP4WriteSample(t->mp4, t->track, f->data + payload, f->datalen - payload, f->samples, 0, 0);
+//	MP4WriteSample(t->mp4, t->track, f->data, f->datalen, f->samples, 0, 0);
 
 	return 0;
 }
@@ -266,6 +285,13 @@ static int mp4_rtp_read(struct mp4rtp *p)
 			)) {
 		ast_log(LOG_DEBUG, "Error reading packet [%d,%d]\n", p->hint, p->track);
 		return -1;
+	}
+
+	if (f->frametype == AST_FRAME_VIDEO) {
+		ast_log(LOG_DEBUG, "successfully read rtp video packet with %d bytes\n", f->datalen);
+	} else if (f->frametype == AST_FRAME_VOICE) {
+		ast_log(LOG_DEBUG, "successfully read rtp audio packet with %d bytes\n", f->datalen);
+		dump_buffer_hex("audio buffer:",f->data,f->datalen);
 	}
 
 	/* Write frame */
