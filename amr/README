@@ -1,0 +1,44 @@
+This patch adds AMR-NB support to Asterisk
+
+1. create the asterisk directory
+
+$ mkdir asterisk-1.4-SVN-AMR
+$ cd asterisk-1.4-SVN-AMR/
+
+2. checkout fontventa repository
+
+$ svn checkout http://sip.fontventa.com/svn/asterisk/ fontventa
+
+3. checkout Asterisk
+
+$ svn checkout http://svn.digium.com/svn/asterisk/branches/1.4 asterisk
+$ cd asterisk/
+
+4. add AMR to Asterisk
+
+$ patch --dry-run -p0 < ../fontventa/amr/amr-asterisk-patch.txt
+$ patch -p0 < ../fontventa/amr/amr-asterisk-patch.txt
+$ cd codecs
+$ ln -s ../../fontventa/amr/amr_slin_ex.h
+$ ln -s ../../fontventa/amr/slin_amr_ex.h
+$ ln -s ../../fontventa/amr/codec_amr.c
+$ mkdir amr
+$ cd amr
+$ wget http://www.3gpp.org/ftp/Specs/archive/26_series/26.104/26104-700.zip
+$ unzip -j 26104-700.zip
+$ unzip -j 26104-700_ANSI_C_source_code.zip
+$ ln -s ../../../fontventa/amr/Makefile
+$ cd ../..
+
+5. build Asterisk
+
+$ ./configure
+$ make
+
+6. configure AMR
+app_h324m and app_mp4 encode AMR inside the ast_frame in RTP octed aligned mode. (RFC 4867 section 4.4).
+To configure the AMR codec to use octed aligned mode add this to codecs.conf:
+
+[amr]
+octet-aligned=1
+
