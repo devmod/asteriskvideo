@@ -540,12 +540,15 @@ static int mp4_play(struct ast_channel *chan, void *data)
 			videoNext = mp4_rtp_read(&video);
 	}
 
-	ast_log(LOG_DEBUG, "exit");
+	ast_log(LOG_DEBUG, "<app_mp4");
+
+	/* Close file */
+	MP4Close(mp4);
 
 	/* Unlock module*/
 	ast_module_user_remove(u);
 
-	//Exit
+	/* Exit */
 	return 0;
 }
 static int mp4_save(struct ast_channel *chan, void *data)
