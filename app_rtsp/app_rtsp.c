@@ -56,7 +56,8 @@ static char *des_rtsp = "  rtsp(url):  Play url. \n";
 #define RTSP_PLAY 		4
 #define RTSP_RELEASED 		5
 
-static struct {
+static struct 
+{
         int format;
         char* name;
 } mimeTypes[] = {
@@ -82,6 +83,101 @@ static struct {
 	{ AST_FORMAT_H263_PLUS, "H263-2000"},
 	{ AST_FORMAT_H264, "H264"},
 	{ AST_FORMAT_MPEG4, "MP4V-ES"},
+};
+
+typedef enum 
+{
+	RTCP_SR   = 200,
+	RTCP_RR   = 201,
+	RTCP_SDES = 202,
+	RTCP_BYE  = 203,
+	RTCP_APP  = 204
+} RtcpType;
+
+typedef enum 
+{
+	RTCP_SDES_END    =  0,
+	RTCP_SDES_CNAME  =  1,
+	RTCP_SDES_NAME   =  2,
+	RTCP_SDES_EMAIL  =  3,
+	RTCP_SDES_PHONE  =  4,
+	RTCP_SDES_LOC    =  5,
+	RTCP_SDES_TOOL   =  6,
+	RTCP_SDES_NOTE   =  7,
+	RTCP_SDES_PRIV   =  8,
+	RTCP_SDES_IMG    =  9,
+	RTCP_SDES_DOOR   = 10,
+	RTCP_SDES_SOURCE = 11
+} RtcpSdesType;
+
+
+struct RtcpCommonHeader
+{
+	unsigned short version:2;  /* protocol version */
+	unsigned short p:1;        /* padding flag */
+	unsigned short count:5;    /* varies by payload type */
+	unsigned short pt:8;       /* payload type */
+	unsigned short length;   /* packet length in words, without this word */
+};
+
+struct RtcpReceptionReport
+{
+	unsigned int  ssrc;            /* data source being reported */
+	unsigned int fraction:8;       /* fraction lost since last SR/RR */
+	int lost:24;                   /* cumulative number of packets lost (signed!) */
+	unsigned int  last_seq;        /* extended last sequence number received */
+	unsigned int  jitter;          /* interarrival jitter */
+	unsigned int  lsr;             /* last SR packet from this source */
+	unsigned int  dlsr;            /* delay since last SR packet */
+};
+
+struct RtcpSdesItem
+{
+	unsigned char type;             /* type of SDES item (rtcp_sdes_type_t) */
+	unsigned char length;           /* length of SDES item (in octets) */
+	char data[1];                   /* text, not zero-terminated */
+};
+
+struct Rtcp
+{
+	struct RtcpCommonHeader common;    /* common header */
+	union 
+	{
+		/* sender report (SR) */
+		struct
+		{
+			unsigned int ssrc;        /* source this RTCP packet refers to */
+			unsigned int ntp_sec;     /* NTP timestamp */
+			unsigned int ntp_frac;
+			unsigned int rtp_ts;      /* RTP timestamp */
+			unsigned int psent;       /* packets sent */
+			unsigned int osent;       /* octets sent */ 
+			/* variable-length list */
+			struct RtcpReceptionReport rr[1];
+		} sr;
+
+		/* reception report (RR) */
+		struct 
+		{
+			unsigned int ssrc;        /* source this generating this report */
+			/* variable-length list */
+			struct RtcpReceptionReport rr[1];
+		} rr;
+
+		/* BYE */
+		struct 
+		{
+			unsigned int src[1];      /* list of sources */
+			/* can't express trailing text */
+		} bye;
+
+		/* source description (SDES) */
+		struct rtcp_sdes_t 
+		{
+			unsigned int src;              /* first SSRC/CSRC */
+			struct RtcpSdesItem item[1]; /* list of SDES items */
+		} sdes;
+	} r;
 };
 
 struct RtpHeader
@@ -890,7 +986,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	struct ast_frame *f;
 	struct ast_frame *sendFrame;
 
-	int infds[3];
+	int infds[5];
 	int outfd;
 
 	char buffer[16384];
@@ -899,11 +995,15 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	int  responseLen = 0;
 	int  contentLength = 0;
 	char *rtpBuffer;
+	char rtcpBuffer[1500];
 	int  rtpSize = 1500;
+	int  rtcpSize = 1500;
 	int  rtpLen = 0;
+	int  rtcpLen = 0;
 	char *session;
+	char *range;
 
-	struct SDPContent* sdp;
+	struct SDPContent* sdp = NULL;
 	char *audioControl = NULL;
 	char *videoControl = NULL;
 	int audioFormat = 0;
@@ -913,11 +1013,15 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	unsigned int lastVideo = 0;
 	unsigned int lastAudio = 0;
 
+	int duration = 0;
+	int elapsed = 0;
 	int ms = 10000;
 	int i = 0;
 
 	struct RtspPlayer *player;
 	struct RtpHeader *rtp;
+	struct Rtcp *rtcp;
+	struct timeval tv = {0,0};
 
 	/* log */
 	ast_log(LOG_WARNING,">rtsp play\n");
@@ -947,6 +1051,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	infds[0] = player->fd;
 	infds[1] = player->audioRtp;
 	infds[2] = player->videoRtp;
+	infds[3] = player->audioRtcp;
+	infds[4] = player->videoRtcp;
 
 
 	/* Send request */
@@ -966,10 +1072,31 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	{
 		/* No output */
 		outfd = -1;
-		/* 10 seconds timeout */
-		ms = 10000;
+		/* If the playback has started */
+		if (!ast_tvzero(tv))
+		{
+			/* Get playback time */
+			elapsed = ast_tvdiff_ms(ast_tvnow(),tv); 
+			/* Check how much time have we been playing */
+			if (elapsed>=duration)
+			{
+				/* log */
+				ast_log(LOG_WARNING,"Playback finished\n");
+				/* exit */
+				player->end = 1;
+				/* Exit */
+				break;
+			} else {
+				/* Set timeout to remaining time*/
+				ms = duration-elapsed;
+			}
+		} else {
+			/* 4 seconds timeout */
+			ms = 4000;
+		}
+
 		/* Read from channels and fd*/
-		if (ast_waitfor_nandfds(&chan,1,infds,3,NULL,&outfd,&ms))
+		if (ast_waitfor_nandfds(&chan,1,infds,5,NULL,&outfd,&ms))
 		{
 			/* Read frame */
 			f = ast_read(chan);
@@ -984,10 +1111,6 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 				/* Check for hangup */
 				if (f->subclass == AST_CONTROL_HANGUP)
 				{
-					/* Send teardown */
-					if (player->state>RTSP_DESCRIBE)
-						/* Teardown */
-						RtspPlayerTeardown(player);
 					/* log */
 					ast_log(LOG_WARNING,"-Hangup\n");
 					/* exit */
@@ -1200,6 +1323,24 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 					if ( (responseLen=GetResponseLen(buffer)) == 0 )
 						/*Exit*/
 						break;
+					/* Get range */
+					if ( (range=GetHeaderValue(buffer,responseLen,"Range")) == 0)
+					{
+						/* log */
+						ast_log(LOG_ERROR,"No session\n");
+						/* Uh? */
+						player->end = 1;
+						/* break */
+						break;
+					}
+					/* Check format */
+					if (range=strchr(range,'-'))
+						/* Get duration */
+						duration = atof(range+1)*1000;  
+					/* Init counter */
+					tv = ast_tvnow();
+					/* log */
+					ast_log(LOG_ERROR,"-Started playback [%d]\n",duration);
 					/* Get new length */
 					bufferLen -= responseLen;
 					/* Move data to begining */
@@ -1209,7 +1350,6 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 		} else if ((outfd==player->audioRtp) ||  (outfd==player->videoRtp) ) {
 			/* Set length */
 			rtpLen = 0;
-			rtpSize = 1500;
 			
 			/* malloc frame & data */
 			sendFrame = (struct ast_frame *) malloc(sizeof(struct ast_frame) + rtpSize);
@@ -1282,16 +1422,55 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 			/* Send frame */
 			ast_write(chan,sendFrame);
 
+		} else if ((outfd==player->audioRtcp) || (outfd==player->videoRtcp)) {
+			/* log */
+			ast_log(LOG_ERROR,"-Received rtcp [%d]\n",outfd);
+
+			/* Set length */
+			rtcpLen = 0;
+			i = 0;
+			
+			/* Read rtcp packet */
+			if (!RecvResponse(outfd,rtcpBuffer,&rtcpLen,rtcpSize,&player->end))
+				break;
+
+			/* log */
+			ast_log(LOG_ERROR,"-Received rtcp length [%d]\n",rtcpLen);
+
+			/* Process rtcp packets */
+			while(i<rtcpLen)
+			{
+				/* Get packet */
+				rtcp = (struct Rtcp*)(rtcpBuffer+i);
+				/* Increase pointer */
+				i += (ntohs(rtcp->common.length)+1)*4;
+				/* log */
+				ast_log(LOG_ERROR,"-rtcp type [%d,%d]\n",rtcp->common.pt,i);
+				/* Check for bye */
+				if (rtcp->common.pt == RTCP_BYE)
+				{
+					/* End playback */
+					player->end = 1;
+					/* exit */	
+					break;
+				}
+			}
+
 		} else if (player->state!=RTSP_PLAY) {
 			/* log */
-			ast_log(LOG_ERROR,"-timedout and not conected");
+			ast_log(LOG_ERROR,"-timedout and not conected [%d]",outfd);
 			/* Exit f timedout and not conected*/
 			player->end = 1;
-		}
+		} 
 	}
 
 	/* log */
 	ast_log(LOG_WARNING,"-rtsp_play end loop");
+
+	/* Send teardown if something was setup */
+	if (player->state>RTSP_DESCRIBE)
+		/* Teardown */
+		RtspPlayerTeardown(player);
 
 	/* If ther was a sdp */
 	if (sdp)
@@ -1435,7 +1614,7 @@ static int rtsp_tunnel(struct ast_channel *chan,char *ip, int port, char *url)
 							/* Get new length */
 							bufferLen -= responseLen;
 							/* Move data to begining */
-							memcpy(buffer,i,bufferLen);
+							memcpy(buffer,buffer+responseLen,bufferLen);
 			
 						/* If there is enough data */	
 						} else if (bufferLen>=contentLength) {
