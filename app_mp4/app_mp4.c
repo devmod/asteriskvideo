@@ -50,11 +50,33 @@
 
 static char *app_play = "mp4play";
 static char *syn_play = "MP4 file playblack";
-static char *des_play = "  mp4play():  Play mp4 file to user. \n";
+static char *des_play = "  mp4play(filename):  Play mp4 file to user. \n"
+        "\n"
+        "Examples:\n"
+        " mp4play(/tmp/video.mp4)   play video file to user\n";
+
 
 static char *app_save = "mp4save";
 static char *syn_save = "MP4 file record";
-static char *des_save = "  mp4save():  Record mp4 file. \n";
+static char *des_save = "  mp4save(filename,[options]):  Record mp4 file. \n"
+        "Note: If you are working with amr it's recommended that you use 3gp\n"
+        "as your file extension if you want to play it with a video player.\n"
+        "\n"
+        "Available options:\n"
+        " 'v': activate loopback of video\n"
+        " 'V': wait for first video I frame to start recording\n"
+	" '0'..'9','#','*': sets dtmf input to stop recording"
+        "\n"
+        "Note: waiting for video I frame also activate video loopback mode.\n"
+        "\n"
+        "Examples:\n"
+        " mp4save(/tmp/save.3gp)    record video to selected file\n"
+        " mp4save(/tmp/save.3gp,#)  record video and stop on '#' dtmf\n"
+        " mp4save(/tmp/save.3gp,v)  activate loopback of video\n"
+        " mp4save(/tmp/save.3gp,V)  wait for first videoto start recording\n"
+        " mp4save(/tmp/save.3gp,V9) wait for first videoto start recording\n"
+        "                           and stop on '9' dtmf\n";
+
 
 struct mp4track {
 	MP4FileHandle mp4;
@@ -563,12 +585,44 @@ static int mp4_save(struct ast_channel *chan, void *data)
 	MP4TrackId hintAudio = -1;
 	MP4TrackId hintVideo = -1;
 	unsigned char type = 0;
-	bool intra = 0;
+	char *params = NULL;
 	int audio_payload, video_payload;
+	int loopVideo = 0;
+	int waitVideo = 0;
 
 	/* Check for file */
 	if (!data)
 		return -1;
+
+	/* Check for params */
+	params = strchr(data,'|');
+
+	/* If there are params */
+	if (params)
+	{
+		/* Remove from file name */
+		*params = 0;
+		
+		/* Increase pointer */
+		params++;
+
+		/* Check video loopback */
+		if (strchr(params,'v'))
+		{
+			/* Enable video loopback */
+			loopVideo = 1;
+		}
+
+		/* Check video waiting */
+		if (strchr(params,'V'))
+		{
+			/* Enable video loopback & waiting*/
+			loopVideo = 1;
+			waitVideo = 1;
+		}
+	}
+
+        ast_log(LOG_DEBUG, ">mp4save [%s,%s]\n",(char*)data,params);
 
 	/* Create mp4 file */
 	mp4 = MP4CreateEx((char *) data, 9, 0, 1, 1, 0, 0, 0, 0);
@@ -580,13 +634,12 @@ static int mp4_save(struct ast_channel *chan, void *data)
 	/* Lock module */
 	u = ast_module_user_add(chan);
 
-	printf(">mp4save\n");
-
 	/* Send video update */
 	ast_indicate(chan, AST_CONTROL_VIDUPDATE);
 
 	/* Wait for data avaiable on channel */
-	while (ast_waitfor(chan, -1) > -1) {
+	while (ast_waitfor(chan, -1) > -1)
+	{
 
 		/* Read frame from channel */
 		f = ast_read(chan);
@@ -595,12 +648,15 @@ static int mp4_save(struct ast_channel *chan, void *data)
 		if (f == NULL)
 			break;
 
-		/* Check frame type */
-		if (f->frametype == AST_FRAME_VOICE) {
+		/* Check if we have to wait for video */
+		if (f->frametype == AST_FRAME_VOICE && !waitVideo) 
+		{
 			/* Check if we have the audio track */
-			if (audio == -1) {
+			if (audio == -1) 
+			{
 				/* Check codec */
-				if (f->subclass & AST_FORMAT_ULAW) {
+				if (f->subclass & AST_FORMAT_ULAW) 
+				{
 					/* Create audio track */
 					audio = MP4AddAudioTrack(mp4, 8000, 0, MP4_ULAW_AUDIO_TYPE);
 					/* Create audio hint track */
@@ -629,7 +685,13 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					MP4SetHintTrackRtpPayload(mp4, hintAudio, "AMR", &type, 0, NULL, 1, 0);
 					/* Unknown things */
 					MP4SetAudioProfileLevel(mp4, 0xFE);
+				} else {
+					/* Unknown code free it*/
+					ast_frfree(f);
+					/* skip this one */
+					continue;
 				}
+
 				/* Set struct info */
 				audioTrack.mp4 = mp4;
 				audioTrack.track = audio;
@@ -639,14 +701,92 @@ static int mp4_save(struct ast_channel *chan, void *data)
 				audioTrack.first = 1;
 			}
 
-			/* Save audio rtp packet */
-			mp4_rtp_write_audio(&audioTrack, f, audio_payload);
+			/* Check we have audio track */
+			if (audio)
+				/* Save audio rtp packet */
+				mp4_rtp_write_audio(&audioTrack, f, audio_payload);
 
 		} else if (f->frametype == AST_FRAME_VIDEO) {
+			/* No skip and no add */
+			int skip = 0;
+			unsigned char *prependBuffer = NULL;
+			unsigned char *frame = (unsigned char *) (f->data);
+			int prependLength = 0;
+			int intra = 0;
+			int first = 0;
+
+			/* Check codec */
+			if (f->subclass & AST_FORMAT_H263) 
+			{
+				/* Check if it's an intra frame */
+				intra = (frame[1] & 0x10) != 0;
+				/* Check PSC for first packet of frame */
+				if ( f->datalen>7 && (frame[4] == 0) && (frame[5] == 0) && ((frame[6] & 0xFC) == 0x80) )
+					/* It's first */
+					first = 1;
+				/* payload length */
+				video_payload = 4;
+			} else if (f->subclass & AST_FORMAT_H263_PLUS) {
+				/* Check if it's an intra frame */
+				unsigned char p = frame[0] & 0x04;
+				unsigned char v = frame[0] & 0x02;
+				unsigned char plen = ((frame[0] & 0x1 ) << 5 ) | (frame[1] >> 3);
+				unsigned char pebit = frame[0] & 0x7;
+				/* payload length */
+				video_payload = 2;
+				/* skip rest of headers */
+				skip = plen + v;
+				/* If its first packet of frame*/
+				if (p)
+				{
+					/* it's first */
+					first = 1;
+					/* Check for intra in stream */
+					intra = !(frame[4] & 0x02);
+					/* Prepend open code */
+					prependBuffer = "\0\0";
+					prependLength = 2;
+				} 
+			} else if (f->subclass & AST_FORMAT_H264) {
+				/* All intra & first*/
+				intra = 1;
+				first = 1;
+				/* Save all to the rtp payload */
+				video_payload = f->datalen;
+				/* Don't add frame data to payload */
+				skip = f->datalen;
+				/* And add the data to the frame but not associated with the hint track */
+				prependBuffer = f->data+1;
+				prependLength = f->datalen-1;
+			} else {
+				/* Unknown code free it */
+				ast_frfree(f);
+				/* skip this one */
+				continue;
+			}
+
+			/* Check if we have to wait for video */
+			if (waitVideo)
+			{
+				/* If it's the first packet of an intra frame */
+				if (first && intra)
+				{
+					/* no more waiting */
+					waitVideo = 0;
+				} else {
+					/* free frame */
+					ast_frfree(f);
+					/* Keep on waiting */
+					continue;
+				}
+			}
+
 			/* Check if we have the video track */
-			if (video == -1) {
+			if (video == -1) 
+			{
 				/* Check codec */
-				if (f->subclass & AST_FORMAT_H263) {
+				if (f->subclass & AST_FORMAT_H263) 
+				{
 					/* Create video track */
 					video = MP4AddH263VideoTrack(mp4, 90000, 0, 176, 144, 0, 0, 0, 0);
 					/* Create video hint track */
@@ -676,10 +816,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					type = 99;
 					MP4SetHintTrackRtpPayload(mp4, hintVideo, "H264", &type, 0, NULL, 1, 0);
 
-				} else {
-					/* Unknown codec nothing to do */
-					break;
-				}
+				} 
 
 				/* Set struct info */
 				videoTrack.mp4 = mp4;
@@ -689,60 +826,37 @@ static int mp4_save(struct ast_channel *chan, void *data)
 				videoTrack.sampleId = 0;
 				videoTrack.first = 1;
 			}
-			/* No skip and no add */
-			int skip = 0;
-			unsigned char *prependBuffer = NULL;
-			int prependLength = 0;
-			intra = 0;
 
-			/* Check codec */
-			if (f->subclass & AST_FORMAT_H263) {
-				/* Check if it's an intra frame */
-				intra = (((unsigned char *) (f->data))[1] & 0x10) != 0;
-				/* payload length */
-				video_payload = 4;
-			} else if (f->subclass & AST_FORMAT_H263_PLUS) {
-				/* Check if it's an intra frame */
-				unsigned char p = ((unsigned char *) (f->data))[0] & 0x04;
-				unsigned char v = ((unsigned char *) (f->data))[0] & 0x02;
-				unsigned char plen = ((((unsigned char *) (f->data))[0] & 0x1 ) << 5 ) | (((unsigned char *) (f->data))[1] >> 3);
-				unsigned char pebit = ((unsigned char *) (f->data))[0] & 0x7;
-				/* payload length */
-				video_payload = 2;
-				/* skip rest of headers */
-				skip = plen + v;
-				/* If its first packet of frame*/
-				if (p)
-				{
-					/* Check for intra in stream */
-					intra = !(((unsigned char *) (f->data))[4] & 0x02);
-					/* Prepend open code */
-					prependBuffer = "\0\0";
-					prependLength = 2;
-				} 
-			} else if (f->subclass & AST_FORMAT_H264) {
-				/* All intra */
-				intra = 1;
-				/* Save all to the rtp payload */
-				video_payload = f->datalen;
-				/* Don't add frame data to payload */
-				skip = f->datalen;
-				/* And add the data to the frame but not associated with the hint track */
-				prependBuffer = f->data+1;
-				prependLength = f->datalen-1;
-			} else {
-				/* Unknown codec nothing to do */
-				break;
+			/* If we have created the track */
+			if (video)
+				/* Write rtp video packet */
+				mp4_rtp_write_video(&videoTrack, f, video_payload, intra, skip, prependBuffer , prependLength);
+
+			/* If video loopback is activated */
+			if (loopVideo)
+			{
+				/* Send it back */
+				ast_write(chan, f);
+				/* Don't delete it */
+				f = NULL;
 			}
 
-			/* Write rtp video packet */
-			mp4_rtp_write_video(&videoTrack, f, video_payload, intra, skip, prependBuffer , prependLength);
-
 		} else if (f->frametype == AST_FRAME_DTMF) {
+			/* If it's the dtmf param */
+			if (params && strchr(params,f->subclass))
+			{
+				/* free frame */
+				ast_frfree(f);
+				/* exit */
+				break;
+			}
+				
 		}
 
-		/* free frame */
-		ast_frfree(f);
+		/* If we have frame */
+		if (f)
+			/* free frame */
+			ast_frfree(f);
 	}
 
 	/* Save last video frame if needed */
