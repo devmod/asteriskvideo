@@ -101,7 +101,7 @@ void H223Demuxer::EndPDU(H223Flag &flag)
 		//Get channel
 		H223ALReceiver *recv = it->second;
 		//If it's non seg
-		if(!recv->IsSegmentable())
+		if(recv && !recv->IsSegmentable())
 			//Send closing flag
 			recv->SendClosingFlag();
 	}
