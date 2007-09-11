@@ -41,6 +41,9 @@
 #ifndef AST_FORMAT_AMRNB
 #define AST_FORMAT_AMRNB 	(1 << 13)
 #endif
+#ifndef AST_FRAME_DIGITAL
+#define AST_FRAME_DIGITAL 13
+#endif
 
 static char *name_h324m_loopback = "h324m_loopback";
 static char *syn_h324m_loopback = "H324m loopback mode";
@@ -67,15 +70,41 @@ static char *des_h324m_loopback = "  h324m_loopback([options]):  Establish H.324
 
 static char *name_h324m_gw = "h324m_gw";
 static char *syn_h324m_gw = "H324m gateway";
-static char *des_h324m_gw = "  h324m_gw():  Creates a pseudo channel for an incoming h324m call.\n";
+static char *des_h324m_gw = "  h324m_gw(extension@context):  Creates a pseudo channel for an incoming h324m call.\n"
+	"This function decodes the received H.324M data (usually via a ISDN connection\n"
+	"and extracts the video and voice frames into Asterisk's internal frame format\n"
+	"and vice versa.\n"
+	"A pseudo channel will be created to continue dialplan execution at another\n"
+	"extension/context.\n"
+	"\n"
+	"Examples:\n"
+	" [frompstn]\n"
+	" exten => 111,1,h324m_gw(britney@3gp_videos)\n"
+	" exten => 112,1,h324m_gw(justin@3gp_videos)\n"
+	" [3gp_videos]\n"
+	" exten => britney,1,h324m_gw_answer()\n"
+	" exten => britney,2,mp4_play(/var/videos/britney.3gp)\n"
+	" exten => justin,1,h324m_gw_answer()\n"
+	" exten => justin,2,mp4_play(/var/videos/justin.3gp)\n";
 
 static char *name_h324m_call = "h324m_call";
 static char *syn_h324m_call = "H324m call";
-static char *des_h324m_call = "  h324m_call():  Creates a pseudo channel for an outgoing h324m call.\n";
+static char *des_h324m_call = "  h324m_call(extension@context):  Creates a pseudo channel for an outgoing h324m call.\n"
+	"This function encodes the video and voice frames from Asterisk's internal\n"
+	" frame format into H.324M data and vice versa.\n"
+	"A pseudo channel will be created to continue dialplan execution at another\n"
+	"extension/context.\n"
+	"\n"
+	"Examples:\n"
+	" [fromsip]\n"
+	" ;prefix 0 means PSTN with normal audio call\n"
+	" ;prefix 1 means PSTN with 3G video calls\n"
+	" exten => _0X.,1,Dial(Zap/${EXTEN:1}\n"
+	" exten => _1X.,1,h324m_call(0${EXTEN:1}@fromsip)\n";
 
 static char *name_h324m_gw_answer = "h324m_gw_answer";
 static char *syn_h324m_gw_answer = "H324m Answer incoming call";
-static char *des_h324m_gw_answer = "  h324m_gw_answer():  Answer and incomming call from h324m_gw and waits for 3G negotiation.\n";
+static char *des_h324m_gw_answer = "  h324m_gw_answer():  Answer an incomming call from h324m_gw and waits for 3G negotiation.\n";
 
 static char *name_video_loopback = "video_loopback";
 static char *syn_video_loopback = "video_loopback";
@@ -580,7 +609,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	vt.tvnext.tv_usec = 0;
 	vt.first = 1;
 
-	ast_log(LOG_DEBUG, "h324m_loopback\n");
+	ast_log(LOG_DEBUG, "h324m_gw\n");
 
 	/* Lock module */
 	u = ast_module_user_add(chan);
@@ -673,7 +702,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 		if (where==chan) 
 		{
 			/* Check frame type */
-			if (f->frametype == AST_FRAME_VOICE) 
+			if ((f->frametype == AST_FRAME_DIGITAL) || (f->frametype == AST_FRAME_VOICE)) 
 			{
 				/* read data */
 				H324MSessionRead(id, (unsigned char *)f->data, f->datalen);
@@ -833,6 +862,7 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 
 	/* Request new channel */
 	pseudo = ast_request("Local", AST_FORMAT_ALAW | AST_FORMAT_ULAW, data, &reason);
+/*	pseudo = ast_request("Local", AST_FORMAT_DIGITAL, data, &reason);*/
  
 	/* If somthing has gone wrong */
 	if (!pseudo)
