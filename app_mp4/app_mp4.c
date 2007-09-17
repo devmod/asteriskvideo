@@ -422,19 +422,19 @@ static int mp4_play(struct ast_channel *chan, void *data)
 				{
 					audio.frameSubClass = AST_FORMAT_ULAW;
 					if (ast_set_write_format(chan, AST_FORMAT_ULAW))
-						ast_log(LOG_WARNING, "mp4_play:	Unable to set read format to ULAW!\n");
+						ast_log(LOG_WARNING, "mp4_play:	Unable to set write format to ULAW!\n");
 				}
 				else if (strcmp("PCMA", audio.name) == 0)
 				{
 					audio.frameSubClass = AST_FORMAT_ALAW;
 					if (ast_set_write_format(chan, AST_FORMAT_ALAW))
-						ast_log(LOG_WARNING, "mp4_play:	Unable to set read format to ALAW!\n");
+						ast_log(LOG_WARNING, "mp4_play:	Unable to set write format to ALAW!\n");
 				} 
 				else if (strcmp("AMR", audio.name) == 0)
 				{
 					audio.frameSubClass = AST_FORMAT_AMRNB;
 					if (ast_set_write_format(chan, AST_FORMAT_AMRNB))
-						ast_log(LOG_WARNING, "mp4_play:	Unable to set read format to AMR-NB!\n");
+						ast_log(LOG_WARNING, "mp4_play:	Unable to set write format to AMR-NB!\n");
 				}
 
 			} else if (strcmp(type, MP4_VIDEO_TRACK_TYPE) == 0) {
@@ -634,7 +634,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 		}
 	}
 
-        ast_log(LOG_DEBUG, ">mp4save [%s,%s]\n",(char*)data,params);
+	ast_log(LOG_DEBUG, ">mp4save [%s,%s]\n",(char*)data,params);
 
 	/* Create mp4 file */
 	mp4 = MP4CreateEx((char *) data, 9, 0, 1, 1, 0, 0, 0, 0);
@@ -645,6 +645,9 @@ static int mp4_save(struct ast_channel *chan, void *data)
 
 	/* Lock module */
 	u = ast_module_user_add(chan);
+
+	if (ast_set_read_format(chan, AST_FORMAT_ULAW|AST_FORMAT_ALAW|AST_FORMAT_AMRNB))
+		ast_log(LOG_WARNING, "mp4_save: Unable to set read format to ULAW|ALAW|AMRNB!\n");
 
 	/* Send video update */
 	ast_indicate(chan, AST_CONTROL_VIDUPDATE);
