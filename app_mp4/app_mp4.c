@@ -419,11 +419,23 @@ static int mp4_play(struct ast_channel *chan, void *data)
 
 				/* Depending on the name */
 				if (strcmp("PCMU", audio.name) == 0)
+				{
 					audio.frameSubClass = AST_FORMAT_ULAW;
+					if (ast_set_write_format(chan, AST_FORMAT_ULAW))
+						ast_log(LOG_WARNING, "mp4_play:	Unable to set read format to ULAW!\n");
+				}
 				else if (strcmp("PCMA", audio.name) == 0)
+				{
 					audio.frameSubClass = AST_FORMAT_ALAW;
+					if (ast_set_write_format(chan, AST_FORMAT_ALAW))
+						ast_log(LOG_WARNING, "mp4_play:	Unable to set read format to ALAW!\n");
+				} 
 				else if (strcmp("AMR", audio.name) == 0)
+				{
 					audio.frameSubClass = AST_FORMAT_AMRNB;
+					if (ast_set_write_format(chan, AST_FORMAT_AMRNB))
+						ast_log(LOG_WARNING, "mp4_play:	Unable to set read format to AMR-NB!\n");
+				}
 
 			} else if (strcmp(type, MP4_VIDEO_TRACK_TYPE) == 0) {
 				/* it's video */
