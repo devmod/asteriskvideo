@@ -282,6 +282,7 @@ static void GetUdpPorts(int *a,int *b,int *p,int *q)
 	getsockname(*b,(struct sockaddr *)&sendAddr,&len);
 	*q = ntohs(sendAddr.sin_port);
 
+	ast_log(LOG_DEBUG,"-GetUdpPorts [%d,%d]\n",*p,*q);
 
 	/* Create audio sockets */
 	while ( *p%2 || *p+1!=*q )
@@ -299,6 +300,8 @@ static void GetUdpPorts(int *a,int *b,int *p,int *q)
 		len = sizeof(struct sockaddr_in);
 		getsockname(*b,(struct sockaddr *)&sendAddr,&len);
 		*q = ntohs(sendAddr.sin_port);
+
+		ast_log(LOG_DEBUG,"-GetUdpPorts [%d,%d]\n",*p,*q);
 	}
 }
 static void SetNonBlocking(int fd)
@@ -1042,7 +1045,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	if (!RtspPlayerConnect(player,ip,port))
 	{
 		/* log */
-		ast_log(LOG_ERROR,"Couldn't connecting to %s:%d\n",ip,port);
+		ast_log(LOG_ERROR,"Couldn't connect to %s:%d\n",ip,port);
 		/* end */
 		goto rtsp_play_clean;
 	}
@@ -1194,6 +1197,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 								audioFormat = sdp->audio->formats[i]->format;
 								/* Store control */
 								audioControl = sdp->audio->formats[i]->control;
+								/* Got a valid one */
+								break;
 							}
 						}
 
@@ -1213,8 +1218,13 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 								videoFormat = sdp->video->formats[i]->format;
 								/* Store control */
 								videoControl = sdp->video->formats[i]->control;
+								/* Got a valid one */
+								break;
 							}
 						}
+
+					/* Set write format */
+					ast_set_write_format(chan, audioFormat | videoFormat);	
 
 					/* if audio track */
 					if (audioControl)
