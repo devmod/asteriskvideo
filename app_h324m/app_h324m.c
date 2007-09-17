@@ -860,9 +860,15 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	/* Lock module */
 	u = ast_module_user_add(chan);
 
+	/* we only do support AMR as voice codec - thus make sure that
+	   Asterisk's core transcode voice frames to/from AMR */
+	if (ast_set_read_format(chan, AST_FORMAT_AMRNB))
+		ast_log(LOG_WARNING, "app_h324m_call: Unable to set read format to AMR-NB!\n");
+	if (ast_set_write_format(chan, AST_FORMAT_AMRNB))
+		ast_log(LOG_WARNING, "app_h324m_call: Unable to set read format to AMR-NB!\n");
+
 	/* Request new channel */
 	pseudo = ast_request("Local", AST_FORMAT_ALAW | AST_FORMAT_ULAW, data, &reason);
-/*	pseudo = ast_request("Local", AST_FORMAT_DIGITAL, data, &reason);*/
  
 	/* If somthing has gone wrong */
 	if (!pseudo)
