@@ -386,8 +386,8 @@ static void RtspPlayerClose(struct RtspPlayer *player)
 	if (player->fd)		close(player->fd);
 	if (player->audioRtp)	close(player->audioRtp);
 	if (player->audioRtcp)	close(player->audioRtcp);
-	if (player->videoRtp)	close(player->audioRtp);
-	if (player->videoRtcp)	close(player->audioRtcp);
+	if (player->videoRtp)	close(player->videoRtp);
+	if (player->videoRtcp)	close(player->videoRtcp);
 }
 
 static int SendRequest(int fd,char *request,int *end)
