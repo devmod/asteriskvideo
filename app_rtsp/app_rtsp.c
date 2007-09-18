@@ -607,7 +607,7 @@ static int RtspPlayerTeardown(struct RtspPlayer* player)
 		snprintf(request,1024,
 				"TEARDOWN rtsp://%s%s RTSP/1.0\r\n"
 				"CSeq: %d\r\n"
-				"Session: %s/sdp\r\n"
+				"Session: %s\r\n"
 				"User-Agent: app_rtsp\r\n"
 				"\r\n",
 				player->ip,player->url,player->cseq,player->session[i]);
