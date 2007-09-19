@@ -246,7 +246,7 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			if (vt->first)
 			{
 				/* Set data*/
-				send->data = (void*)send + AST_FRIENDLY_OFFSET;
+				send->data = (unsigned char*)send + AST_FRIENDLY_OFFSET;
 				/* If it's not empty */
 				if (vt->bufferLength)
 				{
@@ -263,7 +263,7 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 				((unsigned char*)(send->data))[1] = 0x00; 
 			} else {
 				/* Set data*/
-				send->data = (void*)send + AST_FRIENDLY_OFFSET;
+				send->data = (unsigned char*)send + AST_FRIENDLY_OFFSET;
 				send->datalen =  vt->bufferLength + 2  ;
 				/* If it's not empty */
 				if (vt->bufferLength)
@@ -273,9 +273,16 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 				((unsigned char*)(send->data))[0] = 0x00;
 				((unsigned char*)(send->data))[1] = 0x00;
 			}
-			/* If we have to send the begging of this frame */
-			if (i>0 && found)
+			
+			/* Assertion test */
+			if (i>framelength)
 			{
+				/* Never should happen */
+				ast_log(LOG_ERROR, "Counter past of frame [%d,%d]\n",i,framelength);
+				/* Empty */
+				vt->bufferLength = 0;
+			/* If we have to send the begging of this frame */
+			} else if (i>0 && found) {
 				/* Copy the begining to the packet to send*/
 				memcpy(send->data+send->datalen,framedata,i);
 				/* Increase size */
