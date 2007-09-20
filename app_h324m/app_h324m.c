@@ -999,9 +999,9 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 				while((input=H324MSessionGetUserInput(id))!=NULL)
 				{
 					/* Send digit begin */
-					ast_senddigit_begin(pseudo,input[0]);
+					ast_senddigit_begin(chan,input[0]);
 					/* Send digit end */
-					ast_senddigit_end(pseudo,input[0],100);
+					ast_senddigit_end(chan,input[0],100);
 					/* free data */
 					free(input);
 				}
