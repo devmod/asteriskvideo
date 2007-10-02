@@ -570,7 +570,6 @@ static int RtspPlayerPlay(struct RtspPlayer* player)
 				"CSeq: %d\r\n"
 				"Session: %s\r\n"
 				"User-Agent: app_rtsp\r\n"
-				"Range: npt=0.000000-\r\n"
 				"\r\n",
 				player->ip,player->url,player->cseq,player->session[i]);
 
