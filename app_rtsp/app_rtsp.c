@@ -1267,7 +1267,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 					if ( (session=GetHeaderValue(buffer,responseLen,"Session")) == 0)
 					{
 						/* log */
-						ast_log(LOG_ERROR,"No session\n");
+						ast_log(LOG_ERROR,"No session [%s]\n",buffer);
 						/* Uh? */
 						player->end = 1;
 						/* break */
@@ -1310,7 +1310,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 					if ( (session=GetHeaderValue(buffer,responseLen,"Session")) == 0)
 					{
 						/* log */
-						ast_log(LOG_ERROR,"No session\n");
+						ast_log(LOG_ERROR,"No session [%s]\n",buffer);
 						/* Uh? */
 						player->end = 1;
 						/* break */
@@ -1336,19 +1336,23 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 					/* Get range */
 					if ( (range=GetHeaderValue(buffer,responseLen,"Range")) == 0)
 					{
-						/* log */
-						ast_log(LOG_ERROR,"No session\n");
-						/* Uh? */
-						player->end = 1;
-						/* break */
-						break;
+						/* No end of stream */
+						duration = -1;
+					} else {
+						/* Check format */
+						if (range=strchr(range,'-')) 
+							/* Get duration */
+							duration = atof(range+1)*1000;  
+						else 
+							/* No end of stream */
+							duration = -1;
+						/* Free string */
+						free(range);
 					}
-					/* Check format */
-					if (range=strchr(range,'-'))
-						/* Get duration */
-						duration = atof(range+1)*1000;  
-					/* Init counter */
-					tv = ast_tvnow();
+					/* If the video has end */
+					if (duration!=-1)
+						/* Init counter */
+						tv = ast_tvnow();
 					/* log */
 					ast_log(LOG_ERROR,"-Started playback [%d]\n",duration);
 					/* Get new length */
