@@ -1004,6 +1004,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	int  rtcpLen = 0;
 	char *session;
 	char *range;
+	char *j;
 
 	struct SDPContent* sdp = NULL;
 	char *audioControl = NULL;
@@ -1338,10 +1339,12 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 						/* No end of stream */
 						duration = -1;
 					} else {
+						/* Get end part */
+						j = strchr(range,'-');
 						/* Check format */
-						if (range=strchr(range,'-')) 
+						if (j)
 							/* Get duration */
-							duration = atof(range+1)*1000;  
+							duration = atof(j+1)*1000;  
 						else 
 							/* No end of stream */
 							duration = -1;
