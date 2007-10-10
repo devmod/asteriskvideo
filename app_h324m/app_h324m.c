@@ -130,9 +130,10 @@ struct video_creator
 static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 {
 	int mark = 0;
-	int i = 0;
+	unsigned int i = 0;
+	short j = 0;
 	int found = 0;
-	int len;
+	unsigned int len = 0;
 	struct ast_frame* send;
 
 	/* Get data & size */
@@ -147,7 +148,24 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			if (FrameGetCodec(frame)!=CODEC_AMR)
 				/* exit */
 				return NULL;
+
 			ast_log(LOG_DEBUG, "create_ast_frame: received AMR frame with %d bytes\n",framelength);
+
+			/*Get header*/
+			unsigned char header = framedata[0];
+			/*Get mode*/
+			unsigned char mode = header & 0x0F;
+			/*Get number of stuffing bits*/
+			unsigned int stuf = if2stuffing[mode];
+
+			/*Get Block Size*/
+			short bs = blockSize[mode];
+
+			/* Check correct mode and length */
+			if (bs==-1 || framelength<bs)
+				/* Exit */
+				return NULL;
+
 			/* Create frame */
 			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + framelength + 3);
 			/* Set data*/
@@ -160,34 +178,23 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			
 			/*Convert IF2 into AMR MIME format*/
 
-			/*Get header*/
-			unsigned char header = ((unsigned char *)(send->data+1))[0];
-			/*Get mode*/
-			unsigned char mode = header & 0x0F;
-			/*Get number of stuffing bits*/
-			unsigned int stuf = if2stuffing[mode];
-			/*Get Block Size*/
-			unsigned int bs = blockSize[mode];
-
-
 			/*Reverse bytes*/
 			TIFFReverseBits(send->data+1, framelength);
 
-			//It amr has a byte more then if2
+			/*If amr has a byte more than if2 */
 			if(stuf < 4)
 			{
+				/* Set last byte */
 				((unsigned char *)(send->data+1))[bs] = ((unsigned char *)(send->data+1))[bs - 1] << 4;
 				/*Increase size of frame*/
 				send->datalen++;
 			}
 			
-			//For each byte
-			for(i=bs-1; i>0; i--)
-			{
-				((unsigned char *)(send->data+1))[i] = ((unsigned char *)(send->data+1))[i] >> 4 | ((unsigned char *)(send->data+1))[i-1] << 4;
-			}
+			/* For each byte */
+			for(j=bs-1; j>0; j--)
+				((unsigned char *)(send->data+1))[j] = ((unsigned char *)(send->data+1))[j] >> 4 | ((unsigned char *)(send->data+1))[j-1] << 4;
 
-			//Calculate first
+			/* Calculate first byte */
 			((unsigned char *)(send->data+1))[0] = mode << 3 | 0x04;
 
 
@@ -211,16 +218,21 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			/* Search from the begining */
 			i = 0;
 			found = 0;
-			/* Try to find begining of frame */
-			while (!found && i<framelength-4)
+
+			/* Check length*/
+			if(framelength>2)
 			{
-				/* Check if we found start code */
-				if (framedata[i] == 0 && framedata[i+1] == 0  &&  (framedata[i+2] & 0xFC) == 0x80)
-					/* We found it */
-					found = 1;
-				else
-					/* Increase pointer */
-					i++;
+				/* Try to find begining of frame */
+				while (!found && i<framelength-4)
+				{
+					/* Check if we found start code */
+					if (framedata[i] == 0 && framedata[i+1] == 0  &&  (framedata[i+2] & 0xFC) == 0x80)
+						/* We found it */
+						found = 1;
+					else
+						/* Increase pointer */
+						i++;
+				}
 			}
 
 			/* If still in the same frame */
