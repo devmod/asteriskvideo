@@ -35,6 +35,7 @@ public:
 
 	//Cmds & indications
 	int		SendVideoFastUpdatePicture();
+	int		ResetMediaQueue();
 	CallState	GetState();
 
 	//H245ChannelsFactoryListener

@@ -26,6 +26,7 @@ public:
 
 	int Init();
 	void Tick(DWORD value);
+	void Reset();
 	int End();
 
 	H223ALSender*  GetSender();
