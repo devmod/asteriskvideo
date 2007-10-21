@@ -23,6 +23,11 @@ int  H324MSessionInit(void * id)
 	return ((H324MSession*)id)->Init(); 
 }
 
+int  H324MSessionResetMediaQueue(void * id)
+{ 
+	return ((H324MSession*)id)->ResetMediaQueue(); 
+}
+
 int  H324MSessionEnd(void * id)
 { 
 	return ((H324MSession*)id)->End(); 

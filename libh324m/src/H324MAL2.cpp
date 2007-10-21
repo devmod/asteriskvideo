@@ -171,6 +171,8 @@ int H223AL2Sender::Reset()
 	while(jitBuf.GetSize())
 		//Delete first
 		delete jitBuf.GetSDU();
+	//Exit
+	return true;
 }
 int H223AL2Sender::IsSegmentable()
 {
