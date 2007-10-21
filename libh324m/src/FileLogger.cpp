@@ -34,6 +34,7 @@ FileLogger::~FileLogger()
 {
 }
 
+#ifdef DUMP_H223 
 void FileLogger::SetMuxByte(BYTE b)
 {
 	//New line
@@ -148,3 +149,21 @@ void FileLogger::SetDemuxInfo(int offset,const char*info,...)
 	//Remove \0
 	l2[numchar+offset]=' ';
 }
+#else
+
+void FileLogger::SetMuxByte(BYTE b)
+{
+}
+
+void FileLogger::SetMuxInfo(const char*info,...)
+{
+}
+
+void FileLogger::SetDemuxByte(BYTE b)
+{
+}
+
+void FileLogger::SetDemuxInfo(int offset,const char*info,...)
+{
+}
+#endif

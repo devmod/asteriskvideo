@@ -69,6 +69,7 @@ void H223AL2Receiver::SendClosingFlag()
 
 	//Debug("-AL2 Frame [%x,%x,%x,%d]\n",data[dataLen-1],crc.Calc(),this,dataLen);
 
+#ifdef DUMP_H223
 	{
 		char name[256];
 		sprintf(name,"/tmp/media_%x.raw",(unsigned int)this);
@@ -76,6 +77,7 @@ void H223AL2Receiver::SendClosingFlag()
 		write(fd,data+useSN,dataLen-useSN-1);
 		close(fd);
 	}
+#endif
 	
 	//Calc
 	if (data[dataLen-1]!=crc.Calc())

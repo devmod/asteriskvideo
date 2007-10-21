@@ -22,7 +22,6 @@
 #include "H324MSession.h"
 
 #define Debug printf 
-#define DUMP_H223 
 
 H324MSession::H324MSession()
 {
