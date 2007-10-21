@@ -508,8 +508,8 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 			return FrameCreate(MEDIA_AUDIO, CODEC_AMR, pak->offset - bs, bs);
 		case AST_FRAME_VIDEO:
 			/* Create frame */
-			return FrameCreate(MEDIA_VIDEO, CODEC_H263, pak->framedata, pak->framelength);
-		default:
+			return FrameCreate(MEDIA_VIDEO, CODEC_H263,
+pak->framedata, pak->framelength); default:
 			break;
 	}
 	/* NOthing */
@@ -612,6 +612,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	struct video_creator vt;
 	void*  frame;
 	char*  input;
+	char*  src = 0;
 	int    reason = 0;
 	int    state = 0;
 	int    ms;
@@ -804,13 +805,34 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 				/* DTMF */
 
 			} else {
+				/* Check src */
+				if (!src && f->src) {
+					/* Store it */
+					src = strdup(f->src);
+				} else if (src && !f->src) {
+					/* Delete old one */
+					free(src);
+					/* Store it */
+					src = NULL;
+					/* Reset media */
+					H324MSessionResetMediaQueue(id);
+				} else if (src && f->src && strcmp(src,f->src)==0) {
+					/* Delete old one */
+					free(src);
+					/* Store it */
+					src = strdup(f->src);
+					/* Reset media */
+					H324MSessionResetMediaQueue(id);
+				}
 				/* Media packet */	
-				/* Init packetizer */
-				/* if (f->frametype == AST_FRAME_VOICE) 
+				/* 
+				if (f->frametype == AST_FRAME_VOICE) 
 				{
 					ast_log(LOG_DEBUG, "AST_FRAME_VOICE: subtype=%d; AST_FORMAT_AMRNB=%d\n",f->subclass,AST_FORMAT_AMRNB);
 					ast_log(LOG_DEBUG, "AST_FRAME_VOICE: f->data=%p, f->datalen=%d\n",f->data,f->datalen);
-				} */
+				} 
+				*/
+				/* Init packetizer */
 				if (init_h324m_packetizer(&pak,f))
 					/* Create frame */
 					while ((frame=create_h324m_frame(&pak,f))!=NULL) {
@@ -846,7 +868,11 @@ end:
 	/* Unlock module*/
 	ast_module_user_remove(u);
 
-	//Exit
+	/* Free src */	
+	if (src) 
+		free(src);
+
+	/*Exit*/
 	return -1;
 }
 
