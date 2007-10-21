@@ -224,6 +224,7 @@ struct mp4rtp {
 	int frameType;
 	int frameSubClass;
 	char *name;
+	char *src;
 	unsigned char type;
 
 };
@@ -269,7 +270,7 @@ static int mp4_rtp_read(struct mp4rtp *p)
 	/* Let mp4 lib allocate memory */
 	f->data = (void*)f + AST_FRIENDLY_OFFSET;
 	f->datalen = 1500;
-	f->src = 0;
+	f->src = p->src;
 
 	/* Set type */
 	f->frametype = p->frameType;
@@ -346,8 +347,8 @@ static int mp4_rtp_read(struct mp4rtp *p)
 static int mp4_play(struct ast_channel *chan, void *data)
 {
 	struct ast_module_user *u;
-	struct mp4rtp audio = { chan, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-	struct mp4rtp video = { chan, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	struct mp4rtp audio = { chan, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0 };
+	struct mp4rtp video = { chan, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0 };
 	MP4FileHandle mp4;
 	MP4TrackId hintId;
 	MP4TrackId trackId;
@@ -357,6 +358,7 @@ static int mp4_play(struct ast_channel *chan, void *data)
 	int t = 0;
 	int i = 0;
 	struct ast_frame *f;
+	char src[128];
 
 	/* Check for data */
 	if (!data)
@@ -364,6 +366,11 @@ static int mp4_play(struct ast_channel *chan, void *data)
 
 	ast_log(LOG_DEBUG, "mp4play %s\n", (char *)data);
 	printf( "mp4play %s\n", (char *)data);
+
+	/* Set random src */
+	sprintf(src,"mp4play%08lx", ast_random());
+	audio.src = src;
+	video.src = src;
 
 	/* Lock module */
 	u = ast_module_user_add(chan);
