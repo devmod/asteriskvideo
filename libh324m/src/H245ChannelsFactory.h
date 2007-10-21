@@ -38,6 +38,7 @@ public:
 	int SetRemoteCapabilities(H245Capabilities* remoteCapabilities);
 
 	int Init(H223ALSender* controlSender,H223ALReceiver* controlReceiver, H245ChannelsFactoryListener *listener);
+	int Reset();
 	int End();
 
 	int Demultiplex(BYTE *buffer,int length);

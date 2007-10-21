@@ -40,6 +40,7 @@ public:
 	int SendPDU(BYTE *buffer,int len);
 	void SetJitBuffer(int packets, int delay);
 	void Tick(DWORD len);
+	void Reset();
 
 	//H223ALSender interface
 	virtual H223MuxSDU* GetNextPDU();

@@ -60,6 +60,20 @@ int H245ChannelsFactory::Init(H223ALSender* controlSender,H223ALReceiver* contro
 	return 1;
 }
 
+int H245ChannelsFactory::Reset()
+{
+	//Loop throught channels
+	for (ChannelMap::iterator it = channels.begin(); it != channels.end(); it++)
+	{
+		//Get channel
+		H324MMediaChannel *channel = it->second;
+		//Reset it
+		channel->Reset();
+	}
+	//Exit
+	return 1;
+}
+
 int H245ChannelsFactory::End()
 {
 	return 1;

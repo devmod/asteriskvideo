@@ -151,3 +151,9 @@ int H324MSession::OnChannelReleased(int channel, MediaType type)
 	//Not implemented yet
 	return true;
 }
+
+int H324MSession::ResetMediaQueue()
+{
+	//Call the media channels reset
+	return channels.Reset();
+}

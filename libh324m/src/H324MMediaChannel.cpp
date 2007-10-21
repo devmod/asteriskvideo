@@ -134,6 +134,12 @@ void H324MMediaChannel::Tick(DWORD value)
 	if(sender)
 		((H223AL2Sender*)sender)->Tick( value);
 }
+void Reset()
+{
+	//Reset send queue
+	((H223AL2Sender*)sender)->Reset();
+}
+
 void H324MMediaChannel::OnSDU(BYTE* data,DWORD length)
 {
 	MediaCodec codec;
