@@ -1005,6 +1005,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	char *session;
 	char *range;
 	char *j;
+	char src[128];
 
 	struct SDPContent* sdp = NULL;
 	char *audioControl = NULL;
@@ -1028,6 +1029,9 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 
 	/* log */
 	ast_log(LOG_WARNING,">rtsp play\n");
+
+	/* Set random src */
+	sprintf(src,"rtsp_play%08lx", ast_random());
 
 	/* Create player */
 	player = RtspPlayerCreate();
@@ -1398,7 +1402,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 			/* Set frame data */
 			sendFrame->data = rtpBuffer+ini;
 			sendFrame->datalen = rtpLen-ini;
-			sendFrame->src = 0;
+			sendFrame->src = src;
 
 			/* Depending on socket */
 			if (outfd==player->audioRtp) {
