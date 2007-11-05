@@ -650,38 +650,66 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 		/* if fail goto clean */
 		goto clean_pseudo;
 
+	/* Set up array */
+	channels[0] = chan;
+	channels[1] = pseudo;
+
+	/* No timeout */
+	ms = -1;
+
 	/* while not setup */
 	while (pseudo->_state!=AST_STATE_UP) 
 	{
 		/* Wait for data */
-		if (ast_waitfor(pseudo, 0)<0)
+		if ((where = ast_waitfor_n(channels, 2, &ms))<0)
 			/* error, timeout, or done */
 			break;
 		/* Read frame */
-		f = ast_read(pseudo);
+		f = ast_read(where);
 		/* If not frame */
 		if (!f)
 			/* done */ 
 			break;
-		/* If it's a control frame */
-		if (f->frametype == AST_FRAME_CONTROL) 
+		/* Check channel */
+		if (where==pseudo)
 		{
-			/* Dependinf on the event */
-			switch (f->subclass) 
+			/* If it's a control frame */
+			if (f->frametype == AST_FRAME_CONTROL) 
 			{
-				case AST_CONTROL_RINGING:       
-					break;
-				case AST_CONTROL_BUSY:
-				case AST_CONTROL_CONGESTION:
-					/* Save cause */
-					reason = pseudo->hangupcause;
-					/* exit */
-					goto hangup_pseudo;
-					break;
-				case AST_CONTROL_ANSWER:
-					/* Set UP*/
-					reason = 0;	
-					break;
+				/* Dependinf on the event */
+				switch (f->subclass) 
+				{
+					case AST_CONTROL_RINGING:       
+						break;
+					case AST_CONTROL_BUSY:
+					case AST_CONTROL_CONGESTION:
+						/* Delete frame */
+						ast_frfree(f);
+						/* Save cause */
+						reason = pseudo->hangupcause;
+						/* exit */
+						goto hangup_pseudo;
+						break;
+					case AST_CONTROL_ANSWER:
+						/* Set UP*/
+						reason = 0;	
+						break;
+				}
+			}
+		} else {
+			/* If it's a control frame */
+			if (f->frametype == AST_FRAME_CONTROL) 
+			{
+				/* Depending on the event */
+				switch (f->subclass) 
+				{
+					case AST_CONTROL_HANGUP:
+						/* Delete frame */
+						ast_frfree(f);
+						/* exit */
+                                                goto hangup_pseudo;
+                                                break;
+				}
 			}
 		}
 		/* Delete frame */
@@ -702,15 +730,9 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	/* Answer call */
 	ast_answer(chan);
 
-	/* Set up array */
-	channels[0] = chan;
-	channels[1] = pseudo;
-
-	/* No timeout */
-	ms = -1;
-
 	/* Wait for data avaiable on any channel */
-	while (!reason && (where = ast_waitfor_n(channels, 2, &ms)) != NULL) {
+	while (!reason && (where = ast_waitfor_n(channels, 2, &ms)) != NULL) 
+	{
 		/* Read frame from channel */
 		f = ast_read(where);
 
@@ -928,11 +950,18 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 		/* if fail goto clean */
 		goto clean_pseudo;
 
+	/* Set up array */
+	channels[0] = chan;
+	channels[1] = pseudo;
+
+	/* No timeout */
+	ms = -1;
+
 	/* while not setup */
 	while (pseudo->_state!=AST_STATE_UP) 
 	{
 		/* Wait for data */
-		if (ast_waitfor(pseudo, 0)<0)
+		if ((where = ast_waitfor_n(channels, 2, &ms))<0)
 			/* error, timeout, or done */
 			break;
 		/* Read frame */
@@ -941,25 +970,46 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 		if (!f)
 			/* done */ 
 			break;
-		/* If it's a control frame */
-		if (f->frametype == AST_FRAME_CONTROL) 
+		/* Check channel */
+		if (where==pseudo)
 		{
-			/* Depending on the event */
-			switch (f->subclass) 
+			/* If it's a control frame */
+			if (f->frametype == AST_FRAME_CONTROL) 
 			{
-				case AST_CONTROL_RINGING:       
-					break;
-				case AST_CONTROL_BUSY:
-				case AST_CONTROL_CONGESTION:
-					/* Save cause */
-					reason = pseudo->hangupcause;
-					/* exit */
-					goto hangup_pseudo;
-					break;
-				case AST_CONTROL_ANSWER:
-					/* Set UP*/
-					reason = 0;	
-					break;
+				/* Depending on the event */
+				switch (f->subclass) 
+				{
+					case AST_CONTROL_RINGING:       
+						break;
+					case AST_CONTROL_BUSY:
+					case AST_CONTROL_CONGESTION:
+						/* Delete frame */
+						ast_frfree(f);
+						/* Save cause */
+						reason = pseudo->hangupcause;
+						/* exit */
+						goto hangup_pseudo;
+						break;
+					case AST_CONTROL_ANSWER:
+						/* Set UP*/
+						reason = 0;	
+						break;
+				}
+			}
+		} else {
+			/* If it's a control frame */
+			if (f->frametype == AST_FRAME_CONTROL) 
+			{
+				/* Depending on the event */
+				switch (f->subclass) 
+				{
+					case AST_CONTROL_HANGUP:
+						/* Delete frame */
+						ast_frfree(f);
+						/* exit */
+                                                goto hangup_pseudo;
+                                                break;
+				}
 			}
 		}
 		/* Delete frame */
@@ -979,13 +1029,6 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 
 	/* Answer call */
 	ast_answer(chan);
-
-	/* Set up array */
-	channels[0] = chan;
-	channels[1] = pseudo;
-
-	/* No timeout */
-	ms = -1;
 
 	/* Create enpty packet */
 	send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 160 );
