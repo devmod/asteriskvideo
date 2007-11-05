@@ -135,6 +135,7 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 	int found = 0;
 	unsigned int len = 0;
 	struct ast_frame* send;
+	unsigned char* data = 0;
 
 	/* Get data & size */
 	unsigned char * framedata = FrameGetData(frame);
@@ -162,7 +163,7 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			short bs = blockSize[mode];
 
 			/* Check correct mode and length */
-			if (bs==-1 || framelength<bs)
+			if (bs==-1 || framelength<(unsigned)bs)
 				/* Exit */
 				return NULL;
 
@@ -171,32 +172,34 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			/* Set data*/
 			send->data = (void*)send + AST_FRIENDLY_OFFSET;
 			send->datalen = framelength + 1; /* +1 because the the octet with the CMR */
+			data = send->data;
 			/* Set header cmr */
-			((unsigned char*)(send->data))[0] = 0xF0;
+			data[0] = 0xF0;
+			/* Increase pointer to match frame */
+			data++;
 			/* Copy */
-			memcpy(send->data+1, framedata, framelength);
+			memcpy(data, framedata, framelength);
 			
 			/*Convert IF2 into AMR MIME format*/
 
 			/*Reverse bytes*/
-			TIFFReverseBits(send->data+1, framelength);
+			TIFFReverseBits(data, framelength);
 
 			/*If amr has a byte more than if2 */
 			if(stuf < 4)
 			{
 				/* Set last byte */
-				((unsigned char *)(send->data+1))[bs] = ((unsigned char *)(send->data+1))[bs - 1] << 4;
+				data[bs] = data[bs - 1] << 4;
 				/*Increase size of frame*/
 				send->datalen++;
 			}
 			
 			/* For each byte */
 			for(j=bs-1; j>0; j--)
-				((unsigned char *)(send->data+1))[j] = ((unsigned char *)(send->data+1))[j] >> 4 | ((unsigned char *)(send->data+1))[j-1] << 4;
+				data[j] = data[j] >> 4 | data[j-1] << 4;
 
 			/* Calculate first byte */
-			((unsigned char *)(send->data+1))[0] = mode << 3 | 0x04;
-
+			data[0] = mode << 3 | 0x04;
 
 			/* Set video type */
 			send->frametype = AST_FRAME_VOICE;
@@ -253,37 +256,38 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 
 			/* Create frame */
 			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 2 + len);
+
+			/* Set data*/
+			send->data = (unsigned char*)send + AST_FRIENDLY_OFFSET;
+			data = send->data;
 				
 			/* if its first pcaket of a frame */
 			if (vt->first)
 			{
-				/* Set data*/
-				send->data = (unsigned char*)send + AST_FRIENDLY_OFFSET;
 				/* If it's not empty */
 				if (vt->bufferLength)
 				{
 					/* Set data len */
 					send->datalen = vt->bufferLength;
 					/* Copy */
-					memcpy(send->data+2, vt->buffer+2, vt->bufferLength-2);
+					memcpy(data+2, vt->buffer+2, vt->bufferLength-2);
 				} else {
 					/* Only header part by bow */
 					send->datalen = 2;
 				}
 				/* Set header */
-				((unsigned char*)(send->data))[0] = 0x04;
-				((unsigned char*)(send->data))[1] = 0x00; 
+				data[0] = 0x04;
+				data[1] = 0x00; 
 			} else {
-				/* Set data*/
-				send->data = (unsigned char*)send + AST_FRIENDLY_OFFSET;
+				/* Set data len */
 				send->datalen =  vt->bufferLength + 2  ;
 				/* If it's not empty */
 				if (vt->bufferLength)
 					/* Copy */
-					memcpy(send->data+2, vt->buffer, vt->bufferLength);
+					memcpy(data+2, vt->buffer, vt->bufferLength);
 				/* Set header */
-				((unsigned char*)(send->data))[0] = 0x00;
-				((unsigned char*)(send->data))[1] = 0x00;
+				data[0] = 0x00;
+				data[1] = 0x00;
 			}
 			
 			/* Assertion test */
@@ -296,7 +300,7 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			/* If we have to send the begging of this frame */
 			} else if (i>0 && found) {
 				/* Copy the begining to the packet to send*/
-				memcpy(send->data+send->datalen,framedata,i);
+				memcpy(data+send->datalen,framedata,i);
 				/* Increase size */
 				send->datalen += i;
 				/* Copy the rest to the buffer */
