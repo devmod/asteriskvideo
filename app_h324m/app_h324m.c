@@ -223,7 +223,7 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			found = 0;
 
 			/* Check length*/
-			if(framelength>2)
+			if(framelength>3)
 			{
 				/* Try to find begining of frame */
 				while (!found && i<framelength-4)
@@ -710,6 +710,8 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 					case AST_CONTROL_HANGUP:
 						/* Delete frame */
 						ast_frfree(f);
+						/* Save cause */
+						reason = pseudo->hangupcause;
 						/* exit */
                                                 goto hangup_pseudo;
                                                 break;
@@ -1010,6 +1012,8 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 					case AST_CONTROL_HANGUP:
 						/* Delete frame */
 						ast_frfree(f);
+						/* Save cause */
+						reason = pseudo->hangupcause;
 						/* exit */
                                                 goto hangup_pseudo;
                                                 break;
