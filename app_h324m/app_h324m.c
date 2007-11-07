@@ -844,7 +844,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 					src = NULL;
 					/* Reset media */
 					H324MSessionResetMediaQueue(id);
-				} else if (src && f->src && strcmp(src,f->src)==0) {
+				} else if (src && f->src && strcmp(src,f->src)!=0) {
 					/* Delete old one */
 					free(src);
 					/* Store it */
