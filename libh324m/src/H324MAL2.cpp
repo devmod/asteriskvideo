@@ -107,7 +107,9 @@ H223AL2Sender::H223AL2Sender(int segmentable,int useSequenceNumbers)
 	segmentableChannel = segmentable;
 	//NO sdu
 	pdu = NULL;
-	
+	//Set jitter buffer parameters
+	minDelay = 0;
+	minPackets = 0;
 }
 
 H223AL2Sender::~H223AL2Sender()
@@ -116,8 +118,6 @@ H223AL2Sender::~H223AL2Sender()
 	if(pdu)
 		//Delete sdu
 		delete pdu;
-	//Unlock jitters
-	jitBuf.SetBuffer(0,0);
 	//Reset queue
 	Reset();
 }
@@ -167,10 +167,14 @@ int H223AL2Sender::SendPDU(BYTE *buffer,int len)
 }
 int H223AL2Sender::Reset()
 {
+	//Free jitter
+	jitBuf.SetBuffer(0,0);
 	//Delete the rest of the jitter buffer packets
 	while(jitBuf.GetSize())
 		//Delete first
 		delete jitBuf.GetSDU();
+	//Set jitter to previous values
+	jitBuf.SetBuffer(minPackets,minDelay);
 	//Exit
 	return true;
 }
@@ -182,6 +186,9 @@ int H223AL2Sender::IsSegmentable()
 
 void H223AL2Sender::SetJitBuffer(int packets,int delay)
 {
+	//Save values
+	minDelay = delay;
+	minPackets = packets;
 	//Set the jitter buffer parameters
 	jitBuf.SetBuffer(packets,delay);
 }

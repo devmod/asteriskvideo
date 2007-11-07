@@ -52,6 +52,8 @@ private:
 	BYTE sn;
 	H223MuxSDU* pdu;
 	jitterBuffer jitBuf;
+	int minPackets;
+	int minDelay;
 };
 
 #endif

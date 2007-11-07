@@ -131,14 +131,17 @@ void H324MMediaChannel::Tick(DWORD value)
 {
 	//Increase counter
 	ticks += value;
+	//If got sender
 	if(sender)
 		((H223AL2Sender*)sender)->Tick( value);
 }
 
 void H324MMediaChannel::Reset()
 {
-	//Reset send queue
-	((H223AL2Sender*)sender)->Reset();
+	//If got sender
+	if(sender)
+		//Reset send queue
+		((H223AL2Sender*)sender)->Reset();
 }
 
 void H324MMediaChannel::OnSDU(BYTE* data,DWORD length)
