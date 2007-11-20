@@ -210,7 +210,7 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			send->samples = 160;
 			send->delivery.tv_usec = 0;
 			send->delivery.tv_sec = 0;
-			send->mallocd = 0;
+			send->mallocd = AST_MALLOCD_HDR;
 			/* Send */
 			return send;
 		case MEDIA_VIDEO:
@@ -323,7 +323,7 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			send->samples = vt->samples;
 			send->delivery.tv_usec = 0;
 			send->delivery.tv_sec = 0;
-			send->mallocd = 0;
+			send->mallocd = AST_MALLOCD_HDR;
 
 			/* If the next packet is from a different frame */
 			if (mark)
@@ -1052,7 +1052,7 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	send->samples = 160;
 	send->delivery.tv_usec = 0;
 	send->delivery.tv_sec = 0;
-	send->mallocd = 0;
+	send->mallocd = AST_MALLOCD_HDR;
 	/* Send */
 	ast_write(pseudo,send);
 
