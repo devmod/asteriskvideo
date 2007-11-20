@@ -1402,7 +1402,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 			/* Set frame data */
 			sendFrame->data = rtpBuffer+ini;
 			sendFrame->datalen = rtpLen-ini;
-			sendFrame->src = src;
+			sendFrame->src = strdup(src);
 
 			/* Depending on socket */
 			if (outfd==player->audioRtp) {
@@ -1438,7 +1438,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 			/* Rest */
 			sendFrame->delivery.tv_usec = 0;
 			sendFrame->delivery.tv_sec = 0;
-			sendFrame->mallocd = 0;
+			sendFrame->mallocd = AST_MALLOCD_HDR | AST_MALLOCD_SRC ;
 			/* Send frame */
 			ast_write(chan,sendFrame);
 

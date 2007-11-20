@@ -165,10 +165,10 @@ static void SendVideoFrame(struct VideoTranscoder *vtc, void *data, unsigned int
 	/* Set codec value */
 	send->subclass = AST_FORMAT_H263_PLUS | last;
 	/* Rest of values*/
-	send->src = "h324m";
+	send->src = "transcoder";
 	send->delivery.tv_usec = 0; //(vtc->sent_bytes*8000)/vtc->bitrate;
 	send->delivery.tv_sec = 0;
-	send->mallocd = 0;
+	send->mallocd = AST_MALLOCD_HDR;
 
 	/* Send */
 	vtc->channel->tech->write_video(vtc->channel, send);
