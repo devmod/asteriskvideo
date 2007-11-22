@@ -1360,7 +1360,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 						/* Init counter */
 						tv = ast_tvnow();
 					/* log */
-					ast_log(LOG_ERROR,"-Started playback [%d]\n",duration);
+					ast_log(LOG_DEBUG,"-Started playback [%d]\n",duration);
 					/* Get new length */
 					bufferLen -= responseLen;
 					/* Move data to begining */
@@ -1443,9 +1443,6 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 			ast_write(chan,sendFrame);
 
 		} else if ((outfd==player->audioRtcp) || (outfd==player->videoRtcp)) {
-			/* log */
-			ast_log(LOG_ERROR,"-Received rtcp [%d]\n",outfd);
-
 			/* Set length */
 			rtcpLen = 0;
 			i = 0;
@@ -1454,9 +1451,6 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 			if (!RecvResponse(outfd,rtcpBuffer,&rtcpLen,rtcpSize,&player->end))
 				break;
 
-			/* log */
-			ast_log(LOG_ERROR,"-Received rtcp length [%d]\n",rtcpLen);
-
 			/* Process rtcp packets */
 			while(i<rtcpLen)
 			{
@@ -1464,8 +1458,6 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 				rtcp = (struct Rtcp*)(rtcpBuffer+i);
 				/* Increase pointer */
 				i += (ntohs(rtcp->common.length)+1)*4;
-				/* log */
-				ast_log(LOG_ERROR,"-rtcp type [%d,%d]\n",rtcp->common.pt,i);
 				/* Check for bye */
 				if (rtcp->common.pt == RTCP_BYE)
 				{
