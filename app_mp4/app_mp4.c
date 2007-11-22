@@ -509,12 +509,9 @@ static int mp4_play(struct ast_channel *chan, void *data)
 			ms = ast_waitfor(chan, ms);
 
 			/* if we have been hang up */
-			if (ms < 0) {
-				/* Unlock module*/
-				ast_module_user_remove(u);
+			if (ms < 0) 
 				/* exit */
-				return -1;
-			}
+				goto end;
 
 			/* if we have received something on the channel */
 			if (ms > 0) {
@@ -522,12 +519,9 @@ static int mp4_play(struct ast_channel *chan, void *data)
 				f = ast_read(chan);
 
 				/* If failed */
-				if (!f) {
-					/* Unlock module*/
-					ast_module_user_remove(u);
+				if (!f) 
 					/* exit */
-					return -1;
-				}
+					goto end;
 
 				/* If it's a dtmf */
 				if (f->frametype == AST_FRAME_DTMF) {
@@ -545,7 +539,7 @@ static int mp4_play(struct ast_channel *chan, void *data)
 						/* Free frame */
 						ast_frfree(f);
 						/* exit */
-						return res;
+						goto end;
 					}
 				} 
 
@@ -581,6 +575,7 @@ static int mp4_play(struct ast_channel *chan, void *data)
 			videoNext = mp4_rtp_read(&video);
 	}
 
+end:
 	ast_log(LOG_DEBUG, "<app_mp4");
 
 	/* Close file */
