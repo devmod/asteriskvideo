@@ -359,6 +359,7 @@ static int mp4_play(struct ast_channel *chan, void *data)
 	int i = 0;
 	struct ast_frame *f;
 	char src[128];
+	int res = 0;
 
 	/* Check for data */
 	if (!data)
@@ -526,16 +527,14 @@ static int mp4_play(struct ast_channel *chan, void *data)
 				/* If it's a dtmf */
 				if (f->frametype == AST_FRAME_DTMF) {
 					char dtmf[2];
-					int res;
-
 					/* Get dtmf number */
-					res = f->subclass;
-					dtmf[0] = res;
+					dtmf[0] = f->subclass;
 					dtmf[1] = 0;
-
 
 					/* Check for dtmf extension in context */
 					if (ast_exists_extension(chan, chan->context, dtmf, 1, NULL)) {
+						/* Set extension to jump */
+						res = f->subclass;
 						/* Free frame */
 						ast_frfree(f);
 						/* exit */
@@ -585,7 +584,7 @@ end:
 	ast_module_user_remove(u);
 
 	/* Exit */
-	return 0;
+	return res;
 }
 static int mp4_save(struct ast_channel *chan, void *data)
 {

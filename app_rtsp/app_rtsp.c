@@ -1006,6 +1006,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	char *range;
 	char *j;
 	char src[128];
+	int  res = 0;
 
 	struct SDPContent* sdp = NULL;
 	char *audioControl = NULL;
@@ -1115,6 +1116,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 			
 			/* If it's a control channel */
 			if (f->frametype == AST_FRAME_CONTROL) 
+			{
 				/* Check for hangup */
 				if (f->subclass == AST_CONTROL_HANGUP)
 				{
@@ -1123,6 +1125,24 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 					/* exit */
 					player->end = 1;
 				}
+				
+			 /* If it's a dtmf */
+                        } else if (f->frametype == AST_FRAME_DTMF) {
+				char dtmf[2];
+				/* Get dtmf number */
+				dtmf[0] = f->subclass;
+				dtmf[1] = 0;
+
+				/* Check for dtmf extension in context */
+				if (ast_exists_extension(chan, chan->context, dtmf, 1, NULL)) {
+					/* Set extension to jump */
+					res = f->subclass;
+					/* Free frame */
+					ast_frfree(f);
+					/* exit */
+					goto rstp_play_stop;
+				}
+			}
 
 			/* free frame */
 			ast_frfree(f);
@@ -1476,8 +1496,10 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 		} 
 	}
 
+rstp_play_stop:
+
 	/* log */
-	ast_log(LOG_WARNING,"-rtsp_play end loop");
+	ast_log(LOG_WARNING,"-rtsp_play end loop [%d]\n",res);
 
 	/* Send teardown if something was setup */
 	if (player->state>RTSP_DESCRIBE)
@@ -1501,7 +1523,7 @@ rtsp_play_end:
 	ast_log(LOG_WARNING,"<rtsp_play");
 
 	/* Exit */	
-	return 0;
+	return res;
 }
 
 static int rtsp_tunnel(struct ast_channel *chan,char *ip, int port, char *url)
