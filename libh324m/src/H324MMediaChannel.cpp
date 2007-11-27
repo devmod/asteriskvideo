@@ -188,12 +188,12 @@ int H324MMediaChannel::SendFrame(Frame *frame)
 	while (pos<frame->dataLength)
 	{
 		//Calculate length
-		if (pos+512>frame->dataLength)
+		if (pos+160>frame->dataLength)
 			//Send until the end
 			len = frame->dataLength-pos;
 		else
-			//Send 512
-			len = 512;
+			//Send 160
+			len = 160;
 
 		//Send
 		((H223AL2Sender*)sender)->SendPDU(frame->data+pos,len);
