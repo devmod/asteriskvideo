@@ -985,8 +985,8 @@ static int GetResponseLen(char *buffer)
 
 static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 {
-	struct ast_frame *f;
-	struct ast_frame *sendFrame;
+	struct ast_frame *f = NULL;
+	struct ast_frame *sendFrame = NULL;
 
 	int infds[5];
 	int outfd;
@@ -1062,7 +1062,6 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	infds[3] = player->audioRtcp;
 	infds[4] = player->videoRtcp;
 
-
 	/* Send request */
 	if (!RtspPlayerDescribe(player,url))
 	{
@@ -1071,6 +1070,12 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 		/* end */
 		goto rtsp_play_end;
 	}
+
+	/* malloc frame & data */
+	sendFrame = (struct ast_frame *) malloc(sizeof(struct ast_frame) + rtpSize);
+
+	/* Set data pointer */
+	rtpBuffer = (void*)sendFrame + AST_FRIENDLY_OFFSET;
 
 	/* log */
 	ast_log(LOG_WARNING,"-rtsp play loop\n");
@@ -1391,12 +1396,9 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 			/* Set length */
 			rtpLen = 0;
 			
-			/* malloc frame & data */
-			sendFrame = (struct ast_frame *) malloc(sizeof(struct ast_frame) + rtpSize);
 			/* Clean frame */
 			memset(sendFrame,0,sizeof(struct ast_frame) + rtpSize);
-			/* Set data pointer */
-			rtpBuffer = (void*)sendFrame + AST_FRIENDLY_OFFSET;
+
 
 			/* Read rtp packet */
 			if (!RecvResponse(outfd,rtpBuffer,&rtpLen,rtpSize,&player->end))
@@ -1505,6 +1507,11 @@ rstp_play_stop:
 	if (player->state>RTSP_DESCRIBE)
 		/* Teardown */
 		RtspPlayerTeardown(player);
+
+	/* Free frame */
+	if (sendFrame)
+		/* Free memory */
+		free(sendFrame);
 
 	/* If ther was a sdp */
 	if (sdp)

@@ -777,8 +777,12 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 				{
 					/* Packetize outgoing frame */
 					if ((send=create_ast_frame(frame,&vt))!=NULL)
+					{
 						/* Send frame */
 						ast_write(pseudo,send);
+						/* Free frame */
+						ast_frfree(send);
+					}
 					/* Delete frame */
 					FrameDestroy(frame);
 				}

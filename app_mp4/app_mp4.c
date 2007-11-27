@@ -231,7 +231,8 @@ struct mp4rtp {
 
 static int mp4_rtp_read(struct mp4rtp *p)
 {
-	struct ast_frame *f;
+	unsigned char buffer[sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 1500];
+	struct ast_frame *f = (struct ast_frame *) buffer;
 	int next = 0;
 	int last = 0;
 	int first = 0;
@@ -261,11 +262,8 @@ static int mp4_rtp_read(struct mp4rtp *p)
 	if (p->packetIndex + 1 == p->numHintSamples)
 		last = 1;
 
-	/* malloc frame & data */
-	f = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 1500);
-
 	/* Unset */
-	memset(f, 0, sizeof(struct ast_frame) + 1500);
+	memset(f, 0, sizeof(struct ast_frame) + 1500 + AST_FRIENDLY_OFFSET);
 
 	/* Let mp4 lib allocate memory */
 	f->data = (void*)f + AST_FRIENDLY_OFFSET;
@@ -308,13 +306,6 @@ static int mp4_rtp_read(struct mp4rtp *p)
 		ast_log(LOG_DEBUG, "Error reading packet [%d,%d]\n", p->hint, p->track);
 		return -1;
 	}
-
-	/* if (f->frametype == AST_FRAME_VIDEO) {
-		ast_log(LOG_DEBUG, "successfully read rtp video packet with %d bytes\n", f->datalen);
-	} else if (f->frametype == AST_FRAME_VOICE) {
-		ast_log(LOG_DEBUG, "successfully read rtp audio packet with %d bytes\n", f->datalen);
-		dump_buffer_hex("audio buffer:",f->data,f->datalen);
-	} */
 
 	/* Write frame */
 	ast_write(p->chan, f);

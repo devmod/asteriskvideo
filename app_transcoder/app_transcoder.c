@@ -172,6 +172,9 @@ static void SendVideoFrame(struct VideoTranscoder *vtc, void *data, unsigned int
 
 	/* Send */
 	vtc->channel->tech->write_video(vtc->channel, send);
+
+	/* Free frame */
+	free(send);
 }
 
 static int VideoTranscoderSetResize(struct VideoTranscoder *vtc,int width,int height)
