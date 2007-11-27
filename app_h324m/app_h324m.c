@@ -125,6 +125,7 @@ struct video_creator
 	unsigned char first;
 	unsigned char buffer[1500];
 	unsigned int bufferLength;
+	unsigned char frame[sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 1500];
 };
 
 static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
@@ -140,6 +141,16 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 	/* Get data & size */
 	unsigned char * framedata = FrameGetData(frame);
 	unsigned int framelength = FrameGetLength(frame);
+
+	/* Get frame */
+	send = (struct ast_frame *) vt->frame;;
+
+	/* Clear */
+	memset(send,0,sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 1500);
+
+	/* Set data */
+	send->data = (unsigned char*)send + AST_FRIENDLY_OFFSET;
+	data = send->data;
 
 	/* Depending on the type */
 	switch(FrameGetType(frame))
@@ -167,12 +178,9 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 				/* Exit */
 				return NULL;
 
-			/* Create frame */
-			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + framelength + 3);
-			/* Set data*/
-			send->data = (void*)send + AST_FRIENDLY_OFFSET;
+			/* Set data len*/
 			send->datalen = framelength + 1; /* +1 because the the octet with the CMR */
-			data = send->data;
+
 			/* Set header cmr */
 			data[0] = 0xF0;
 			/* Increase pointer to match frame */
@@ -210,7 +218,8 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			send->samples = 160;
 			send->delivery.tv_usec = 0;
 			send->delivery.tv_sec = 0;
-			send->mallocd = AST_MALLOCD_HDR;
+			/* Don't free */
+			send->mallocd = 0;
 			/* Send */
 			return send;
 		case MEDIA_VIDEO:
@@ -253,13 +262,6 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 				/* Not last packet */
 				mark = 0;
 			}
-
-			/* Create frame */
-			send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 2 + len);
-
-			/* Set data*/
-			send->data = (unsigned char*)send + AST_FRIENDLY_OFFSET;
-			data = send->data;
 				
 			/* if its first pcaket of a frame */
 			if (vt->first)
@@ -323,7 +325,8 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			send->samples = vt->samples;
 			send->delivery.tv_usec = 0;
 			send->delivery.tv_sec = 0;
-			send->mallocd = AST_MALLOCD_HDR;
+			/* Don't free */
+			send->mallocd = 0;
 
 			/* If the next packet is from a different frame */
 			if (mark)
@@ -781,7 +784,7 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 						/* Send frame */
 						ast_write(pseudo,send);
 						/* Free frame */
-						ast_frfree(send);
+						free(send);
 					}
 					/* Delete frame */
 					FrameDestroy(frame);
