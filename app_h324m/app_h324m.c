@@ -143,7 +143,7 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 	unsigned int framelength = FrameGetLength(frame);
 
 	/* Get frame */
-	send = (struct ast_frame *) vt->frame;;
+	send = (struct ast_frame *) vt->frame;
 
 	/* Clear */
 	memset(send,0,sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 1500);
@@ -780,12 +780,8 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 				{
 					/* Packetize outgoing frame */
 					if ((send=create_ast_frame(frame,&vt))!=NULL)
-					{
 						/* Send frame */
 						ast_write(pseudo,send);
-						/* Free frame */
-						free(send);
-					}
 					/* Delete frame */
 					FrameDestroy(frame);
 				}
