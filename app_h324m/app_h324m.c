@@ -1056,7 +1056,8 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	send->samples = 160;
 	send->delivery.tv_usec = 0;
 	send->delivery.tv_sec = 0;
-	send->mallocd = AST_MALLOCD_HDR;
+	/* We will free the frame */
+	send->mallocd = 0;
 	/* Send */
 	ast_write(pseudo,send);
 

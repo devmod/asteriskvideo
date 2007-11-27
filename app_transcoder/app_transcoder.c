@@ -168,7 +168,8 @@ static void SendVideoFrame(struct VideoTranscoder *vtc, void *data, unsigned int
 	send->src = "transcoder";
 	send->delivery.tv_usec = 0; //(vtc->sent_bytes*8000)/vtc->bitrate;
 	send->delivery.tv_sec = 0;
-	send->mallocd = AST_MALLOCD_HDR;
+	/* Don't free the frame outrside */
+	send->mallocd = 0;
 
 	/* Send */
 	vtc->channel->tech->write_video(vtc->channel, send);

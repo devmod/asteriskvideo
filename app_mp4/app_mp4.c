@@ -276,7 +276,8 @@ static int mp4_rtp_read(struct mp4rtp *p)
 
 	f->delivery.tv_usec = 0;
 	f->delivery.tv_sec = 0;
-	f->mallocd = AST_MALLOCD_HDR | AST_MALLOCD_SRC;
+	/* Don't free the frame outside */
+	f->mallocd = 0;
 
 	/* If it's video set the mark of last rtp packet */
 	if (f->frametype == AST_FRAME_VIDEO)
