@@ -526,7 +526,7 @@ static int mp4_play(struct ast_channel *chan, void *data)
 					/* Check for dtmf extension in context */
 					if (ast_exists_extension(chan, chan->context, dtmf, 1, NULL)) {
 						/* Set extension to jump */
-						res = f->subclass;
+						res = atoi(dtmf);
 						/* Free frame */
 						ast_frfree(f);
 						/* exit */
