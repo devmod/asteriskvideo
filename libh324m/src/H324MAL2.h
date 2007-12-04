@@ -5,6 +5,7 @@
 #include "H324pdu.h"
 #include "H223MuxSDU.h"
 #include "jitterBuffer.h"
+#include "log.h"
 
 class H223AL2Receiver :
 	public H223ALReceiver
@@ -24,7 +25,7 @@ private:
 	int segmentableChannel;
 	H223SDUListener* sduListener;
 	H223MuxSDU sdu;
-	
+	Logger *logger;	
 };
 
 

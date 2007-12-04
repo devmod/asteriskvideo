@@ -1,6 +1,5 @@
 #ifndef _H223MUXTABLE_H_
 #define _H223MUXTABLE_H_
-#include "H223Const.h"
 #include "H245.h"
 
 #include <list>

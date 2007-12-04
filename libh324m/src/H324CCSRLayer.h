@@ -1,12 +1,11 @@
 #ifndef _H324CCSRLAYER_
 #define _H324CCSRLAYER_
-
+#include <ptlib.h>
 #include "H223AL.h"
 #include "H324pdu.h"
 #include "H223MuxSDU.h"
 
 #include <list>
-using namespace std;
 
 class H324CCSRLayer : 
 	public H223ALReceiver,
@@ -35,8 +34,8 @@ protected:
 	void BuildCMD();
 
 private:
-	list<H223MuxSDU*> cmds;
-	list<H223MuxSDU*> rpls;
+	std::list<H223MuxSDU*> cmds;
+	std::list<H223MuxSDU*> rpls;
 	PPER_Stream strm;
 	H223MuxSDU* cmd;
 	PPER_Stream sdu;
@@ -44,10 +43,10 @@ private:
 	BYTE	lastsn;
 	BYTE	sentsn;
 	BYTE	cmdsn;
-	int		waiting;
-	int		isCmd;
+	int	waiting;
+	int	isCmd;
 	WORD	counter;
-	int		isPDU;
+	int	isPDU;
 	
 };
 

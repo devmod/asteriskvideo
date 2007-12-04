@@ -20,8 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "H245TerminalCapability.h"
-
-#define Debug printf
+#include "log.h"
 
 H245TerminalCapability::H245TerminalCapability(H245Connection & con)
 	: H245Negotiator(con)
@@ -44,8 +43,8 @@ H245TerminalCapability::~H245TerminalCapability() {
 
 BOOL H245TerminalCapability::TransferRequest(H245Capabilities* capabilities)
 {
-	//Debug
-	Debug("H245 TerminalCapabilitySet TransferRequest\n");
+	//Logger::Debug
+	Logger::Debug("H245 TerminalCapabilitySet TransferRequest\n");
 
 	//We are already in progress 
 	if (outState != e_Idle) 
@@ -69,7 +68,7 @@ BOOL H245TerminalCapability::TransferRequest(H245Capabilities* capabilities)
 
 BOOL H245TerminalCapability::HandleAck(const H245_TerminalCapabilitySetAck & pdu)
 {
-	Debug("H245 Received TerminalCapabilitySetAck\n");
+	Logger::Debug("H245 Received TerminalCapabilitySetAck\n");
 	
 	//Check sequence number
 	if (pdu.m_sequenceNumber != outSequenceNumber)
@@ -90,7 +89,7 @@ BOOL H245TerminalCapability::HandleAck(const H245_TerminalCapabilitySetAck & pdu
 
 BOOL H245TerminalCapability::HandleReject(const H245_TerminalCapabilitySetReject & pdu)
 {
-	Debug("H245 Received TerminalCapabilitySetReject\n");
+	Logger::Debug("H245 Received TerminalCapabilitySetReject\n");
 	
 	//Check sequence number
 	if (pdu.m_sequenceNumber != outSequenceNumber)
@@ -114,7 +113,7 @@ BOOL H245TerminalCapability::HandleReject(const H245_TerminalCapabilitySetReject
 */
 BOOL H245TerminalCapability::HandleIncoming(const H245_TerminalCapabilitySet & pdu)
 {
-	Debug("H245 Received TerminalCapabilitySet\n");
+	Logger::Debug("H245 Received TerminalCapabilitySet\n");
 	
 	//Check secuence number
 	if (pdu.m_sequenceNumber == inSequenceNumber) 

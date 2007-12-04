@@ -19,9 +19,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-
-#include <ptlib.h>
-
 #include "H324pdu.h"
 
 const unsigned H245_ProtocolID[] = { 0,0,8,245 ,0,H245_PROTOCOL_VERSION };
@@ -387,5 +384,52 @@ H245_MiscellaneousCommand & H324ControlPDU::BuilVideoFastUpdatePicture(unsigned 
 }
 
 
+H245_LogicalChannelRateRequest & H324ControlPDU::BuildLogicalChannelRequest(
+	unsigned int seqOrder,
+	unsigned int channel, 
+	unsigned int bitRate)
+{
+	H245_LogicalChannelRateRequest & cmd =
+		Build(H245_RequestMessage::e_logicalChannelRateRequest);
+
+	cmd.m_sequenceNumber = seqOrder;	
+	cmd.m_logicalChannelNumber = channel;
+	cmd.m_maximumBitRate = bitRate;
+	return cmd;
+}
+
+H245_LogicalChannelRateAcknowledge & H324ControlPDU::BuildLogicalChannelRateAck(
+		unsigned int seqOrder,
+		unsigned int channel, 
+		unsigned int bitRate)
+{
+	H245_LogicalChannelRateAcknowledge & cmd =
+		Build(H245_ResponseMessage::e_logicalChannelRateAcknowledge);
+		
+	cmd.m_sequenceNumber = seqOrder;	
+	cmd.m_logicalChannelNumber = channel;
+	cmd.m_maximumBitRate = bitRate;
+	return cmd;
+}
+
+H245_LogicalChannelRateReject &
+	H324ControlPDU::BuildLogicalChannelRateReject(
+		unsigned int seqOrder,
+		unsigned int channel, 
+		unsigned int bitRate,
+		H245_LogicalChannelRateRejectReason::Choices reason)
+{
+	H245_LogicalChannelRateReject & cmd =
+		Build(H245_ResponseMessage::e_logicalChannelRateReject);
+	cmd.m_sequenceNumber        = seqOrder;
+	cmd.m_logicalChannelNumber  = channel;
+	cmd.m_currentMaximumBitRate = bitRate;
+	cmd.IncludeOptionalField(H245_LogicalChannelRateReject::e_currentMaximumBitRate);
+	((H245_LogicalChannelRateRejectReason&)cmd.m_rejectReason).SetTag(reason);
+	return cmd;
+}
+
+
+	
 
 /////////////////////////////////////////////////////////////////////////////

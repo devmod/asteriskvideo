@@ -20,8 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "H324MSession.h"
-
-#define Debug printf 
+#include "FileLogger.h"
 
 H324MSession::H324MSession()
 {
@@ -35,6 +34,8 @@ H324MSession::H324MSession()
 	video = channels.CreateChannel(e_Video);
 	//Init channels
 	channels.Init(controlChannel,controlChannel,this);
+	//Create logger
+	logger = new FileLogger();
 }
 
 H324MSession::~H324MSession()
@@ -43,6 +44,8 @@ H324MSession::~H324MSession()
 	channels.End();
 	//Delete control channel
 	delete controlChannel;
+	//Delete logger
+	delete logger;
 }
 
 int H324MSession::Init()
@@ -63,14 +66,8 @@ int H324MSession::End()
 
 int H324MSession::Read(BYTE *buffer,int length)
 {
-
-#ifdef DUMP_H223
-	char name[256];
-	sprintf(name,"/tmp/h223_%x_in.raw",(unsigned int)this);
-	int fd = open(name,O_CREAT|O_WRONLY|O_APPEND, S_IRWXU | S_IRWXO);
-	write(fd,buffer,length);
-	close(fd);
-#endif
+	//Dump data
+	logger->DumpInput(buffer,length);
 
 	//Demultiplex
 	return channels.Demultiplex(buffer,length);
@@ -83,13 +80,8 @@ int H324MSession::Write(BYTE *buffer,int length)
 	//Multiplex
 	ret = channels.Multiplex(buffer,length);
 
-#ifdef DUMP_H223
-	char name[256];
-	sprintf(name,"/tmp/h223_%x_out.raw",(unsigned int)this);
-	int fd = open(name,O_CREAT|O_WRONLY|O_APPEND, S_IRWXU | S_IRWXO);
-	write(fd,buffer,length);
-	close(fd);
-#endif
+	//Dump data
+	logger->DumpOutput(buffer,length);
 
 	return ret;
 }

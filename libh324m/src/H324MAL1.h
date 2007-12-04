@@ -1,6 +1,7 @@
 #ifndef _H324MAL1_H_
 #define _H324MAL1_H_
 
+#include "H324MConfig.h"
 #include "H223AL.h"
 #include "H324pdu.h"
 #include "H223MuxSDU.h"

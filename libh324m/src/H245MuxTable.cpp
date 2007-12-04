@@ -20,8 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "H245MuxTable.h"
-
-#define Debug printf
+#include "log.h"
 
 H245MuxTable::H245MuxTable(H245Connection & con)
 	: H245Negotiator(con)
@@ -43,7 +42,7 @@ H245MuxTable::~H245MuxTable()
  */
 BOOL H245MuxTable::TransferRequest(H223MuxTable& table)
 {
-	Debug("H245 MultiplexEntrySend\n");
+	Logger::Debug("H245 MultiplexEntrySend\n");
 
 	//If not in idle
 		//Reset timer
@@ -71,7 +70,7 @@ BOOL H245MuxTable::TransferRequest(H223MuxTable& table)
 
 BOOL H245MuxTable::HandleAck(const H245_MultiplexEntrySendAck  & pdu)
 {
-	Debug("H245 MultiplexEntrySend accepted\n");
+	Logger::Debug("H245 MultiplexEntrySend accepted\n");
 
 	//If already idle
 	if (outState==e_Idle)
@@ -101,7 +100,7 @@ BOOL H245MuxTable::HandleAck(const H245_MultiplexEntrySendAck  & pdu)
 
 BOOL H245MuxTable::HandleReject(const H245_MultiplexEntrySendReject & pdu)
 {
-	Debug("H245 MultiplexEntrySend rejected\n");
+	Logger::Debug("H245 MultiplexEntrySend rejected\n");
 
 	//If already idle
 	if (outState==e_Idle)
@@ -134,7 +133,7 @@ BOOL H245MuxTable::HandleReject(const H245_MultiplexEntrySendReject & pdu)
  */
 BOOL H245MuxTable::HandleRequest(const H245_MultiplexEntrySend & pdu)
 {
-	Debug("H245 MultiplexEntrySend request\n");
+	Logger::Debug("H245 MultiplexEntrySend request\n");
 
 	//Create table
 	H223MuxTable table(pdu);

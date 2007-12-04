@@ -3,6 +3,7 @@
 
 #include "H245ChannelsFactory.h"
 #include "H324MControlChannel.h"
+#include "log.h"
 
 class H324MSession 
 	: public H245ChannelsFactoryListener
@@ -47,10 +48,10 @@ public:
 	int Write(BYTE *input,int length);
 	
 private:
-
 	CallState			state;
 	H245ChannelsFactory channels;
 	H324MControlChannel *controlChannel;
+	Logger *logger;
 	int	audio;
 	int	video;
 	

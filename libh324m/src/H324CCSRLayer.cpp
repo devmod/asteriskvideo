@@ -19,10 +19,12 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-#include "H324CCSRLayer.h"
-#include "crc16.h"
 #include <iostream>
 #include <fstream>
+#include "H324CCSRLayer.h"
+#include "crc16.h"
+#include "log.h"
+
 #define SRP_SRP_COMMAND 249
 #define SRP_SRP_RESPONSE 251
 #define SRP_NSRP_RESPONSE 247
@@ -107,7 +109,7 @@ void H324CCSRLayer::SendClosingFlag()
 			//And the sn
 			sn = sdu[1];
 
-			Debug("Received SRP_SRP_COMMAND [%d]\n",sn);
+			Logger::Debug("Received SRP_SRP_COMMAND [%d]\n",sn);
 			flog << "SRP_SRP_COMMAND\n";
 			//Send NSRP Response
 			SendNSRP(sn);
@@ -159,15 +161,15 @@ void H324CCSRLayer::SendClosingFlag()
 			//Check nsrp field
 			if (sdu[1]==cmdsn)
 			{
-				Debug("Received SRP_NSRP_RESPONSE [%d]\n",sdu[1]);
+				Logger::Debug("Received SRP_NSRP_RESPONSE [%d]\n",sdu[1]);
 				flog << "SRP_NSRP_RESPONSE\n";
 				//End waiting
 				waiting = false;
 			} else
-				Debug("Received out of order SRP_NSRP_RESPONSE [%d]\n",sdu[1]);
+				Logger::Debug("Received out of order SRP_NSRP_RESPONSE [%d]\n",sdu[1]);
 			break;
 		case SRP_SRP_RESPONSE:
-			Debug("Received SRP_SRP_RESPONSE\n");
+			Logger::Debug("Received SRP_SRP_RESPONSE\n");
 			flog << "SRP_RESPONSE\n";
 			//End waiting
 			waiting = false;
@@ -183,7 +185,7 @@ clean:
 
 void H324CCSRLayer::SendNSRP(BYTE sn)
 {
-	Debug("Sending NSRP [%d]\n",sn);
+	Logger::Debug("Sending NSRP [%d]\n",sn);
 
 	//The header
 	BYTE header[2];
@@ -219,7 +221,7 @@ void H324CCSRLayer::SendPDU(H324ControlPDU &pdu)
 	//Set flag
 	isPDU = true;
 
-	Debug("Encode PDU [%d]\n",strm.GetSize());
+	Logger::Debug("Encode PDU [%d]\n",strm.GetSize());
 
 	BuildCMD();
 }
@@ -239,7 +241,7 @@ void H324CCSRLayer::BuildCMD()
 	int packetLen = 0;
 
 
-	Debug("Sending CMD [%d,%d]\n",sentsn,pduLen);
+	Logger::Debug("Sending CMD [%d,%d]\n",sentsn,pduLen);
 
 	//CCSRL partitioning
 	while (len<pduLen)
@@ -348,7 +350,7 @@ H223MuxSDU* H324CCSRLayer::GetNextPDU()
 		cmdsn = (cmdsn+1)%256;
 
 		//Sending cmd
-		Debug("Sending CMD [%d] - %d left\n",cmdsn,cmds.size());
+		Logger::Debug("Sending CMD [%d] - %d left\n",cmdsn,cmds.size());
 		{
 			
 			PPER_Stream aux;
@@ -389,7 +391,7 @@ H223MuxSDU* H324CCSRLayer::GetNextPDU()
 		//Retransmit
 		cmd->Begin();
 
-		//Debug("-Send retry CMD\n");
+		//Logger::Debug("-Send retry CMD\n");
 	}
 	
 	//Return cmd

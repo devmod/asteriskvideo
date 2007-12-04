@@ -13,7 +13,8 @@ public:
 		e_LogicalChannel,
 		e_ModeRequest,
 		e_RoundTripDelay,
-		e_MultiplexTable
+		e_MultiplexTable,
+		e_LogicalChannelRate
 	};
 	
 	//Events
@@ -31,6 +32,7 @@ public:
 	virtual int OnH245Command(H245_CommandMessage& cmd) = 0;
 	virtual int OnH245Indication(H245_IndicationMessage& ind) = 0;
 	*/
+	virtual ~H245Connection() = 0;
 };
 
 

@@ -19,9 +19,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-#include "H324MControlChannel.h"
 #include <iostream>
 #include <fstream>
+#include "H324MControlChannel.h"
+#include "log.h"
 
 const unsigned vID[] = {1,37,111,116,111,114,111,108,97,95,49,0}; //Motorola
 
@@ -175,7 +176,7 @@ int H324MControlChannel::OnCapabilityExchange(const H245TerminalCapability::Even
 				tc->TransferResponse(false);
 			return TRUE;
 		case H245TerminalCapability::e_RejectIndication:
-			Debug("TerminalCapability rejected\n");
+			Logger::Debug("TerminalCapability rejected\n");
 			return FALSE;
 	}
 	//Exit
@@ -186,7 +187,7 @@ int H324MControlChannel::OnMultiplexTable(const H245MuxTable::Event &event)
 {
 	H223MuxTableEntryList list;
 
-	Debug("-OnMultiplexTable\n");
+	Logger::Debug("-OnMultiplexTable\n");
 	switch(event.type)
 	{
 		case H245MuxTable::e_TransferConfirm:
@@ -203,7 +204,7 @@ int H324MControlChannel::OnMultiplexTable(const H245MuxTable::Event &event)
 				mt->TransferReject(list);
 			break;
 		case H245MuxTable::e_TransferReject:
-			Debug("e_TransferReject!!!!\n");
+			Logger::Debug("e_TransferReject!!!!\n");
 			break;
 	}
 	return true;
@@ -211,7 +212,7 @@ int H324MControlChannel::OnMultiplexTable(const H245MuxTable::Event &event)
 
 int H324MControlChannel::OnLogicalChannel(const H245LogicalChannels::Event &event)
 {
-	Debug("-OnLogicalChannel\n");
+	Logger::Debug("-OnLogicalChannel\n");
 	switch(event.type)
 	{
 		case H245LogicalChannels::e_EstablishIndication:
@@ -239,7 +240,7 @@ int H324MControlChannel::OnLogicalChannel(const H245LogicalChannels::Event &even
 
 int H324MControlChannel::OnEvent(const H245Connection::Event &event)
 {
-	Debug("-Event!!\n");
+	Logger::Debug("-Event!!\n");
 	//Depending on the event
 	switch(event.source)
 	{
@@ -262,7 +263,7 @@ int H324MControlChannel::OnEvent(const H245Connection::Event &event)
 
 int H324MControlChannel::WriteControlPDU(H324ControlPDU & pdu)
 {
-	Debug("-WriteControlPDU [%s]\n",(const unsigned char *)pdu.GetTagName());
+	Logger::Debug("-WriteControlPDU [%s]\n",(const unsigned char *)pdu.GetTagName());
 
 	//Send pdu to ccsrl layer
 	SendPDU(pdu);
@@ -273,7 +274,7 @@ int H324MControlChannel::WriteControlPDU(H324ControlPDU & pdu)
 
 int H324MControlChannel::OnControlPDU(H324ControlPDU &pdu)
 {
-	Debug("-OnControlPDU [%s]\n",(const unsigned char *)pdu.GetTagName());
+	Logger::Debug("-OnControlPDU [%s]\n",(const unsigned char *)pdu.GetTagName());
 
 	//Depending on the pdu
 	switch(pdu.GetTag())
@@ -297,7 +298,7 @@ int H324MControlChannel::OnControlPDU(H324ControlPDU &pdu)
 			//Is an indication
 			return OnH245Indication((H245_IndicationMessage&)pdu);
 		default:
-			Debug("Unknown PDU\n");
+			Logger::Debug("Unknown PDU\n");
 			//?????
 			return 0;
 	} 
@@ -309,7 +310,7 @@ int H324MControlChannel::OnControlPDU(H324ControlPDU &pdu)
 
 int H324MControlChannel::OnH245Request(H245_RequestMessage& req)
 {
-	Debug("-OnH245Request\n");
+	Logger::Debug("-OnH245Request\n");
 	//Depending on tue tag
 	switch(req.GetTag())
 	{
@@ -352,7 +353,7 @@ int H324MControlChannel::OnH245Request(H245_RequestMessage& req)
 
 int H324MControlChannel::OnH245Response(H245_ResponseMessage& rep)
 {
-	Debug("-OnH245Response\n");
+	Logger::Debug("-OnH245Response\n");
 
 	//Depending on the tag
 	switch(rep.GetTag())
@@ -398,10 +399,10 @@ int H324MControlChannel::OnH245Response(H245_ResponseMessage& rep)
 		case H245_ResponseMessage::e_multilinkResponse:
 		case H245_ResponseMessage::e_logicalChannelRateAcknowledge:
 		case H245_ResponseMessage::e_logicalChannelRateReject:
-			Debug("Unhandled Response\n");
+			Logger::Debug("Unhandled Response\n");
 			return 0;
 		default:
-			Debug("Unknown Response\n");
+			Logger::Debug("Unknown Response\n");
 			return 0;
 
 	}
@@ -412,13 +413,13 @@ int H324MControlChannel::OnH245Response(H245_ResponseMessage& rep)
 int H324MControlChannel::OnH245Command(H245_CommandMessage& cmd)
 {
 
-	Debug("Unknown Command\n");
+	Logger::Debug("Unknown Command\n");
 	return 1;
 }
 
 int H324MControlChannel::OnH245Indication(H245_IndicationMessage& ind)
 {
-	Debug("-OnH245Indication\n");
+	Logger::Debug("-OnH245Indication\n");
 
 	//Depending on the tag
 	switch(ind.GetTag())
@@ -431,8 +432,8 @@ int H324MControlChannel::OnH245Indication(H245_IndicationMessage& ind)
 			// If it's not alphanumeric
 			if (uind.GetTag()!=H245_UserInputIndication::e_alphanumeric)
 			{
-				//Debug
-				Debug("Unknown user input Indication\n");
+				//Logger::Debug
+				Logger::Debug("Unknown user input Indication\n");
 				//Exit
 				return 0;
 			}
@@ -442,7 +443,7 @@ int H324MControlChannel::OnH245Indication(H245_IndicationMessage& ind)
 			return OnUserInput((const char *)input);
 		}
 		default:
-			Debug("Unknown Indication\n");
+			Logger::Debug("Unknown Indication\n");
 	}
 
 	//Exit
@@ -454,22 +455,22 @@ int H324MControlChannel::OnError(ControlProtocolSource source, const void *str)
 	switch(source)
 	{
 		case H245Connection::e_MasterSlaveDetermination:
-			Debug("MasterSlaveDetermination error %s",(char *) str);
+			Logger::Debug("MasterSlaveDetermination error %s",(char *) str);
 			break;
 		case H245Connection::e_CapabilityExchange:
-			Debug("CapabilityExchange error %s",(char *) str);
+			Logger::Debug("CapabilityExchange error %s",(char *) str);
 			break;
 		case H245Connection::e_RoundTripDelay:
-			Debug("RoundTripDelay error %s",(char *) str);
+			Logger::Debug("RoundTripDelay error %s",(char *) str);
 			break;
 		case H245Connection::e_LogicalChannel:
-			Debug("LogicalChannel error %s",(char *) str);
+			Logger::Debug("LogicalChannel error %s",(char *) str);
 			break;
 		case H245Connection::e_ModeRequest:
-			Debug("ModeRequest error %s",(char *) str);
+			Logger::Debug("ModeRequest error %s",(char *) str);
 			break;
 		case H245Connection::e_MultiplexTable:
-			Debug("Multiplex error %s",(char *) str);
+			Logger::Debug("Multiplex error %s",(char *) str);
 			break;
 	}
 

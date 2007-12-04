@@ -1,7 +1,7 @@
 #ifndef _CRC16_H_
 #define _CRC16_H_
 
-#include "H223Const.h"
+#include "H324MConfig.h"
 
 class CRC16
 {

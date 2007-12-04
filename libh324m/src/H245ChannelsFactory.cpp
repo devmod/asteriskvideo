@@ -209,7 +209,7 @@ int H245ChannelsFactory::SetRemoteCapabilities(H245Capabilities* remoteCapabilit
 
 int H245ChannelsFactory::OnEstablishIndication(int number, H245Channel *channel)
 {
-	Debug("-OnEstablishIndication [%d]\n",number);
+	Logger::Debug("-OnEstablishIndication [%d]\n",number);
 
 	int local = -1;
 
@@ -255,7 +255,7 @@ int H245ChannelsFactory::OnEstablishIndication(int number, H245Channel *channel)
 
 int H245ChannelsFactory::OnEstablishConfirm(int number)
 {
-	Debug("-OnEstablishConfirm [%d]\n",number);
+	Logger::Debug("-OnEstablishConfirm [%d]\n",number);
 
 	//Search channel 
 	ChannelMap::iterator it = channels.find(number);

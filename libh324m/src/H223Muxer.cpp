@@ -21,12 +21,11 @@
  */
 #include "H223Muxer.h"
 #include "FileLogger.h"
+
 extern "C"
 {
 #include "golay.h"
 }
-
-#define Debug printf
 
 H223Muxer::H223Muxer()
 {

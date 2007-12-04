@@ -17,6 +17,9 @@ public:
 	virtual void SetMuxInfo(const char*info,...);
 	virtual void SetDemuxByte(BYTE b);
 	virtual void SetDemuxInfo(int offset,const char*info,...);
+	virtual void DumpMedia(BYTE *data,DWORD len);
+	virtual void DumpInput(BYTE *data,DWORD len);
+	virtual void DumpOutput(BYTE *data,DWORD len);
 private:
 	char line1[linesize];
 	char line2[linesize];

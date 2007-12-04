@@ -21,6 +21,7 @@
  */
 #include "H324MAL2.h"
 #include "crc8.h"
+#include "FileLogger.h"
 
 /****************** Receiver **************/
 H223AL2Receiver::H223AL2Receiver(int segmentable,H223SDUListener* listener,int useSequenceNumbers)
@@ -31,10 +32,14 @@ H223AL2Receiver::H223AL2Receiver(int segmentable,H223SDUListener* listener,int u
 	sduListener = listener;
 	//Set segmentable
 	segmentableChannel = segmentable;
+	//Create logger
+	logger = new FileLogger();
 }
 
 H223AL2Receiver::~H223AL2Receiver()
 {
+	//Delete logger
+	delete logger;
 }
 
 void H223AL2Receiver::Send(BYTE b)
@@ -67,17 +72,8 @@ void H223AL2Receiver::SendClosingFlag()
 	//Set data
 	crc.Add(data,dataLen-1);
 
-	//Debug("-AL2 Frame [%x,%x,%x,%d]\n",data[dataLen-1],crc.Calc(),this,dataLen);
-
-#ifdef DUMP_H223
-	{
-		char name[256];
-		sprintf(name,"/tmp/media_%x.raw",(unsigned int)this);
-		int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
-		write(fd,data+useSN,dataLen-useSN-1);
-		close(fd);
-	}
-#endif
+	//Dump media
+	logger->DumpMedia(data+useSN,dataLen-useSN-1);
 	
 	//Calc
 	if (data[dataLen-1]!=crc.Calc())

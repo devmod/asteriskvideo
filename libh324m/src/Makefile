@@ -2,9 +2,9 @@ CXXFLAGS = -DP_USE_PRAGMA -g -D_REENTRANT -O3 -Wall -fPIC -DPIC -DPTRACING -DDUM
 CFLAGS = -DP_USE_PRAGMA -g -D_REENTRANT -O3 -Wall -fPIC -DPIC -DPTRACING -DDUMP_H223
 
 SRC = golay.c \
+	log.cpp \
 	crc8.cpp \
 	crc16.cpp \
-	Timer.cpp \
 	jitterBuffer.cpp \
 	H223Demuxer.cpp \
 	H223Flag.cpp \
@@ -37,7 +37,8 @@ SRC = golay.c \
 	H324pdu.cpp \
 	FileLogger.cpp \
 	Media.cpp \
-
+	H245LogicalChannelRate.cpp \
+	H245ModeRequest.cpp
 	
 
 OBJS1 = $(SRC:.cpp=.o)

@@ -1,7 +1,7 @@
 #ifndef _MEDIA_H_
 #define _MEDIA_H_
 
-#include "H223Const.h"
+#include "H324MConfig.h"
 
 enum MediaType
 {

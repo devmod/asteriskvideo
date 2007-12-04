@@ -3,6 +3,7 @@
 
 #include <ptlib.h>
 #include <ptlib/sockets.h>
+#include "H324MConfig.h"
 #include "H245.h"
 
 #define H245_PROTOCOL_VERSION 8 //11
@@ -126,6 +127,21 @@ class H324ControlPDU : public H245_MultimediaSystemControlMessage
 	  unsigned channelNumber
 	);
 
+	H245_LogicalChannelRateRequest & BuildLogicalChannelRequest(
+			unsigned int seqOrder, 
+			unsigned int channel, 
+			unsigned int bitRate
+		);
+	H245_LogicalChannelRateAcknowledge & BuildLogicalChannelRateAck(
+			unsigned int seqOrder, 
+			unsigned int channel, 
+			unsigned int bitRate);
+
+	H245_LogicalChannelRateReject & BuildLogicalChannelRateReject(
+			unsigned int seqOrder, 
+			unsigned int channel, 
+			unsigned int bitRate,
+			H245_LogicalChannelRateRejectReason::Choices reason);
 };
 
 

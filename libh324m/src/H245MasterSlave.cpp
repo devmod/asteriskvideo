@@ -20,8 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "H245MasterSlave.h"
-
-#define Debug printf
+#include "log.h"
 
 H245MasterSlave::H245MasterSlave(H245Connection &con):H245Negotiator(con) 
 {
@@ -39,7 +38,7 @@ H245MasterSlave::~H245MasterSlave() {
 
 BOOL H245MasterSlave::Request()
 {
-	Debug("H245 Request MasterSlaveDetermination\n");
+	Logger::Debug("H245 Request MasterSlaveDetermination\n");
 
 	//If already processing
 	if (state!=e_Idle)
@@ -63,7 +62,7 @@ BOOL H245MasterSlave::Request()
 BOOL H245MasterSlave::HandleIncoming(const H245_MasterSlaveDetermination & pdu)
 {
 	//Debug
-	Debug("H245 MasterSlaveDetermination\n");
+	Logger::Debug("H245 MasterSlaveDetermination\n");
 
 	H324ControlPDU reply;
 
@@ -149,7 +148,7 @@ BOOL H245MasterSlave::HandleIncoming(const H245_MasterSlaveDetermination & pdu)
 
 BOOL H245MasterSlave::HandleAck(const H245_MasterSlaveDeterminationAck & pdu)
 {
-	Debug("H245 MasterSlave Ack\n");
+	Logger::Debug("H245 MasterSlave Ack\n");
 
 	MasterSlaveStatus newStatus;
 
@@ -191,7 +190,7 @@ BOOL H245MasterSlave::HandleAck(const H245_MasterSlaveDeterminationAck & pdu)
 BOOL H245MasterSlave::HandleReject(const H245_MasterSlaveDeterminationReject & pdu)
 {
 	
-	Debug("H245 Received MasterSlaveDeterminationReject\n");
+	Logger::Debug("H245 Received MasterSlaveDeterminationReject\n");
 
 	//Reply
 	H324ControlPDU reply;
@@ -233,7 +232,7 @@ BOOL H245MasterSlave::HandleReject(const H245_MasterSlaveDeterminationReject & p
 
 BOOL H245MasterSlave::HandleRelease(const H245_MasterSlaveDeterminationRelease & /*pdu*/)
 {
-	Debug("H245 Received MasterSlaveDeterminationRelease\n");
+	Logger::Debug("H245 Received MasterSlaveDeterminationRelease\n");
 
 	if (state == e_Idle)
 		return TRUE;

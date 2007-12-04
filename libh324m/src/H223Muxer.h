@@ -1,7 +1,7 @@
 #ifndef _H223MUXER_H_
 #define _H223MUXER_H_
 
-#include "H223Const.h"
+#include "H324MConfig.h"
 #include "H223MuxTable.h"
 #include "H223MuxSDU.h"
 #include "H223AL.h"

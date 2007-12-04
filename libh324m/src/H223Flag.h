@@ -1,6 +1,6 @@
 #ifndef _H223FLAG_H_
 #define _H223FLAG_H_
-#include "H223Const.h"
+#include "H324MConfig.h"
 
 class H223Flag
 {

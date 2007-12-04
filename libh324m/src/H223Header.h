@@ -1,6 +1,6 @@
 #ifndef _H223HEADER_H_
 #define _H223HEADER_H_
-#include "H223Const.h"
+#include "H324MConfig.h"
 
 class H223Header
 {

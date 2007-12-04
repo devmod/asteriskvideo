@@ -19,10 +19,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-
 #include "H245LogicalChannels.h"
-
-#define Debug printf
+#include "log.h"
 
 H245LogicalChannels::H245LogicalChannels(H245Connection & con)
 	: H245Negotiator(con)
@@ -37,7 +35,7 @@ H245LogicalChannels::~H245LogicalChannels()
 */
 int H245LogicalChannels::EstablishRequest(int channelNumber,H245Channel & channel)
 {
-	Debug("H245 H245LogicalChannels Establish Request [%d]\n", channelNumber);
+	Logger::Debug("H245 H245LogicalChannels Establish Request [%d]\n", channelNumber);
 
 	//TODO: Store h245channel on list
 
@@ -92,7 +90,7 @@ int H245LogicalChannels::EstablishRequest(int channelNumber,H245Channel & channe
 
 int H245LogicalChannels::ReleaseRequest(int channelNumber)
 {
-	Debug("H245 H245LogicalChannels Release Request [%d]\n", channelNumber);
+	Logger::Debug("H245 H245LogicalChannels Release Request [%d]\n", channelNumber);
 
 	//Pdu
 	H324ControlPDU pdu;
@@ -142,7 +140,7 @@ BOOL H245LogicalChannels::HandleOpenAck(const H245_OpenLogicalChannelAck & pdu)
 	//Get channel number
 	int channelNumber = pdu.m_forwardLogicalChannelNumber;
 
-	Debug("H245 H245LogicalChannelAck received [%d]\n", channelNumber);
+	Logger::Debug("H245 H245LogicalChannelAck received [%d]\n", channelNumber);
 
 	//See if channel exist
 	if (out.find(channelNumber)==out.end())
@@ -177,7 +175,7 @@ BOOL H245LogicalChannels::HandleReject(const H245_OpenLogicalChannelReject & pdu
 	//Get channel number
 	int channelNumber = pdu.m_forwardLogicalChannelNumber;
 
-	Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
+	Logger::Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
 
 	//See if channel exist
 	if (out.find(channelNumber)==out.end())
@@ -218,7 +216,7 @@ BOOL H245LogicalChannels::HandleCloseAck(const H245_CloseLogicalChannelAck & pdu
 	//Get channel number
 	int channelNumber = pdu.m_forwardLogicalChannelNumber;
 
-	Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
+	Logger::Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
 
 	//See if channel exist
 	if (out.find(channelNumber)==out.end())
@@ -309,7 +307,7 @@ BOOL H245LogicalChannels::HandleOpen(H245_OpenLogicalChannel & pdu)
 	//Get channel number
 	int channelNumber = pdu.m_forwardLogicalChannelNumber;
 
-	Debug("H245 H245OpenLogicalChannel received [%d]\n", channelNumber);
+	Logger::Debug("H245 H245OpenLogicalChannel received [%d]\n", channelNumber);
 
 	//See if channel exist
 	if (in.find(channelNumber)==in.end())
@@ -351,7 +349,7 @@ BOOL H245LogicalChannels::HandleClose(const H245_CloseLogicalChannel & pdu)
 	//Get channel number
 	int channelNumber = pdu.m_forwardLogicalChannelNumber;
 
-	Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
+	Logger::Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
 
 	//See if channel exist
 	if (in.find(channelNumber)==in.end())
@@ -397,7 +395,7 @@ BOOL H245LogicalChannels::HandleOpenConfirm(const H245_OpenLogicalChannelConfirm
 	//Get channel number
 	int channelNumber = pdu.m_forwardLogicalChannelNumber;
 
-	Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
+	Logger::Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
 
 	//See if channel exist
 	if (in.find(channelNumber)==in.end())
@@ -425,7 +423,7 @@ BOOL H245LogicalChannels::HandleRequestClose(const H245_RequestChannelClose & pd
 //Get channel number
 	int channelNumber = pdu.m_forwardLogicalChannelNumber;
 
-	Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
+	Logger::Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
 
 	//See if channel exist
 	if (in.find(channelNumber)==in.end())
@@ -450,7 +448,7 @@ BOOL H245LogicalChannels::HandleRequestCloseAck(const H245_RequestChannelCloseAc
 //Get channel number
 	int channelNumber = pdu.m_forwardLogicalChannelNumber;
 
-	Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
+	Logger::Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
 
 	//See if channel exist
 	if (in.find(channelNumber)==in.end())
@@ -475,7 +473,7 @@ BOOL H245LogicalChannels::HandleRequestCloseReject(const H245_RequestChannelClos
 //Get channel number
 	int channelNumber = pdu.m_forwardLogicalChannelNumber;
 
-	Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
+	Logger::Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
 
 	//See if channel exist
 	if (in.find(channelNumber)==in.end())
@@ -500,7 +498,7 @@ BOOL H245LogicalChannels::HandleRequestCloseRelease(const H245_RequestChannelClo
 //Get channel number
 	int channelNumber = pdu.m_forwardLogicalChannelNumber;
 
-	Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
+	Logger::Debug("H245 H245LogicalChannelReject received [%d]\n", channelNumber);
 
 	//See if channel exist
 	if (in.find(channelNumber)==in.end())

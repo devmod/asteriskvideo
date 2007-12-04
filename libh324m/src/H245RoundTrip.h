@@ -12,31 +12,23 @@ public:
 	struct Event: public H245Connection::Event
 	{
 		public:
-			Event(PTimeInterval &d): delay(d)
+			Event()
 			{
 				source = H245Connection::e_RoundTripDelay;
 			};
-			PTimeInterval delay;
 	};
 
 public:
-    H245RoundTripDelay(H245Connection & connection);
+	H245RoundTripDelay(H245Connection & connection);
 	virtual ~H245RoundTripDelay();
 
-    BOOL Start();
-    BOOL HandleRequest(const H245_RoundTripDelayRequest & pdu);
-    BOOL HandleResponse(const H245_RoundTripDelayResponse & pdu);
-    /*void HandleTimeout(PTimer &, INT);*/
-
-    PTimeInterval GetRoundTripDelay() const { return roundTripTime; }
-    BOOL IsRemoteOffline() const { return retryCount == 0; }
+	BOOL Start();
+	BOOL HandleRequest(const H245_RoundTripDelayRequest & pdu);
+	BOOL HandleResponse(const H245_RoundTripDelayResponse & pdu);
 
 protected:
-    BOOL          awaitingResponse;
-    unsigned      sequenceNumber;
-    PTimeInterval tripStartTime;
-    PTimeInterval roundTripTime;
-    unsigned      retryCount;
+	BOOL          awaitingResponse;
+	unsigned      sequenceNumber;
 };
 
 #endif
