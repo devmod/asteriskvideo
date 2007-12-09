@@ -149,7 +149,7 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 	memset(send,0,sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 1500);
 
 	/* Set data */
-	send->data = (unsigned char*)send + AST_FRIENDLY_OFFSET;
+	send->data = (unsigned char*)send + AST_FRIENDLY_OFFSET + sizeof(struct ast_frame);
 	data = send->data;
 
 	/* Depending on the type */
