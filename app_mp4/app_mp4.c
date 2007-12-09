@@ -169,7 +169,7 @@ static int mp4_rtp_write_video(struct mp4track *t, struct ast_frame *f, int payl
 		/* Next frame */
 		t->sampleId++;
 
-		ast_log(LOG_DEBUG, "New video hint\n");
+		ast_log(LOG_DEBUG, "New video hint [%d,%d,%d,%d]\n",intra,payload,skip,prependLength);
 
 		/* Add hint */
 		MP4AddRtpHint(t->mp4, t->hint);
@@ -756,16 +756,22 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					prependLength = 2;
 				} 
 			} else if (f->subclass & AST_FORMAT_H264) {
+				/* Get packet type */
+				unsigned char nal = frame[0];
+    				unsigned char type = nal & 0x1f;
 				/* All intra & first*/
 				intra = 1;
 				first = 1;
-				/* Save all to the rtp payload */
-				video_payload = f->datalen;
-				/* Don't add frame data to payload */
-				skip = f->datalen;
-				/* And add the data to the frame but not associated with the hint track */
-				prependBuffer = f->data+1;
-				prependLength = f->datalen-1;
+				/* Check nal type */
+				if (type<23) 
+				{
+					/* And add the data to the frame but not associated with the hint track */
+					prependBuffer = "\0\0\1";
+					prependLength = 3;
+					/* Set payload and skip */
+					video_payload = 0;
+					skip = 0;
+				}
 			} else {
 				/* Unknown code free it */
 				ast_frfree(f);
