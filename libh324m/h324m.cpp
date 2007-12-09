@@ -8,6 +8,11 @@ extern "C"
 extern "C" 
 {
 
+void H324MLoggerSetLevel(int level)
+{
+	Logger::SetLevel(level);	
+}
+
 void * H324MSessionCreate()
 {
 	return (void *)new H324MSession(); 

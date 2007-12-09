@@ -16,7 +16,7 @@ class H245ChannelsFactoryListener
 public:
 	virtual int OnChannelStablished(int channel, MediaType type) = 0;
 	virtual int OnChannelReleased(int channel, MediaType type) = 0;
-	virtual ~H245ChannelsFactoryListener() = 0;
+	virtual ~H245ChannelsFactoryListener() {}
 };
 
 class H245ChannelsFactory

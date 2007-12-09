@@ -13,7 +13,7 @@ public:
 	virtual void DumpMedia(BYTE *data,DWORD len)=0;
 	virtual void DumpInput(BYTE *data,DWORD len)=0;
 	virtual void DumpOutput(BYTE *data,DWORD len)=0;
-	virtual ~Logger() = 0;
+	virtual ~Logger() {}
 
 	static void Debug(const char* msg,...);
 	static void Warning(const char* msg,...);

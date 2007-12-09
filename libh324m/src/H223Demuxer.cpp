@@ -51,6 +51,23 @@ int H223Demuxer::SetChannel(int num,H223ALReceiver *receiver)
 	return 1;
 }
 
+int H223Demuxer::ReleaseChannel(int num)
+{
+	// Search channel
+	ALReceiversMap::iterator it = al.find(num);
+
+	// If not found
+	if (it==al.end())
+		//Error
+		return 0;
+
+	// Delete from map
+	al.erase(it);
+
+	// Exit
+	return 1;
+}
+
 int H223Demuxer::Open(H223MuxTable *table)
 {
 	//Check for null table
@@ -96,7 +113,7 @@ void H223Demuxer::EndPDU(H223Flag &flag)
 {
 
 	//Send closing flag to all non segmentable channels
-	for(std::map<int,H223ALReceiver*>::iterator it = al.begin(); it != al.end(); it++)
+	for(ALReceiversMap::iterator it = al.begin(); it != al.end(); it++)
 	{
 		//Get channel
 		H223ALReceiver *recv = it->second;
@@ -244,7 +261,7 @@ void H223Demuxer::Send(BYTE b)
 	log->SetDemuxInfo(-9," n%.1d",channel);
 
 	//Get channel
-	std::map<int,H223ALReceiver*>::iterator it = al.find(channel);
+	ALReceiversMap::iterator it = al.find(channel);
 
 	//If not found 
 	if (it==al.end())

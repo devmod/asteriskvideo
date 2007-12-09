@@ -12,6 +12,9 @@
 
 class H223Demuxer
 {
+private:
+	typedef map<int,H223ALReceiver*> ALReceiversMap;
+
 public:
 	//Constructors
 	H223Demuxer();
@@ -19,6 +22,7 @@ public:
 	
 	int Open(H223MuxTable *table);
 	int SetChannel(int num,H223ALReceiver *receiver);
+	int ReleaseChannel(int num);
 	void Demultiplex(BYTE b);
 	int  Demultiplex(BYTE *buffer,int length);
 	int Close();
@@ -31,12 +35,10 @@ private:
 
 private:
 	H223MuxTable		*mux;
-	H223Flag			begin;
-	H223Flag			flag;
-	H223Header			header;
-
-	//Al channel users
-	std::map<int,H223ALReceiver*>	al;
+	H223Flag		begin;
+	H223Flag		flag;
+	H223Header		header;
+	ALReceiversMap		al;
 	
 	int state;
 	int counter;

@@ -19,6 +19,8 @@ extern "C"
 #endif
 void 	TIFFReverseBits(unsigned char* buffer,int length);
 
+void 	H324MLoggerSetLevel(int level);
+
 void*	H324MSessionCreate(void);
 void	H324MSessionDestroy(void * id);
 

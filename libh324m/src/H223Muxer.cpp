@@ -63,7 +63,7 @@ int H223Muxer::Close()
 }
 
 
-int H223Muxer::SetChannel(int channel,H223ALSender *sender)
+int H223Muxer::SetChannel(int num,H223ALSender *sender)
 {
 	//Check for null channel
 	if (!sender)
@@ -71,15 +71,33 @@ int H223Muxer::SetChannel(int channel,H223ALSender *sender)
 		return 0;
 
 	//If the channel already has a sender
-	if (senders.find(channel)!=senders.end())
+	if (senders.find(num)!=senders.end())
 		return 0;
 
 	//Add it to the list
-	senders[channel] = sender;
+	senders[num] = sender;
 
 	//Good
 	return 1;
 }
+
+int H223Muxer::ReleaseChannel(int num)
+{
+	// Find channel
+	ALSendersMap::iterator it = senders.find(num);
+
+	// If not found
+	if (it==senders.end())
+		//Error
+		return 0;
+
+	// Remove channel from map
+	senders.erase(it);
+
+	// Exit
+	return 1;
+}
+
 /**********************************
 * GetBestMC
 *	Search the best mc entry and calculate de mpl of the pdu

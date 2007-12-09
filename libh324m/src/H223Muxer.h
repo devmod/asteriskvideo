@@ -18,7 +18,8 @@ public:
 	~H223Muxer();
 
 	int Open(H223MuxTable *table);
-	int SetChannel(int channel,H223ALSender *sender);
+	int SetChannel(int num,H223ALSender *sender);
+	int ReleaseChannel(int num);
 	int  Multiplex(BYTE *buffer,int length);
 	BYTE Multiplex();
 	int Close();
