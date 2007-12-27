@@ -37,6 +37,7 @@
 #include <asterisk/module.h>
 #include <asterisk/causes.h>
 #include <asterisk/time.h>
+#include "asterisk/cli.h"
 
 #ifndef AST_FORMAT_AMRNB
 #define AST_FORMAT_AMRNB 	(1 << 13)
@@ -113,6 +114,51 @@ static char *des_video_loopback = "  video_loopback():  Video loopback.\n"
 	"to the Echo() application but only loops video (the Echo application loops\n"
 	"audio and video). To use this function with H324M calls you first have to use\n"
 	"the h324m_gw() function.\n";
+
+/* Commands */
+static int h324m_do_debug(int fd, int argc, char *argv[])
+{
+        int level;
+
+	/* Check number of arguments */
+        if (argc != 4)
+                return RESULT_SHOWUSAGE;
+
+	/* Get level */
+        level = atoi(argv[3]);
+
+	/* Check it's correct */
+        if((level < 0) || (level > 9))
+                return RESULT_SHOWUSAGE;
+
+	/* Print result */	
+        if(level)
+                ast_cli(fd, "app_h324m Debugging enabled level: %d\n", level);
+        else
+                ast_cli(fd, "app_h324m Debugging disabled\n");
+
+	/* Set log level */
+	H324MLoggerSetLevel(level);
+
+	/* Exit */
+        return RESULT_SUCCESS;
+}
+
+static char debug_usage[] =
+"Usage: h324m debug level {0-9}\n"
+"       Enables debug messages in app_h324m\n"
+"        0 - No debug\n"
+"        1 - Error messages\n"
+"        2 - Log messages\n"
+"        3 - Warning messages\n"
+"        4 - Debug messages\n"
+"        5 - File dumps\n";
+
+
+static struct ast_cli_entry  cli_debug =
+        { { "h324m", "debug", "level" }, h324m_do_debug,
+                "Set app_h324m debug log level", debug_usage };
+
 
 static short blockSize[16] = { 13, 14, 16, 18, 19, 21, 26, 31,  6, -1, -1, -1, -1, -1, -1, -1};
 static short if2stuffing[16] = {5,  5,  6,  6,  0,  5,  0,  0,  5,  1,  6,  7, -1, -1, -1,  4};
@@ -1296,6 +1342,12 @@ static int load_module(void)
 	res &= ast_register_application(name_h324m_call, app_h324m_call, syn_h324m_call, des_h324m_call);
 	res &= ast_register_application(name_h324m_gw_answer, app_h324m_gw_answer, syn_h324m_gw_answer, des_h324m_gw_answer);
 	res &= ast_register_application(name_video_loopback, app_video_loopback, syn_video_loopback, des_video_loopback);
+
+	ast_cli_register(&cli_debug);
+	
+	/* No loging by default */
+	H324MLoggerSetLevel(1);
+
 	return 0;
 }
 
