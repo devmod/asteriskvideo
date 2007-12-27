@@ -20,6 +20,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "H223Header.h"
+extern "C" {
+#include "golay.h"
+}
 
 int H223Header::IsComplete()
 {
@@ -28,17 +31,27 @@ int H223Header::IsComplete()
 
 int H223Header::IsValid()
 {
-	/*
-	mc = (header.buffer[0] & 0x1E) >> 1;
-	pm = (header.buffer[0] & 0x01);
-	*/
-	
 	//Get the values
 	mc   = buffer[0] & 0x0F;
 	mpl  = (buffer[0] >> 4) | ((buffer[1] & 0x0F) << 4);
 	pm   = (buffer[1] >> 4) | (buffer[2] << 4);
 
-	//Calculate the golay codez
+	//Calculate the golay code
+	DWORD golay = buffer[2] << 16 | buffer[1] << 8 | buffer[0];
+
+	//Decode it
+	int code = golay_decode(golay);
+
+	//Chek it
+	if (code==-1)
+		//Bad header
+		return 0;
+
+	//Get the values
+	mc  = code & 0x0F;
+	mpl = code >> 4;
+
+	//Good header
 	return 1;
 
 }

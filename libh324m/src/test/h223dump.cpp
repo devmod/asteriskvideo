@@ -23,6 +23,9 @@ int main(int argc,char **argv)
 		return 1;
 	}
 
+	//Set login high
+	Logger::SetLevel(9);
+
 	//Open file
 	int f = open(argv[1],O_RDONLY);
 
@@ -52,12 +55,8 @@ int main(int argc,char **argv)
 
 	//Until end of file
 	while ((len=read(f,buffer,160))>0)
-	{
-		//For each byte
-		for (int i=0;i<len;i++)
-			 //Demux
-			 demuxer.Demultiplex(buffer[i]);
-	}
+		//Demux
+		demuxer.Demultiplex(buffer,len);
 
 	//Close demuxer
 	demuxer.Close();

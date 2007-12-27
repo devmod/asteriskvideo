@@ -123,8 +123,8 @@ void H223Demuxer::EndPDU(H223Flag &flag)
 			recv->SendClosingFlag();
 	}
 	
-	//If the flag is the complement
-	if (flag.complement)
+	//If the flag is the complement and valid
+	if (flag.IsValid() && flag.complement)
 	{
 		//Log
 		log->SetDemuxInfo(-6,"dne");
@@ -196,6 +196,8 @@ inline void H223Demuxer::Demultiplex(BYTE b)
 				header.Clear();
 				//Reset state
 				state = NONE;
+				//Exit
+				return;
 			}
 
 			//Append info
@@ -204,7 +206,7 @@ inline void H223Demuxer::Demultiplex(BYTE b)
 				log->SetDemuxInfo(-6,"mc%.1dl%.2x",header.mc,header.mpl);
 
 			//We have a good header go for the pdu
-            state = PDU;
+            		state = PDU;
 
 			break;
 		case PDU:
@@ -218,27 +220,33 @@ inline void H223Demuxer::Demultiplex(BYTE b)
 			if (complete)
 				Send(a);
 
-			//If we have a good flag
-			if (!flag.IsValid())
+			//While we are in the PDU
+			if (counter<header.mpl)
 				//And return
 				return;
-			
-			
+
 			//Set end PDU if not stuffing
 			if(header.mpl)
 				EndPDU(flag);
 
-			//Start the next PDU
-			StartPDU(flag);
+			//If the flag is valid
+			if (flag.IsValid())
+			{
+				//Start the next PDU
+				StartPDU(flag);
 
-			//Clear flag
-			flag.Clear();
+				//Clear flag
+				flag.Clear();
 
-			//Clear the header 
-			header.Clear();
+				//Clear the header 
+				header.Clear();
 
-			//Change state
-			state = HEAD;
+				//Change state
+				state = HEAD;
+			} else 
+				//No header found
+				state = NONE;
+			
 			break;
 	}
 }

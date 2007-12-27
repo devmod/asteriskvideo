@@ -146,8 +146,6 @@ BOOL H245MuxTable::HandleRequest(const H245_MultiplexEntrySend & pdu)
 	//Create pdu
 	table.BuildPDU(entrySend);
 
-	cout << "Check \n" << pdux << "\n";
-
 	//Depending on the state
 	switch(inState)
 	{
