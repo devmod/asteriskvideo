@@ -5,6 +5,7 @@
 class H223Header
 {
 public:
+	H223Header();
 	BYTE Append(BYTE b);
 	int  IsComplete();
 	int  IsValid();
@@ -14,9 +15,9 @@ public:
 	BYTE	pm;
 	BYTE	mpl;
 private:
-	int		level;
-	BYTE	buffer[4];
-	int		length;
+	int	level;
+	BYTE	buffer[3];
+	int	length;
 };
 
 #endif

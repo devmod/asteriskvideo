@@ -24,6 +24,12 @@ extern "C" {
 #include "golay.h"
 }
 
+H223Header::H223Header()
+{
+	//Init
+	Clear();
+}
+
 int H223Header::IsComplete()
 {
 	return (length==3);
@@ -37,7 +43,7 @@ int H223Header::IsValid()
 	pm   = (buffer[1] >> 4) | (buffer[2] << 4);
 
 	//Calculate the golay code
-	DWORD golay = ((DWORD)buffer[2] << 16 | (DWORD)buffer[1] << 8 | buffer[0]) & 0xFFF;
+	DWORD golay = buffer[2] << 16 | buffer[1] << 8 | buffer[0];
 
 	//Decode it
 	int code = golay_decode(golay);
