@@ -2,6 +2,7 @@
 #define _324MCONFIG_H_
 
 #include <ptlib.h>
+#include <assert.h>
 
 #ifndef WIN32
 #define BYTE unsigned char

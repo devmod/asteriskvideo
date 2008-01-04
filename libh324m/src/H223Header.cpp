@@ -37,7 +37,7 @@ int H223Header::IsValid()
 	pm   = (buffer[1] >> 4) | (buffer[2] << 4);
 
 	//Calculate the golay code
-	DWORD golay = buffer[2] << 16 | buffer[1] << 8 | buffer[0];
+	DWORD golay = ((DWORD)buffer[2] << 16 | (DWORD)buffer[1] << 8 | buffer[0]) & 0xFFF;
 
 	//Decode it
 	int code = golay_decode(golay);
@@ -49,11 +49,10 @@ int H223Header::IsValid()
 
 	//Get the values
 	mc  = code & 0x0F;
-	mpl = code >> 4;
+	mpl = (code >> 4 ) & 0xFF;
 
 	//Good header
 	return 1;
-
 }
 
 BYTE H223Header::Append(BYTE b)
@@ -92,6 +91,7 @@ void H223Header::Clear()
 	//Empty buffers
 	buffer[0] = 0;
 	buffer[1] = 0;
+	buffer[2] = 0;
 
 	//And the length
 	length = 0;

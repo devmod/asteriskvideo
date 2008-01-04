@@ -1,7 +1,7 @@
 CXXFLAGS = -DP_USE_PRAGMA -g -D_REENTRANT -O0 -Wall -fPIC -DPIC -DPTRACING
 LDFLAGS = `ptlib-config --libs`
 
-all: h223dump reverse h223read h245test if2amr amr2if
+all: h223dump reverse h223read if2amr amr2if
 
 h223read: h223read.o ../libh324m.a
 	g++ -o h223read h223read.o ../libh324m.a $(LDFLAGS)
@@ -9,17 +9,14 @@ h223read: h223read.o ../libh324m.a
 h223dump: h223dump.o ../libh324m.a
 	g++ -o h223dump h223dump.o ../libh324m.a $(LDFLAGS)
 
-reverse: reverse.o ../bits.o
-	g++ -o reverse reverse.o ../bits.o
+reverse: reverse.o 
+	g++ -o reverse reverse.o 
 
-if2amr: if2amr.o ../bits.o
-	g++ -o if2amr if2amr.o ../bits.o
+if2amr: if2amr.o 
+	g++ -o if2amr if2amr.o 
 
-amr2if: amr2if.o ../bits.o
-	g++ -o amr2if amr2if.o ../bits.o
-
-h245test: h245test.o
-	g++ -o h245test h245test.o ../libh324m.a $(LDFLAGS)
+amr2if: amr2if.o
+	g++ -o amr2if amr2if.o
 
 clean:
 	rm -f *.o reverse h223read h223dump

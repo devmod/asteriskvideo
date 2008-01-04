@@ -177,6 +177,9 @@ inline void H223Demuxer::Demultiplex(BYTE b)
 			//Clear flag
 			flag.Clear();
 
+			//Header clear
+			header.Clear();
+
 			//Change state
 			state = HEAD;
 			
@@ -189,21 +192,17 @@ inline void H223Demuxer::Demultiplex(BYTE b)
 			if (!header.IsComplete())
 				return;
 	
-			//Is the header correct?
-			if (!header.IsValid())
+			//Is the header correct? And it's not stuffing ?
+			if (!header.IsValid() || !header.mpl)
 			{
-				//Clean the header
-				header.Clear();
 				//Reset state
 				state = NONE;
 				//Exit
 				return;
 			}
 
-			//Append info
-			if (header.mpl!=0)
-				//Log header
-				log->SetDemuxInfo(-6,"mc%.1dl%.2x",header.mc,header.mpl);
+			//Log header
+			log->SetDemuxInfo(-6,"mc%.1dl%.2x",header.mc,header.mpl);
 
 			//We have a good header go for the pdu
             		state = PDU;
@@ -225,9 +224,8 @@ inline void H223Demuxer::Demultiplex(BYTE b)
 				//And return
 				return;
 
-			//Set end PDU if not stuffing
-			if(header.mpl)
-				EndPDU(flag);
+			//End the pdu
+			EndPDU(flag);
 
 			//If the flag is valid
 			if (flag.IsValid())
