@@ -69,6 +69,7 @@ struct VideoTranscoder
 	AVCodec         *encoder;
         AVCodecContext  *encoderCtx;
         AVFrame         *encoderPic;
+	int		encoderOpened;
 	
 	char* 	buffer;
 	unsigned int	bufferSize;
@@ -339,6 +340,67 @@ void * VideoTranscoderEncode(void *param)
 		
 }
 
+static int VideoTranscoderDestroy(struct VideoTranscoder *vtc)
+{
+	/* End encoder */
+	vtc->end = 1;
+
+	/* Wait encoder thread to stop */
+	pthread_join(vtc->encoderThread,0);
+
+	/* Free pictures */
+	free(vtc->pictures[0]);
+	free(vtc->pictures[1]);
+
+	/* Free frames */
+	free(vtc->frame);
+	free(vtc->buffer);
+
+	/* Free decoder */
+	if (vtc->decoderCtx)
+	{
+		/*If already open */
+		if (vtc->decoderOpened)
+			/* Close */
+			avcodec_close(vtc->decoderCtx);
+		/* Free */
+        	free(vtc->decoderCtx);
+	}
+	/* Free pic */
+        if (vtc->decoderPic)
+		free(vtc->decoderPic);
+
+	/* Free encoder */
+	if (vtc->encoderCtx)
+	{
+		/* If encoder opened */
+		if (vtc->encoderOpened)
+			/* Close */
+			avcodec_close(vtc->encoderCtx);
+		free(vtc->encoderCtx);
+	}
+	/* Free pic */
+	if (vtc->encoderPic)
+        	free(vtc->encoderPic);
+
+	/* if got contex */
+	if (vtc->resizeCtx)
+		/* Free it */
+		sws_freeContext(vtc->resizeCtx);
+
+
+	/* Free resize buffer*/
+	if (vtc->resizeBuffer)
+		/* Free */
+		free(vtc->resizeBuffer);
+
+	/* Free */
+	free(vtc);
+
+	/* Exit */
+	return 1;
+}
+
 static struct VideoTranscoder * VideoTranscoderCreate(struct ast_channel *channel,char *format)
 {
 	char *i;
@@ -400,7 +462,7 @@ static struct VideoTranscoder * VideoTranscoderCreate(struct ast_channel *channe
 		i = strchr(i,'/');
 	}
 
-	printf("-Transcoder [f=%d,fps=%d,kb=%d,qmin=%d,qmax=%d,gs=%d]\n",vtc->format,vtc->fps,vtc->bitrate,vtc->qMin,vtc->qMax,vtc->gop_size);
+	ast_log(LOG_DEBUG,"-Transcoder [f=%d,fps=%d,kb=%d,qmin=%d,qmax=%d,gs=%d]\n",vtc->format,vtc->fps,vtc->bitrate,vtc->qMin,vtc->qMax,vtc->gop_size);
 
 	/* Depending on the format */
 	switch(vtc->format)
@@ -467,18 +529,19 @@ static struct VideoTranscoder * VideoTranscoderCreate(struct ast_channel *channe
         //vtc->encoderCtx->rtp_callback       = RtpCallback;
         //vtc->encoderCtx->opaque             = vtc;
 
-        /* Bitrate */
-	if (vtc->bitrate>0)
-	{
-		/* Set encoder params */
-		vtc->encoderCtx->bit_rate           = vtc->bitrate;
-        	vtc->encoderCtx->bit_rate_tolerance = 1;
-	}
-
 	/* fps*/
 	if (vtc->fps>0)
 		/* set encoder params*/
         	vtc->encoderCtx->time_base    	    = (AVRational){1,vtc->fps};/* frames per second */
+
+        /* Bitrate */
+	if (vtc->bitrate>0 && vtc->fps>0)
+	{
+		/* Set encoder params */
+		vtc->encoderCtx->bit_rate           = vtc->bitrate;
+        	vtc->encoderCtx->bit_rate_tolerance = vtc->bitrate*av_q2d(vtc->encoderCtx->time_base) + 1;
+	}
+
 
 	/* gop size */
 	if (vtc->gop_size>0)
@@ -517,72 +580,24 @@ static struct VideoTranscoder * VideoTranscoderCreate(struct ast_channel *channe
         vtc->encoderCtx->flags |= CODEC_FLAG_H263P_SLICE_STRUCT;
 	
 	/* Open encoder */
-	avcodec_open(vtc->encoderCtx, vtc->encoder);
+	vtc->encoderOpened = avcodec_open(vtc->encoderCtx, vtc->encoder) != -1;
+
+	/* If not opened correctly */
+	if (!vtc->encoderOpened)
+	{
+		/* Error */
+		ast_log(LOG_ERROR,"Error opening encoder\n");
+		/* Destroy it */
+		VideoTranscoderDestroy(vtc);
+		/* Exit */
+		return NULL;	
+	}
 
 	/* Start encoder thread */
 	pthread_create(&vtc->encoderThread,NULL,VideoTranscoderEncode,vtc);
 
 	/* Return encoder */
 	return vtc;
-}
-
-static int VideoTranscoderDestroy(struct VideoTranscoder *vtc)
-{
-	/* End encoder */
-	vtc->end = 1;
-
-	/* Wait encoder thread to stop */
-	pthread_join(vtc->encoderThread,0);
-
-	/* Free pictures */
-	free(vtc->pictures[0]);
-	free(vtc->pictures[1]);
-
-	/* Free frames */
-	free(vtc->frame);
-	free(vtc->buffer);
-
-	/* Free decoder */
-	if (vtc->decoderCtx)
-	{
-		/*If already open */
-		if (vtc->decoderOpened)
-			/* Close */
-			avcodec_close(vtc->decoderCtx);
-		/* Free */
-        	free(vtc->decoderCtx);
-	}
-	/* Free pic */
-        if (vtc->decoderPic)
-		free(vtc->decoderPic);
-
-	/* Free encoder */
-	if (vtc->encoderCtx)
-	{
-		/* Close */
-		avcodec_close(vtc->encoderCtx);
-		free(vtc->encoderCtx);
-	}
-	/* Free pic */
-	if (vtc->encoderPic)
-        	free(vtc->encoderPic);
-
-	/* if got contex */
-	if (vtc->resizeCtx)
-		/* Free it */
-		sws_freeContext(vtc->resizeCtx);
-
-
-	/* Free resize buffer*/
-	if (vtc->resizeBuffer)
-		/* Free */
-		free(vtc->resizeBuffer);
-
-	/* Free */
-	free(vtc);
-
-	/* Exit */
-	return 1;
 }
 
 static void VideoTranscoderCleanFrame(struct VideoTranscoder *vtc)
@@ -818,7 +833,7 @@ static unsigned int VideoTranscoderWrite(struct VideoTranscoder *vtc, int codec,
 		vtc->frameLen += mpeg4_append(vtc->frame,vtc->frameLen,buffer,bufferLen);
 
 	}else{
-		printf("-Unknown codec [%d]\n",codec);
+		ast_log(LOG_ERROR,"-Unknown codec [%d]\n",codec);
 		return 0;
 	}
 
@@ -853,7 +868,6 @@ static int app_transcode(struct ast_channel *chan, void *data)
 	char *a;
 	char *b;
 
-
 	/* Find fwd params */
 	if (!(a=strchr((char*)data,'|')))
 		return 0;
@@ -867,12 +881,6 @@ static int app_transcode(struct ast_channel *chan, void *data)
 	local 	  = strndup(a+1,b-a-1);
 	revParams = strndup(b+1,strlen((char*)data)-(b-(char*)data)-1);
 
-	printf("-transcoding [%s,%s,%s]\n",fwdParams,local,revParams);
-
-	/* Create contexts */
-	fwd = VideoTranscoderCreate(chan,fwdParams);
-	rev = VideoTranscoderCreate(chan,revParams);
-
 	/* Lock module */
 	u = ast_module_user_add(chan);
 
@@ -884,10 +892,12 @@ static int app_transcode(struct ast_channel *chan, void *data)
 		/* goto end */
 		goto end; 
 
-	/* Free params */
-	free(fwdParams);
-	free(local);
-	free(revParams);
+	/* Log */
+	ast_log(LOG_WARNING,"Transcoding [%s,%s,%s]\n",fwdParams,local,revParams);
+
+	/* Create contexts */
+	fwd = VideoTranscoderCreate(pseudo,fwdParams);
+	rev = VideoTranscoderCreate(chan,revParams);
 
 	/* Set caller id */
 	ast_set_callerid(pseudo, chan->cid.cid_num, chan->cid.cid_name, chan->cid.cid_num);
@@ -1022,6 +1032,11 @@ clean_pseudo:
 	ast_hangup(pseudo);
 
 end:
+	/* Free params */
+	free(fwdParams);
+	free(local);
+	free(revParams);
+
 	/* Destroy transcoders */
 	if (fwd)
 		VideoTranscoderDestroy(fwd);
@@ -1047,9 +1062,24 @@ static int unload_module(void)
 
 	return res;
 }
+void av_log_asterisk_callback(void* ptr, int level, const char* fmt, va_list vl)
+{
+	char msg[1024];
+
+	vsnprintf(msg,1024,fmt,vl);
+
+	AVClass* avc= ptr ? *(AVClass**)ptr : NULL;
+	if(avc)
+		ast_log(LOG_DEBUG,"[%s @ %p] %s",avc->item_name(ptr), avc, msg);
+	else 
+		ast_log(LOG_DEBUG, msg);
+}
 
 static int load_module(void)
 {
+	/* Set log */
+	av_log_set_callback(av_log_asterisk_callback);
+
 	/* Init avcodec */
 	avcodec_init();
 	
