@@ -963,6 +963,7 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	void*  frame;
 	char*  input;
 	int    reason = 0;
+	int    state = 0;
 	int    ms;
 	struct ast_channel *channels[2];
 	struct ast_channel *pseudo;
@@ -990,7 +991,7 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 		ast_log(LOG_WARNING, "app_h324m_call: Unable to set read format to AMR-NB!\n");
 
 	/* Request new channel */
-	pseudo = ast_request("Local", AST_FORMAT_ALAW | AST_FORMAT_ULAW, data, &reason);
+	pseudo = ast_request("Local", AST_FORMAT_ALAW | AST_FORMAT_ULAW , data, &reason);
  
 	/* If somthing has gone wrong */
 	if (!pseudo)
@@ -1083,10 +1084,6 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 
 	/* Init session */
 	H324MSessionInit(id);
-
-	/* Answer call */
-	ast_answer(chan);
-
 	/* Create enpty packet */
 	send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 160 );
 	/* No data*/
@@ -1124,6 +1121,27 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 			{
 				/* read data */
 				H324MSessionRead(id, (unsigned char *)f->data, f->datalen);
+
+				/* If state changed */
+				if (state!=H324MSessionGetState(id))
+				{
+					/* Update state */
+					state = H324MSessionGetState(id);
+
+					/* Log */
+					ast_log(LOG_DEBUG, "H324M changed state %d\n", state);
+					
+					/* If connected */	
+					if (state==CALLSTATE_STABLISHED)
+					{
+						/* Answer call if not done yet */
+						ast_answer(chan);
+						/* Log */
+						ast_log(LOG_DEBUG, "Connected, sending VIDUPDATE\n");
+						/* Indicate Video Update */
+						ast_indicate(pseudo, AST_CONTROL_VIDUPDATE);
+					}
+				}
 				/* Get frames */
 				while ((frame=H324MSessionGetFrame(id))!=NULL)
 				{

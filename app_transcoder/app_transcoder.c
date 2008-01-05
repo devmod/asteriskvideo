@@ -937,6 +937,9 @@ static int app_transcode(struct ast_channel *chan, void *data)
 		/* goto end */
 		goto clean_pseudo; 
 
+	/* Answer channel */
+	ast_answer(chan);
+
 	/* Set up array */
 	channels[0] = chan;
 	channels[1] = pseudo;
