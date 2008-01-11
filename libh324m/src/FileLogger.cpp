@@ -51,7 +51,7 @@ void FileLogger::SetMuxByte(BYTE b)
 			{
 				char name[256];
 				sprintf(name,"/tmp/h245_out_%x.log",(unsigned int)this);
-				int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
+				int fd = open(name,O_CREAT|O_WRONLY|O_APPEND, S_IRUSR | S_IWUSR );
 				if (fd!=-1)
 				{
 					write(fd,line1,linesize);
@@ -122,7 +122,7 @@ void FileLogger::SetDemuxByte(BYTE b)
 			{
 				char name[256];
 				sprintf(name,"/tmp/h245_%x.log",(unsigned int)this);
-				int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
+				int fd = open(name,O_CREAT|O_WRONLY|O_APPEND, S_IRUSR | S_IWUSR );
 				if (fd!=-1)
 				{
 					write(fd,line3,linesize-6);
@@ -185,7 +185,7 @@ void FileLogger::DumpMedia(BYTE *data,DWORD len)
 	{
 		char name[256];
 		sprintf(name,"/tmp/media_%x.raw",(unsigned int)this);
-		int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
+		int fd = open(name,O_CREAT|O_WRONLY|O_APPEND, S_IRUSR | S_IWUSR );
 		if (fd!=-1)
 		{
 			write(fd,data,len);
@@ -200,7 +200,7 @@ void FileLogger::DumpInput(BYTE *data,DWORD len)
 	{
 		char name[256];
 		sprintf(name,"/tmp/h223_in_%x.raw",(unsigned int)this);
-		int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
+		int fd = open(name,O_CREAT|O_WRONLY|O_APPEND, S_IRUSR | S_IWUSR );
 		if (fd!=-1)
 		{
 			write(fd,data,len);
@@ -215,7 +215,7 @@ void FileLogger::DumpOutput(BYTE *data,DWORD len)
 	{
 		char name[256];
 		sprintf(name,"/tmp/h223_out_%x.raw",(unsigned int)this);
-		int fd = open(name,O_CREAT|O_WRONLY|O_APPEND);
+		int fd = open(name,O_CREAT|O_WRONLY|O_APPEND, S_IRUSR | S_IWUSR );
 		if (fd!=-1)
 		{
 			write(fd,data,len);
