@@ -11,7 +11,7 @@ void Logger::SetLevel(int level)
 
 void Logger::Debug(const char* msg,...)
 {
-	if(level>4)
+	if(level>=4)
 	{
 		va_list ap;
 		//Set list
@@ -25,7 +25,7 @@ void Logger::Debug(const char* msg,...)
 
 void Logger::Warning(const char* msg,...)
 {
-	if(level>3)
+	if(level>=3)
 	{
 		va_list ap;
 		//Set list
@@ -39,7 +39,7 @@ void Logger::Warning(const char* msg,...)
 
 void Logger::Log(const char* msg,...)
 {
-	if(level>2)
+	if(level>=2)
 	{
 		va_list ap;
 		//Set list
@@ -53,7 +53,7 @@ void Logger::Log(const char* msg,...)
 
 void Logger::Error(const char* msg,...)
 {
-	if(level>1)
+	if(level>=1)
 	{
 		va_list ap;
 		//Set list

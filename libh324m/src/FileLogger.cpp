@@ -42,7 +42,7 @@ FileLogger::~FileLogger()
 
 void FileLogger::SetMuxByte(BYTE b)
 {
-	if (level>5)
+	if (level>=5)
 	{
 		//New line
 		if (num % 32 == 0)
@@ -74,7 +74,7 @@ void FileLogger::SetMuxByte(BYTE b)
 
 void FileLogger::SetMuxInfo(const char*info,...)
 {
-	if (level>5)
+	if (level>=5)
 	{
 		va_list ap;
 
@@ -113,7 +113,7 @@ void FileLogger::SetMuxInfo(const char*info,...)
 
 void FileLogger::SetDemuxByte(BYTE b)
 {
-	if (level>5)
+	if (level>=5)
 	{
 		//New line
 		if (num % 32 == 0)
@@ -161,7 +161,7 @@ void FileLogger::SetDemuxByte(BYTE b)
 
 void FileLogger::SetDemuxInfo(int offset,const char*info,...)
 {
-	if (level>5)
+	if (level>=5)
 	{
 		va_list ap;
 
@@ -181,7 +181,7 @@ void FileLogger::SetDemuxInfo(int offset,const char*info,...)
 
 void FileLogger::DumpMedia(BYTE *data,DWORD len)
 {
-	if (level>5)
+	if (level>=5)
 	{
 		char name[256];
 		sprintf(name,"/tmp/media_%x.raw",(unsigned int)this);
@@ -196,7 +196,7 @@ void FileLogger::DumpMedia(BYTE *data,DWORD len)
 
 void FileLogger::DumpInput(BYTE *data,DWORD len)
 {
-	if (level>5)
+	if (level>=5)
 	{
 		char name[256];
 		sprintf(name,"/tmp/h223_in_%x.raw",(unsigned int)this);
@@ -211,7 +211,7 @@ void FileLogger::DumpInput(BYTE *data,DWORD len)
 
 void FileLogger::DumpOutput(BYTE *data,DWORD len)
 {
-	if (level>5)
+	if (level>=5)
 	{
 		char name[256];
 		sprintf(name,"/tmp/h223_out_%x.raw",(unsigned int)this);
