@@ -882,31 +882,42 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 				/* DTMF */
 
 			} else {
-				/* Check src */
-				if (!src && f->src) {
-					/* Store it */
-					src = strdup(f->src);
-				} else if (src && !f->src) {
-					/* Delete old one */
-					free(src);
-					/* Store it */
-					src = NULL;
-					/* Reset media */
-					H324MSessionResetMediaQueue(id);
-				} else if (src && f->src && strcmp(src,f->src)!=0) {
-					/* Delete old one */
-					free(src);
-					/* Store it */
-					src = strdup(f->src);
-					/* Reset media */
-					H324MSessionResetMediaQueue(id);
+				/* Check src: only use one type of AST_FRAME for src change detection
+				 * as video and voice may have different src (e.g. video-src="RTP" 
+				 * and audio-src="lintoamr")
+				 */
+				if (f->frametype == AST_FRAME_VIDEO) 
+				{
+					if (!src && f->src) {
+						/* Store it */
+						src = strdup(f->src);
+					} else if (src && !f->src) {
+						/* Delete old one */
+						free(src);
+						/* Store it */
+						src = NULL;
+						/* Reset media */
+						H324MSessionResetMediaQueue(id);
+					} else if (src && f->src && strcmp(src,f->src)!=0) {
+						/* Delete old one */
+						free(src);
+						/* Store it */
+						src = strdup(f->src);
+						/* Reset media */
+						H324MSessionResetMediaQueue(id);
+					}
 				}
-				/* Media packet */	
-				/* 
+				/* Media packet */
+				/*
 				if (f->frametype == AST_FRAME_VOICE) 
 				{
 					ast_log(LOG_DEBUG, "AST_FRAME_VOICE: subtype=%d; AST_FORMAT_AMRNB=%d\n",f->subclass,AST_FORMAT_AMRNB);
-					ast_log(LOG_DEBUG, "AST_FRAME_VOICE: f->data=%p, f->datalen=%d\n",f->data,f->datalen);
+					ast_log(LOG_DEBUG, "AST_FRAME_VOICE: f->data=%p, f->datalen=%d, f->src=%s\n",f->data,f->datalen,f->src);
+				} 
+				if (f->frametype == AST_FRAME_VIDEO) 
+				{
+					ast_log(LOG_DEBUG, "AST_FRAME_VIDEO: subtype=%d; AST_FORMAT_H263=%d, AST_FORMAT_H263_PLUS=%d\n",f->subclass,AST_FORMAT_H263,AST_FORMAT_H263_PLUS);
+					ast_log(LOG_DEBUG, "AST_FRAME_VIDEO: f->data=%p, f->datalen=%d, f->src=%s\n",f->data,f->datalen,f->src);
 				} 
 				*/
 				/* Init packetizer */
@@ -991,7 +1002,17 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 		ast_log(LOG_WARNING, "app_h324m_call: Unable to set read format to AMR-NB!\n");
 
 	/* Request new channel */
-	pseudo = ast_request("Local", AST_FORMAT_ALAW | AST_FORMAT_ULAW , data, &reason);
+	/* sometimes Asterisk uses internally a differnt LAW then chan_zap/zaptel and
+	 * performs ALAW/ULAW conversion. Is is deadly as we transmit digital data inside
+	 * LAW-frames (we have to do this as Asterisk does not support digital ISDN calls).
+	 *
+	 * If you have problems on outgoing 3G calls please specify exactly the LAW used 
+	 * by your ISDN line. Usually in Europe you have ALAW, in USA ULAW.
+	 *
+	 * Example for Austria(Europe):
+	 *     pseudo = ast_request("Local", AST_FORMAT_ALAW , data, &reason);
+	 */
+	pseudo = ast_request("Local", AST_FORMAT_ALAW | AST_FORMAT_ULAW, data, &reason);
  
 	/* If somthing has gone wrong */
 	if (!pseudo)
@@ -1021,7 +1042,7 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 			/* error, timeout, or done */
 			break;
 		/* Read frame */
-		f = ast_read(pseudo);
+		f = ast_read(where);
 		/* If not frame */
 		if (!f)
 			/* done */ 
