@@ -25,7 +25,7 @@
 H245MasterSlave::H245MasterSlave(H245Connection &con):H245Negotiator(con) 
 {
 	//Initialize seed
-	srand((unsigned)this);
+	srand(time(NULL));
 
 	//Set initial values
 	state = e_Idle;

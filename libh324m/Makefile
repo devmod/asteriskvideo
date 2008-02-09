@@ -1,5 +1,5 @@
-CFLAGS=-g -O0
-LDFLAGS=`ptlib-config --libs`
+CXXFLAGS=-g -O3 -fPIC -DPIC
+LDFLAGS=`ptlib-config --libs` -fPIC
 
 all: libh324m test
 
