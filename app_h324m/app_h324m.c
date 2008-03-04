@@ -732,7 +732,8 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 				/* Dependinf on the event */
 				switch (f->subclass) 
 				{
-					case AST_CONTROL_RINGING:       
+					case AST_CONTROL_RINGING:
+						ast_indicate(chan, AST_CONTROL_RINGING);
 						break;
 					case AST_CONTROL_BUSY:
 					case AST_CONTROL_CONGESTION:
@@ -1056,14 +1057,26 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 				/* Depending on the event */
 				switch (f->subclass) 
 				{
-					case AST_CONTROL_RINGING:       
+					case AST_CONTROL_RINGING:
+						ast_indicate(chan, AST_CONTROL_RINGING);
 						break;
 					case AST_CONTROL_BUSY:
-					case AST_CONTROL_CONGESTION:
+						ast_log(LOG_DEBUG, "h324m_call: pseudo channel: BUSY\n");
+						ast_log(LOG_DEBUG, "h324m_call: pseudo channel: hangupcause=%d\n",pseudo->hangupcause);
 						/* Delete frame */
 						ast_frfree(f);
 						/* Save cause */
-						reason = pseudo->hangupcause;
+						reason = AST_CAUSE_BUSY;
+						/* exit */
+						goto hangup_pseudo;
+						break;
+					case AST_CONTROL_CONGESTION:
+						ast_log(LOG_DEBUG, "h324m_call: pseudo channel: CONGESTION\n");
+						ast_log(LOG_DEBUG, "h324m_call: pseudo channel: hangupcause=%d\n",pseudo->hangupcause);
+						/* Delete frame */
+						ast_frfree(f);
+						/* Save cause */
+						reason = AST_CAUSE_CONGESTION;
 						/* exit */
 						goto hangup_pseudo;
 						break;
@@ -1071,6 +1084,8 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 						/* Set UP*/
 						reason = 0;	
 						break;
+					default:
+						reason = pseudo->hangupcause;
 				}
 			}
 		} else {
@@ -1097,8 +1112,10 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 
 	/* If no answer */
 	if (pseudo->_state != AST_STATE_UP)
+	{	ast_log(LOG_DEBUG, "h324m_call: pseudo channel not up -> hangup\n");
 		/* goto end */
 		goto clean_pseudo; 
+	}
 
 	/* Create session */
 	void* id = H324MSessionCreate();
@@ -1246,13 +1263,15 @@ clean_pseudo:
 
 end:
 	/* Hangup channel if needed */
-	ast_softhangup(chan, reason);
+//	ast_softhangup(chan, reason);
 
 	/* Unlock module*/
 	ast_module_user_remove(u);
 
 	//Exit
-	return -1;
+//	return -1;
+	chan->hangupcause = reason;
+	return 0;
 }
 
 static int app_h324m_gw_answer(struct ast_channel *chan, void *data)
