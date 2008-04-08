@@ -1141,7 +1141,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 				/* Check for dtmf extension in context */
 				if (ast_exists_extension(chan, chan->context, dtmf, 1, NULL)) {
 					/* Set extension to jump */
-					res = atoi(dtmf);
+					res = f->subclass;
 					/* Free frame */
 					ast_frfree(f);
 					/* exit */
