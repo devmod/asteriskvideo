@@ -1013,7 +1013,7 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	 * Example for Austria(Europe):
 	 *     pseudo = ast_request("Local", AST_FORMAT_ALAW , data, &reason);
 	 */
-	pseudo = ast_request("Local", AST_FORMAT_ALAW | AST_FORMAT_ULAW, data, &reason);
+	pseudo = ast_request("Local", AST_FORMAT_ALAW , data, &reason);
  
 	/* If somthing has gone wrong */
 	if (!pseudo)
@@ -1387,6 +1387,8 @@ static int unload_module(void)
 	res &= ast_unregister_application(name_video_loopback);
 
 	ast_module_user_hangup_all();
+
+	ast_cli_unregister(&cli_debug);
 
 	return res;
 }
