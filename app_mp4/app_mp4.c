@@ -25,7 +25,7 @@
 /*! \file
  *
  * \brief MP4 application -- save and play mp4 files
- * 
+ *
  * \ingroup applications
  */
 
@@ -43,17 +43,30 @@
 #include <asterisk/channel.h>
 #include <asterisk/pbx.h>
 #include <asterisk/module.h>
+#include "asterisk/options.h"
+#include "asterisk/config.h"
+#include "asterisk/utils.h"
+#include "asterisk/app.h"
 
 #ifndef AST_FORMAT_AMRNB
 #define AST_FORMAT_AMRNB 	(1 << 13)
-#endif 
+#endif
 
 static char *app_play = "mp4play";
 static char *syn_play = "MP4 file playblack";
-static char *des_play = "  mp4play(filename):  Play mp4 file to user. \n"
+static char *des_play = "  mp4play(filename,[options]):  Play mp4 file to user. \n"
+        "\n"
+        "Available options:\n"
+        " 'n(x)': number of digits (x) to wait for \n"
+        " 'S(x)': set variable of name x (with DTMFs) rather than go to extension \n"
+        " 's(x)': set digits, which should stop playback \n"
         "\n"
         "Examples:\n"
-        " mp4play(/tmp/video.mp4)   play video file to user\n";
+        " mp4play(/tmp/video.mp4)   					play video file to user\n"
+        " mp4play(/tmp/test.mp4,'n(3)') 				play video file to user and wait for 3 digits \n"
+        " mp4play(/tmp/test.mp4,'n(3)S(DTMF_INPUT)')	play video file to user and wait for 3 digits and \n"
+        "							set them as value of variable DTMF_INPUT\n"
+        " mp4play(/tmp/test.mp4,'n(3)s(#)') 		play video file, wait for 3 digits or break on '#' \n";
 
 
 static char *app_save = "mp4save";
@@ -88,6 +101,30 @@ struct mp4track {
 	int length;
 	int sampleId;
 };
+
+
+enum {
+        OPT_DFTMINTOVAR 	=	(1 << 0),
+        OPT_NOOFDTMF 		=	(1 << 1),
+	OPT_STOPDTMF		=	(1 << 2),
+} mp4play_exec_option_flags;
+
+enum {
+        OPT_ARG_DFTMINTOVAR =          0,
+        OPT_ARG_NOOFDTMF,
+	OPT_ARG_STOPDTMF,
+        /* note: this entry _MUST_ be the last one in the enum */
+	OPT_ARG_ARRAY_SIZE,
+} mp4play_exec_option_args;
+
+AST_APP_OPTIONS(mp4play_exec_options, {
+        AST_APP_OPTION_ARG('S', OPT_DFTMINTOVAR, OPT_ARG_DFTMINTOVAR),
+        AST_APP_OPTION_ARG('n', OPT_NOOFDTMF, OPT_ARG_NOOFDTMF),
+	AST_APP_OPTION_ARG('s', OPT_STOPDTMF, OPT_ARG_STOPDTMF),
+});
+
+
+#define MAX_DTMF_BUFFER_SIZE 25
 
 //void dump_buffer_hex(const unsigned char * text, const unsigned char * buff, int len)
 //{
@@ -256,7 +293,7 @@ static int mp4_rtp_read(struct mp4rtp *p)
 
 		/* Set first flag */
 		first = 1;
-	} 
+	}
 
 	/* if it's the last */
 	if (p->packetIndex + 1 == p->numHintSamples)
@@ -353,9 +390,21 @@ static int mp4_play(struct ast_channel *chan, void *data)
 	char src[128];
 	int res = 0;
 
+	char *parse;
+	int numberofDigits = -1;
+	char *varName = NULL;
+	char *stopChars = NULL;
+	char dtmfBuffer[MAX_DTMF_BUFFER_SIZE];
+	struct ast_flags opts = { 0, };
+	char *opt_args[OPT_ARG_ARRAY_SIZE];
+
+	AST_DECLARE_APP_ARGS(args, AST_APP_ARG(filename); AST_APP_ARG(options););
+
 	/* Check for data */
-	if (!data)
-		return -1;
+	if (!data || ast_strlen_zero(data)) {
+                ast_log(LOG_WARNING, "mp4play requires an argument (filename)\n");
+                return -1;
+        }
 
 	ast_log(LOG_DEBUG, "mp4play %s\n", (char *)data);
 	printf( "mp4play %s\n", (char *)data);
@@ -365,19 +414,85 @@ static int mp4_play(struct ast_channel *chan, void *data)
 	audio.src = src;
 	video.src = src;
 
+	/* Reset dtmf buffer */
+	memset(dtmfBuffer,0,MAX_DTMF_BUFFER_SIZE);
+
 	/* Lock module */
 	u = ast_module_user_add(chan);
 
+	/* Duplicate input */
+	parse = ast_strdup(data);
+
+	/* Get input data */
+	AST_STANDARD_APP_ARGS(args, parse);
+
+	/* Parse input data */
+	if (!ast_strlen_zero(args.options) &&
+			ast_app_parse_options(mp4play_exec_options, &opts, opt_args, args.options)) {
+		ast_log(LOG_WARNING, "mp4play cannot partse options\n");
+		res = -1;
+		goto clean;
+	}
+
+	/* Check filename */
+	if (ast_strlen_zero(args.filename)) {
+		ast_log(LOG_WARNING, "mp4play requires an argument (filename)\n");
+		res = -1;
+		goto clean;
+	}
+
+	/* If we have DTMF number of digits options chek it */
+	if (ast_test_flag(&opts, OPT_NOOFDTMF) && !ast_strlen_zero(opt_args[OPT_ARG_NOOFDTMF])) {
+
+		/* Get number of digits to wait for */
+		numberofDigits = atoi(opt_args[OPT_ARG_NOOFDTMF]);
+
+		/* Check valid number */
+		if (numberofDigits<=0) {
+			ast_log(LOG_WARNING, "mp4play does not accept n(%s), hanging up.\n", opt_args[OPT_ARG_NOOFDTMF]);
+			res = -1;
+			goto clean;
+		}
+
+		/* Check valid sizei */ 
+		if (numberofDigits>MAX_DTMF_BUFFER_SIZE-1) {
+			numberofDigits = MAX_DTMF_BUFFER_SIZE-1;
+			ast_log(LOG_WARNING, "mp4play does not accept n(%s), buffer is too short cutting to %d .\n", opt_args[OPT_ARG_NOOFDTMF],MAX_DTMF_BUFFER_SIZE-1);
+		}
+
+		if (option_verbose > 2)
+			ast_verbose(VERBOSE_PREFIX_3 "Setting number of digits to %d seconds.\n", numberofDigits);
+	}
+
+	/* If we have DTMF set variable otpion chekc it */
+	if (ast_test_flag(&opts, OPT_DFTMINTOVAR) && !ast_strlen_zero(opt_args[OPT_ARG_DFTMINTOVAR])) {
+
+		/* Get variable name */
+		varName = opt_args[OPT_ARG_DFTMINTOVAR];
+
+		if (option_verbose > 2)
+			ast_verbose(VERBOSE_PREFIX_3 "Setting variable name to %s .\n", varName);
+	}
+
+	/* If we have DTMF stop digit optiont check it */
+        if (ast_test_flag(&opts, OPT_STOPDTMF) && !ast_strlen_zero(opt_args[OPT_ARG_STOPDTMF])) {
+
+		/* Get stop digits */
+                stopChars = opt_args[OPT_ARG_STOPDTMF];
+
+                if (option_verbose > 2)
+			ast_verbose(VERBOSE_PREFIX_3 "Stop chars are %s.\n",stopChars);
+        }
+
 	/* Open mp4 file */
-	mp4 = MP4Read((char *) data, 9);
+	mp4 = MP4Read((char *) args.filename, 9);
 
 	/* If not valid */
 	if (mp4 == MP4_INVALID_FILE_HANDLE)
 	{
-		/* Unlock module*/
-		ast_module_user_remove(u);
 		/* exit */
-		return -1;
+		res = -1;
+		goto clean;
 	}
 
 	/* Get the first hint track */
@@ -518,15 +633,52 @@ static int mp4_play(struct ast_channel *chan, void *data)
 
 				/* If it's a dtmf */
 				if (f->frametype == AST_FRAME_DTMF) {
+
+					/* Stop flag */
+					bool stop = false;
+
+					/* Get DTMF char */
 					char dtmf[2];
-					/* Get dtmf number */
 					dtmf[0] = f->subclass;
 					dtmf[1] = 0;
 
+					/* Check if it's in the stop char digits */
+					if (stopChars && strchr(stopChars,dtmf)) {
+						/* Clean DMTF input */
+						strcpy(dtmfBuffer,dtmf);
+						/* Stop */
+						stop = true;
+						/* Continue after exit */
+						res = 0;
+						/* Log */
+						ast_log( LOG_WARNING, "mp4play - found stop char %s\n",dtmf);
+					/* Check if we have to append the DTMF and wait for more than one digit */
+					} else if (numberofDigits>0) {
+						/* Append to the DTMF buffer */
+						strcat(dtmfBuffer,dtmf);
+						/* Check length */
+						if (strlen(dtmfBuffer)>=numberofDigits) {
+							/* Continue after exit */
+							res = 0;
+							/* Stop */
+							stop = true;	
+						}
 					/* Check for dtmf extension in context */
-					if (ast_exists_extension(chan, chan->context, dtmf, 1, NULL)) {
+					} else if (ast_exists_extension(chan, chan->context, dtmf, 1, NULL)) {
 						/* Set extension to jump */
 						res = f->subclass;
+						/* Clean DMTF input */
+						strcpy(dtmfBuffer,dtmf);
+						/* End */
+						stop = true;
+					}
+					
+					/* If we have to stop */
+					if (stop) {
+						/* Check DTMF variable`option*/
+						if (varName)
+							/* Build variable */
+							pbx_builtin_setvar_helper(chan, varName, dtmfBuffer);
 						/* Free frame */
 						ast_frfree(f);
 						/* exit */
@@ -567,13 +719,18 @@ static int mp4_play(struct ast_channel *chan, void *data)
 	}
 
 end:
+	/* Log end */
 	ast_log(LOG_DEBUG, "<app_mp4");
 
 	/* Close file */
 	MP4Close(mp4);
 
+clean:
 	/* Unlock module*/
 	ast_module_user_remove(u);
+
+	/* Free datra*/
+	free(parse);
 
 	/* Exit */
 	return res;
@@ -607,7 +764,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 	{
 		/* Remove from file name */
 		*params = 0;
-		
+
 		/* Increase pointer */
 		params++;
 
@@ -657,13 +814,13 @@ static int mp4_save(struct ast_channel *chan, void *data)
 			break;
 
 		/* Check if we have to wait for video */
-		if (f->frametype == AST_FRAME_VOICE && !waitVideo) 
+		if (f->frametype == AST_FRAME_VOICE && !waitVideo)
 		{
 			/* Check if we have the audio track */
-			if (audio == -1) 
+			if (audio == -1)
 			{
 				/* Check codec */
-				if (f->subclass & AST_FORMAT_ULAW) 
+				if (f->subclass & AST_FORMAT_ULAW)
 				{
 					/* Create audio track */
 					audio = MP4AddAudioTrack(mp4, 8000, 0, MP4_ULAW_AUDIO_TYPE);
@@ -724,7 +881,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 			int first = 0;
 
 			/* Check codec */
-			if (f->subclass & AST_FORMAT_H263) 
+			if (f->subclass & AST_FORMAT_H263)
 			{
 				/* Check if it's an intra frame */
 				intra = (frame[1] & 0x10) != 0;
@@ -754,7 +911,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					/* Prepend open code */
 					prependBuffer = "\0\0";
 					prependLength = 2;
-				} 
+				}
 			} else if (f->subclass & AST_FORMAT_H264) {
 				/* Get packet type */
 				unsigned char nal = frame[0];
@@ -796,10 +953,10 @@ static int mp4_save(struct ast_channel *chan, void *data)
 			}
 
 			/* Check if we have the video track */
-			if (video == -1) 
+			if (video == -1)
 			{
 				/* Check codec */
-				if (f->subclass & AST_FORMAT_H263) 
+				if (f->subclass & AST_FORMAT_H263)
 				{
 					/* Create video track */
 					video = MP4AddH263VideoTrack(mp4, 90000, 0, 176, 144, 0, 0, 0, 0);
@@ -830,7 +987,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					type = 99;
 					MP4SetHintTrackRtpPayload(mp4, hintVideo, "H264", &type, 0, NULL, 1, 0);
 
-				} 
+				}
 
 				/* Set struct info */
 				videoTrack.mp4 = mp4;
@@ -864,7 +1021,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 				/* exit */
 				break;
 			}
-				
+
 		}
 
 		/* If we have frame */
