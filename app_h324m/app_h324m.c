@@ -184,6 +184,10 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 	struct ast_frame* send;
 	unsigned char* data = 0;
 
+	/* 1st dummy AMR-SID frame (comfort noise) */
+	static unsigned char last_amr_sti[6] = { 0x78, 0x46, 0x00, 0x94, 0xA4, 0x07 };
+	
+
 	/* Get data & size */
 	unsigned char * framedata = FrameGetData(frame);
 	unsigned int framelength = FrameGetLength(frame);
@@ -213,6 +217,18 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			unsigned char header = framedata[0];
 			/*Get mode*/
 			unsigned char mode = header & 0x0F;
+		
+			/* Check silence frames */	
+			if (mode==8 && framelength==6) {
+				/* save AMR-SID frame */      
+				memcpy( last_amr_sti, framedata, 6 );			
+			} else if (mode==15) { 
+				/* AMR No-Data packet --> replace with last AMR-SID */
+				mode = 8;
+				framelength = 6;
+				framedata = last_amr_sti;     			        
+			}
+			
 			/*Get number of stuffing bits*/
 			unsigned int stuf = if2stuffing[mode];
 
