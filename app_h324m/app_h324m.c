@@ -163,6 +163,9 @@ static struct ast_cli_entry  cli_debug =
 static short blockSize[16] = { 13, 14, 16, 18, 19, 21, 26, 31,  6, -1, -1, -1, -1, -1, -1, -1};
 static short if2stuffing[16] = {5,  5,  6,  6,  0,  5,  0,  0,  5,  1,  6,  7, -1, -1, -1,  4};
 
+/* 1st dummy AMR-SID frame (comfort noise) */
+static unsigned char last_amr_sti[6] = { 0x78, 0x46, 0x00, 0x94, 0xA4, 0x07 };
+
 struct video_creator
 {
 	struct timeval tv;
@@ -183,10 +186,6 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 	unsigned int len = 0;
 	struct ast_frame* send;
 	unsigned char* data = 0;
-
-	/* 1st dummy AMR-SID frame (comfort noise) */
-	static unsigned char last_amr_sti[6] = { 0x78, 0x46, 0x00, 0x94, 0xA4, 0x07 };
-	
 
 	/* Get data & size */
 	unsigned char * framedata = FrameGetData(frame);
@@ -217,14 +216,11 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			unsigned char header = framedata[0];
 			/*Get mode*/
 			unsigned char mode = header & 0x0F;
-		
-			/* Check silence frames */	
-			if (mode==8 && framelength==6) {
-				/* save AMR-SID frame */      
-				memcpy( last_amr_sti, framedata, 6 );			
-			} else if (mode==15) { 
+	
+			/* Check fom AMR No-Data packe */	
+			if (mode==15) 
+			{ 
 				/* AMR No-Data packet --> replace with last AMR-SID */
-				mode = 8;
 				framelength = 6;
 				framedata = last_amr_sti;     			        
 			}
