@@ -36,8 +36,8 @@
 #include <asterisk/module.h>
 #include <asterisk/causes.h>
 
-#include <ffmpeg/avcodec.h>
-#include <ffmpeg/swscale.h>
+#include <libavcodec/avcodec.h>
+#include <libswscale/swscale.h>
 
 #ifndef AST_FORMAT_AMR
 #define AST_FORMAT_AMR		(1 << 13)
@@ -345,8 +345,12 @@ static int VideoTranscoderDestroy(struct VideoTranscoder *vtc)
 	/* End encoder */
 	vtc->end = 1;
 
+	ast_log(LOG_WARNING,"-joining thread\n");
+
 	/* Wait encoder thread to stop */
 	pthread_join(vtc->encoderThread,0);
+
+	ast_log(LOG_WARNING,"-joined thread\n");
 
 	/* Free pictures */
 	free(vtc->pictures[0]);
@@ -892,13 +896,6 @@ static int app_transcode(struct ast_channel *chan, void *data)
 		/* goto end */
 		goto end; 
 
-	/* Log */
-	ast_log(LOG_WARNING,"Transcoding [%s,%s,%s]\n",fwdParams,local,revParams);
-
-	/* Create contexts */
-	fwd = VideoTranscoderCreate(pseudo,fwdParams);
-	rev = VideoTranscoderCreate(chan,revParams);
-
 	/* Set caller id */
 	ast_set_callerid(pseudo, chan->cid.cid_num, chan->cid.cid_name, chan->cid.cid_num);
 
@@ -946,6 +943,14 @@ static int app_transcode(struct ast_channel *chan, void *data)
 	if (pseudo->_state != AST_STATE_UP)
 		/* goto end */
 		goto clean_pseudo; 
+
+	/* Log */
+	ast_log(LOG_WARNING,">Transcoding [%s,%s,%s]\n",fwdParams,local,revParams);
+
+	/* Create contexts */
+	fwd = VideoTranscoderCreate(pseudo,fwdParams);
+	rev = VideoTranscoderCreate(chan,revParams);
+
 
 	/* Answer channel */
 	ast_answer(chan);
@@ -1022,6 +1027,16 @@ static int app_transcode(struct ast_channel *chan, void *data)
 		}
 	}
 
+	/* Log */
+	ast_log(LOG_WARNING,"-end loop");
+
+	/* Destroy transcoders */
+	if (fwd)
+		VideoTranscoderDestroy(fwd);
+	if (rev)
+		VideoTranscoderDestroy(rev);
+
+	ast_log(LOG_WARNING,"-Hanging up \n");
 
 hangup_pseudo:
 	/* Hangup pseudo channel if needed */
@@ -1031,17 +1046,15 @@ clean_pseudo:
 	/* Destroy pseudo channel */
 	ast_hangup(pseudo);
 
+	/* Log */
+	ast_log(LOG_WARNING,"<Transcoding\n");
+
 end:
 	/* Free params */
 	free(fwdParams);
 	free(local);
 	free(revParams);
 
-	/* Destroy transcoders */
-	if (fwd)
-		VideoTranscoderDestroy(fwd);
-	if (rev)
-		VideoTranscoderDestroy(rev);
 
 	/* Unlock module*/
 	ast_module_user_remove(u);
