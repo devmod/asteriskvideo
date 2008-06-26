@@ -173,7 +173,8 @@ static void SendVideoFrame(struct VideoTranscoder *vtc, void *data, unsigned int
 	send->mallocd = 0;
 
 	/* Send */
-	vtc->channel->tech->write_video(vtc->channel, send);
+	//vtc->channel->tech->write_video(vtc->channel, send);
+	ast_write(vtc->channel, send);
 
 	/* Free frame */
 	free(send);
@@ -991,8 +992,11 @@ static int app_transcode(struct ast_channel *chan, void *data)
 			} else if (f->frametype == AST_FRAME_CONTROL)  {
 				/* Check for hangup */
 				if (f->subclass == AST_CONTROL_HANGUP)
+				{
 					/* Hangup */
 					reason = AST_CAUSE_NORMAL_CLEARING;
+					ast_log(LOG_WARNING,"-AST_CONTROL_HANGUP\n"); 
+				}
 				/* delete frame */
 				ast_frfree(f);
 			} else {
