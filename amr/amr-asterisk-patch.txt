@@ -177,7 +177,7 @@ Index: codecs/Makefile
  $(if $(filter codec_ilbc,$(EMBEDDED_MODS)),modules.link,codec_ilbc.so): $(LIBILBC)
 +
 +$(LIBAMR):
-+	@$(MAKE) -C amr
++	@$(MAKE) -C amr all
 +
 +$(if $(filter codec_amr,$(EMBEDDED_MODS)),modules.link,codec_amr.so): $(LIBAMR)
 +
