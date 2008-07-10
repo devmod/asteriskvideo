@@ -1078,7 +1078,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	rtpBuffer = (void*)sendFrame + AST_FRIENDLY_OFFSET;
 
 	/* log */
-	ast_log(LOG_DEBUG,"-rtsp play loop\n");
+	ast_log(LOG_DEBUG,"-rtsp play loop [%d]\n",duration);
 
 	/* Loop */
 	while(!player->end)
@@ -1381,7 +1381,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 						free(range);
 					}
 					/* If the video has end */
-					if (duration!=-1)
+					if (duration>0)
 						/* Init counter */
 						tv = ast_tvnow();
 					/* log */

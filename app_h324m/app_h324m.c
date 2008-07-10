@@ -160,7 +160,7 @@ static struct ast_cli_entry  cli_debug =
                 "Set app_h324m debug log level", debug_usage };
 
 
-static short blockSize[16] = { 13, 14, 16, 18, 19, 21, 26, 31,  6, -1, -1, -1, -1, -1, -1, -1};
+static short blockSize[16] = { 12, 13, 16, 18, 19, 21, 26, 31,  6, -1, -1, -1, -1, -1, -1, -1};
 static short if2stuffing[16] = {5,  5,  6,  6,  0,  5,  0,  0,  5,  1,  6,  7, -1, -1, -1,  4};
 
 /* 1st dummy AMR-SID frame (comfort noise) */
@@ -543,10 +543,12 @@ static void* create_h324m_frame(struct h324m_packetizer *pak,struct ast_frame* f
 			/*Get Stuffing bits*/
 			int stuf = if2stuffing[mode];
 
+			ast_log(LOG_DEBUG, "create_h324m_frame: Creatubg frame bs %d,stuf %di,mode %d\n",bs,stuf,mode);
+
 			if (pak->offset + bs > pak->framedata + pak->framelength) {
 				ast_log(LOG_DEBUG, "create_h324m_frame: error decoding AMR structure - block exceeds buffer\n");
-				ast_log(LOG_DEBUG, "create_h324m_frame: pak->offset=%p;bs=%d, pak->framedata=%p,pak->framelength=%d\n",
-					pak->offset,bs,pak->framedata,pak->framelength);
+				ast_log(LOG_DEBUG, "create_h324m_frame: pak->offset=%p (%d);bs=%d, pak->framedata=%p,pak->framelength=%d\n",
+					pak->offset,(pak->framedata-pak->offset),bs,pak->framedata,pak->framelength);
 
 				/* exit */
 				break;
