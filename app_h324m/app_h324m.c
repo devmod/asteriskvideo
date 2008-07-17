@@ -158,9 +158,75 @@ static char debug_usage[] =
 static struct ast_cli_entry  cli_debug =
         { { "h324m", "debug", "level" }, h324m_do_debug,
                 "Set app_h324m debug log level", debug_usage };
+/*
+
+These are the different AMR modes (Table 1 from RFC 3267)
+
+                                     Class A   total speech
+                   Index   Mode       bits       bits
+                   ----------------------------------------
+                     0     AMR 4.75   42         95
+                     1     AMR 5.15   49        103
+                     2     AMR 5.9    55        118
+                     3     AMR 6.7    58        134
+                     4     AMR 7.4    61        148
+                     5     AMR 7.95   75        159
+                     6     AMR 10.2   65        204
+                     7     AMR 12.2   81        244
+                     8     AMR SID    39         39
+
+           Table 1.  The number of class A bits for the AMR codec.
+
+Asterisk's internal AMR format:
+===============================
+
+Asterisk internally use the "octed-aligned" RTP format in ast_frame.
+(see section 4.4 in RFC 3267)
+This allows to have multiple AMR frames in one Asterisk frame. This
+means, the payload of an ast_frame wich contains N AMR frames consists
+of (se also section 4.4.5.1 of RFC 3267):
+
+   1. 1 byte CMR (codec mode request)
+   2. N byte TOC (the TOC contains the AMR mode of the respecitve frame
+      and one bit which tells us if it is the last TOC or if there are
+      some more)
+   3. blocksize(AMR frame 0) + ..... + blocksize(AMR frame N)
+
+We define the blocksize of an AMR frame os the number of bytes needed
+to contain an AMR frame in the respective mode. Thus, it is the number
+of total speech bits divided by 8 and rounded upwards.
+E.g. an AMR frame in mode 5 has 159 bits. To store this frame we need
+20 bytes. Thus, the blocksize of an AMR frame in mode 5 is 20 bytes.
+
+H324M AMR format:
+=================
+In H324M, the AMR frames received from are in if2 format from libh324m.
+(see Annex A in TS 26.101). This means that there are 4 bits for the AMR
+mode followed by the speech bits. E.g. an AMR frame in mode 5 in if format
+needs 159+4 => 21 bytes.
+There is always only one AMR frame in an if2 packet.
+
+Extended Table 1:
+==================
+
+                         Class A   total speech   block   if2 frame
+       Index   Mode       bits       bits          size     size
+       -------------------------------------------------------------
+         0     AMR 4.75   42         95            12        13
+         1     AMR 5.15   49        103            13        14
+         2     AMR 5.9    55        118            15        16
+         3     AMR 6.7    58        134            17        18
+         4     AMR 7.4    61        148            19        19
+         5     AMR 7.95   75        159            20        21
+         6     AMR 10.2   65        204            26        26
+         7     AMR 12.2   81        244            31        31
+         8     AMR SID    39         39             5         6
+
+*/
 
 
-static short blockSize[16] = { 12, 13, 16, 18, 19, 21, 26, 31,  6, -1, -1, -1, -1, -1, -1, -1};
+
+static short blockSize[16] = { 12, 13, 15, 17, 19, 20, 26, 31,  5, -1, -1, -1, -1, -1, -1, -1};
 static short if2stuffing[16] = {5,  5,  6,  6,  0,  5,  0,  0,  5,  1,  6,  7, -1, -1, -1,  4};
 
 /* 1st dummy AMR-SID frame (comfort noise) */
@@ -258,6 +324,9 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 				data[bs] = data[bs - 1] << 4;
 				/*Increase size of frame*/
 				send->datalen++;
+			} else {
+				/* Set last byte */
+				data[bs] = data[bs] >> 4 | data[bs-1] << 4;
 			}
 			
 			/* For each byte */
