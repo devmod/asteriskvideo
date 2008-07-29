@@ -1,5 +1,5 @@
-CXXFLAGS = -DP_USE_PRAGMA -g -D_REENTRANT -O3 -Wall -fPIC -DPIC -DPTRACING
-CFLAGS = -DP_USE_PRAGMA -g -D_REENTRANT -O3 -Wall -fPIC -DPIC -DPTRACING 
+CXXFLAGS = -g -D_REENTRANT -O3 -Wall -fPIC -DPIC -DPTRACING -fno-exceptions
+FLAGS = -g -D_REENTRANT -O3 -Wall -fPIC -DPIC -DPTRACING  -fno-exceptions
 
 SRC = golay.c \
 	log.cpp \

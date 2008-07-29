@@ -1,4 +1,4 @@
-CXXFLAGS=-g -O3 -fPIC -DPIC
+CXXFLAGS=-g -O3 -fPIC -DPIC -D_REENTRANT -fno-exceptions 
 LDFLAGS=`ptlib-config --libs` -fPIC
 
 all: libh324m test
