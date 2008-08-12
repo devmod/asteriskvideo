@@ -778,6 +778,9 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 		/* goto end */
 		goto end; 
 
+	/* Copy global variables from incoming channel to local channel */
+	ast_channel_inherit_variables(chan, pseudo);
+
 	/* Set caller id */
 	ast_set_callerid(pseudo, chan->cid.cid_num, chan->cid.cid_name, chan->cid.cid_num);
 
@@ -1102,6 +1105,9 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	if (!pseudo)
 		/* goto end */
 		goto end; 
+
+	/* Copy global variables from incoming channel to local channel */
+	ast_channel_inherit_variables(chan, pseudo);
 
 	/* Set caller id */
 	ast_set_callerid(pseudo, chan->cid.cid_num, chan->cid.cid_name, chan->cid.cid_num);
