@@ -31,7 +31,6 @@
 
 #include <asterisk.h>
 
-#include <mp4.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -49,12 +48,12 @@
 #include "asterisk/app.h"
 
 #ifndef AST_FORMAT_AMRNB
-#define AST_FORMAT_AMRNB 	(1 << 13)
+#define AST_FORMAT_AMRNB	(1 << 13)
 #endif
 
-static char *app_play = "mp4play";
-static char *syn_play = "MP4 file playblack";
-static char *des_play = "  mp4play(filename,[options]):  Play mp4 file to user. \n"
+static const char *app_play = "mp4play";
+static const char *syn_play = "MP4 file playblack";
+static const char *des_play = "  mp4play(filename,[options]):  Play mp4 file to user. \n"
         "\n"
         "Available options:\n"
         " 'n(x)': number of digits (x) to wait for \n"
@@ -69,9 +68,9 @@ static char *des_play = "  mp4play(filename,[options]):  Play mp4 file to user. 
         " mp4play(/tmp/test.mp4,'n(3)s(#)') 		play video file, wait for 3 digits or break on '#' \n";
 
 
-static char *app_save = "mp4save";
-static char *syn_save = "MP4 file record";
-static char *des_save = "  mp4save(filename,[options]):  Record mp4 file. \n"
+static const char *app_save = "mp4save";
+static const char *syn_save = "MP4 file record";
+static const char *des_save = "  mp4save(filename,[options]):  Record mp4 file. \n"
         "Note: If you are working with amr it's recommended that you use 3gp\n"
         "as your file extension if you want to play it with a video player.\n"
         "\n"
@@ -183,10 +182,10 @@ static void mp4_rtp_write_video_frame(struct mp4track *t, int samples)
 	MP4WriteSample(t->mp4, t->track, t->frame, t->length, samples, 0, t->intra);
 }
 
-static int mp4_rtp_write_video(struct mp4track *t, struct ast_frame *f, int payload, bool intra, int skip, unsigned char * prependBuffer, int prependLength)
+static int mp4_rtp_write_video(struct mp4track *t, struct ast_frame *f, int payload, bool intra, int skip, const unsigned char * prependBuffer, int prependLength)
 {
 	/* rtp mark */
-	bool mBit = f->subclass & 0x1;
+	const bool mBit = f->subclass & 0x1;
 
 	/* If it's the first packet of a new frame */
 	if (t->first) {
@@ -268,7 +267,8 @@ struct mp4rtp {
 
 static int mp4_rtp_read(struct mp4rtp *p)
 {
-	unsigned char buffer[sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 1500];
+#define BUFFERLEN (sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 1500)
+	unsigned char buffer[BUFFERLEN + 1];
 	struct ast_frame *f = (struct ast_frame *) buffer;
 	int next = 0;
 	int last = 0;
@@ -300,7 +300,7 @@ static int mp4_rtp_read(struct mp4rtp *p)
 		last = 1;
 
 	/* Unset */
-	memset(f, 0, sizeof(struct ast_frame) + 1500 + AST_FRIENDLY_OFFSET);
+	memset(f, 0, BUFFERLEN);
 
 	/* Let mp4 lib allocate memory */
 	f->data = (void*)f + AST_FRIENDLY_OFFSET;
@@ -358,7 +358,7 @@ static int mp4_rtp_read(struct mp4rtp *p)
 	}
 
 	/* Set next send time */
-	if (!last && f->frametype == AST_FRAME_VIDEO)
+	if ((!last) && (f->frametype == AST_FRAME_VIDEO))
 		/* Send next now if it's not the last packet of the frame */
 		/* This will send all the packets from the same frame without pausing between them */
 		/* FIX: should wait depending on bandwith */
@@ -375,20 +375,20 @@ static int mp4_rtp_read(struct mp4rtp *p)
 
 static int mp4_play(struct ast_channel *chan, void *data)
 {
-	struct ast_module_user *u;
+	struct ast_module_user *u = NULL;
 	struct mp4rtp audio = { chan, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0 };
 	struct mp4rtp video = { chan, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0 };
 	MP4FileHandle mp4;
 	MP4TrackId hintId;
 	MP4TrackId trackId;
-	const char *type = NULL;
 	int audioNext = -1;
 	int videoNext = -1;
 	int t = 0;
 	int i = 0;
-	struct ast_frame *f;
+	struct ast_frame *f = NULL;
 	char src[128];
 	int res = 0;
+	struct timeval tv ;
 
 	char *parse;
 	int numberofDigits = -1;
@@ -407,10 +407,9 @@ static int mp4_play(struct ast_channel *chan, void *data)
         }
 
 	ast_log(LOG_DEBUG, "mp4play %s\n", (char *)data);
-	printf( "mp4play %s\n", (char *)data);
 
 	/* Set random src */
-	sprintf(src,"mp4play%08lx", ast_random());
+	snprintf(src, 128, "mp4play%08lx", ast_random());
 	audio.src = src;
 	video.src = src;
 
@@ -502,7 +501,6 @@ static int mp4_play(struct ast_channel *chan, void *data)
 	while (hintId != MP4_INVALID_TRACK_ID) {
 
 		ast_log(LOG_DEBUG, "found hint track %d\n", hintId);
-		printf( "found hint track %d\n", hintId);
 
 		/* Get asociated track */
 		trackId = MP4GetHintTrackReferenceTrackId(mp4, hintId);
@@ -511,10 +509,9 @@ static int mp4_play(struct ast_channel *chan, void *data)
 		if (trackId != MP4_INVALID_TRACK_ID) {
 
 			/* Get type */
-			type = MP4GetTrackType(mp4, trackId);
+			const char *type = MP4GetTrackType(mp4, trackId);
 
 			ast_log(LOG_DEBUG, "track %d %s\n", trackId, type);
-			printf( "track %d %s\n", trackId, type);
 
 			/* Check track type */
 			if (strcmp(type, MP4_AUDIO_TRACK_TYPE) == 0) {
@@ -567,6 +564,8 @@ static int mp4_play(struct ast_channel *chan, void *data)
 				/* Get time scale */
 				video.timeScale = MP4GetTrackTimeScale(mp4, hintId);
 
+				ast_log(LOG_DEBUG, "video.name %s\n", video.name);
+
 				/* Depending on the name */
 				if (strcmp("H263", video.name) == 0)
 					video.frameSubClass = AST_FORMAT_H263;
@@ -594,10 +593,10 @@ static int mp4_play(struct ast_channel *chan, void *data)
 		videoNext = mp4_rtp_read(&video);
 
 	/* Calculate start time */
-	struct timeval tv = ast_tvnow();
+	tv = ast_tvnow();
 
 	/* Wait control messages or finish of both streams */
-	while (!(audioNext < 0 && videoNext < 0)) {
+	while (!((audioNext < 0) && (videoNext < 0))) {
 		/* Get next time */
 		if (audioNext < 0)
 			t = videoNext;
@@ -643,7 +642,7 @@ static int mp4_play(struct ast_channel *chan, void *data)
 					dtmf[1] = 0;
 
 					/* Check if it's in the stop char digits */
-					if (stopChars && strchr(stopChars,dtmf)) {
+					if (stopChars && strchr(stopChars,dtmf[0])) {
 						/* Clean DMTF input */
 						strcpy(dtmfBuffer,dtmf);
 						/* Stop */
@@ -735,10 +734,11 @@ clean:
 	/* Exit */
 	return res;
 }
+
 static int mp4_save(struct ast_channel *chan, void *data)
 {
-	struct ast_module_user *u;
-	struct ast_frame *f;
+	struct ast_module_user *u = NULL;
+	struct ast_frame *f = NULL;
 	struct mp4track audioTrack;
 	struct mp4track videoTrack;
 	MP4FileHandle mp4;
@@ -814,7 +814,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 			break;
 
 		/* Check if we have to wait for video */
-		if (f->frametype == AST_FRAME_VOICE && !waitVideo)
+		if ((f->frametype == AST_FRAME_VOICE) && (!waitVideo)) 
 		{
 			/* Check if we have the audio track */
 			if (audio == -1)
@@ -886,17 +886,18 @@ static int mp4_save(struct ast_channel *chan, void *data)
 				/* Check if it's an intra frame */
 				intra = (frame[1] & 0x10) != 0;
 				/* Check PSC for first packet of frame */
-				if ( f->datalen>7 && (frame[4] == 0) && (frame[5] == 0) && ((frame[6] & 0xFC) == 0x80) )
+				if ( (f->datalen>7) && (frame[4] == 0) && (frame[5] == 0) && ((frame[6] & 0xFC) == 0x80) )
 					/* It's first */
 					first = 1;
 				/* payload length */
 				video_payload = 4;
 			} else if (f->subclass & AST_FORMAT_H263_PLUS) {
 				/* Check if it's an intra frame */
-				unsigned char p = frame[0] & 0x04;
-				unsigned char v = frame[0] & 0x02;
-				unsigned char plen = ((frame[0] & 0x1 ) << 5 ) | (frame[1] >> 3);
-				unsigned char pebit = frame[0] & 0x7;
+				const unsigned char p = frame[0] & 0x04;
+				const unsigned char v = frame[0] & 0x02;
+				const unsigned char plen = ((frame[0] & 0x1 ) << 5 ) | (frame[1] >> 3);
+				// const unsigned char pebit = frame[0] & 0x7; unused variable
+				
 				/* payload length */
 				video_payload = 2;
 				/* skip rest of headers */
@@ -909,13 +910,13 @@ static int mp4_save(struct ast_channel *chan, void *data)
 					/* Check for intra in stream */
 					intra = !(frame[4] & 0x02);
 					/* Prepend open code */
-					prependBuffer = "\0\0";
+					prependBuffer = (unsigned char*)"\0\0";
 					prependLength = 2;
 				}
 			} else if (f->subclass & AST_FORMAT_H264) {
 				/* Get packet type */
-				unsigned char nal = frame[0];
-    				unsigned char type = nal & 0x1f;
+				const unsigned char nal = frame[0];
+				const unsigned char type = nal & 0x1f;
 				/* All intra & first*/
 				intra = 1;
 				first = 1;
@@ -923,7 +924,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 				if (type<23) 
 				{
 					/* And add the data to the frame but not associated with the hint track */
-					prependBuffer = "\0\0\1";
+					prependBuffer = (unsigned char*)"\0\0\1";
 					prependLength = 3;
 					/* Set payload and skip */
 					video_payload = 0;
@@ -1049,9 +1050,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 
 static int unload_module(void)
 {
-	int res;
-
-	res = ast_unregister_application(app_play);
+	int res = ast_unregister_application(app_play);
 	res &= ast_unregister_application(app_save);
 
 	ast_module_user_hangup_all();
@@ -1061,12 +1060,11 @@ static int unload_module(void)
 
 static int load_module(void)
 {
-	int res;
-
-	res = ast_register_application(app_save, mp4_save, syn_save, des_save);
+	int res = ast_register_application(app_save, mp4_save, syn_save, des_save);
 	res &= ast_register_application(app_play, mp4_play, syn_play, des_play);
 	return 0;
 }
 
 AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "MP4 applications");
+
 
