@@ -1,0 +1,160 @@
+--- asterisk-1.6.0-beta9/build_tools/embed_modules.xml	2007-12-17 09:25:35.000000000 +0200
++++ asterisk-1.6.0-beta9-AMR//build_tools/embed_modules.xml	2008-06-29 05:10:32.000000000 +0300
+@@ -8,7 +8,7 @@
+ 		<member name="CHANNELS" displayname="Channels" remove_on_change="channels/*.o channels/misdn/*.o">
+ 			<depend>gnu_ld</depend>
+ 		</member>
+-		<member name="CODECS" displayname="Coders/Decoders" remove_on_change="codecs/*.o codecs/gsm/src/*.o codecs/ilbc/*.o codecs/lpc10/*.o codecs/gsm/lib/libgsm.a codecs/lpc10/liblpc10.a codecs/ilbc/libilbc.a codecs/g722/libg722.a">
++		<member name="CODECS" displayname="Coders/Decoders" remove_on_change="codecs/*.o codecs/gsm/src/*.o codecs/ilbc/*.o codecs/lpc10/*.o codecs/gsm/lib/libgsm.a codecs/lpc10/liblpc10.a codecs/ilbc/libilbc.a codecs/g722/libg722.a codecs/amr/libamr.a">
+ 			<depend>gnu_ld</depend>
+ 		</member>
+ 		<member name="FORMATS" displayname="File Formats" remove_on_change="formats/*.o">
+--- asterisk-1.6.0-beta9/include/asterisk/frame.h	2008-04-17 19:48:47.000000000 +0300
++++ asterisk-1.6.0-beta9-AMR//include/asterisk/frame.h	2008-06-29 05:12:10.000000000 +0300
+@@ -255,6 +255,8 @@
+ #define AST_FORMAT_G726		(1 << 11)
+ /*! G.722 */
+ #define AST_FORMAT_G722		(1 << 12)
++/*! AMR-NB */
++#define AST_FORMAT_AMRNB       (1 << 13)
+ /*! Raw 16-bit Signed Linear (16000 Hz) PCM */
+ #define AST_FORMAT_SLINEAR16	(1 << 15)
+ /*! Maximum audio mask */
+--- asterisk-1.6.0-beta9/main/channel.c	2008-05-14 02:58:34.000000000 +0300
++++ asterisk-1.6.0-beta9-AMR//main/channel.c	2008-06-29 05:13:34.000000000 +0300
+@@ -727,6 +727,8 @@
+ 		/*! Okay, we're down to vocoders now, so pick GSM because it's small and easier to
+ 		    translate and sounds pretty good */
+ 		AST_FORMAT_GSM,
++		/*! AMR */
++		AST_FORMAT_AMRNB,
+ 		/*! iLBC is not too bad */
+ 		AST_FORMAT_ILBC,
+ 		/*! Speex is free, but computationally more expensive than GSM */
+--- asterisk-1.6.0-beta9/main/translate.c	2008-03-18 17:58:50.000000000 +0200
++++ asterisk-1.6.0-beta9-AMR//main/translate.c	2008-06-29 05:14:41.000000000 +0300
+@@ -510,7 +510,7 @@
+ 
+ static char *handle_cli_core_show_translation(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
+ {
+-#define SHOW_TRANS 16
++#define SHOW_TRANS 17
+ 	int x, y, z;
+ 	int curlen = 0, longest = 0;
+ 
+--- asterisk-1.6.0-beta9/main/rtp.c	2008-04-14 16:54:25.000000000 +0300
++++ asterisk-1.6.0-beta9-AMR//main/rtp.c	2008-06-29 05:16:15.000000000 +0300
+@@ -1664,6 +1664,7 @@
+ 	{{1, AST_FORMAT_ILBC}, "audio", "iLBC"},
+ 	{{1, AST_FORMAT_G722}, "audio", "G722"},
+ 	{{1, AST_FORMAT_G726_AAL2}, "audio", "AAL2-G726-32"},
++	{{1, AST_FORMAT_AMRNB}, "audio", "AMR"},
+ 	{{0, AST_RTP_DTMF}, "audio", "telephone-event"},
+ 	{{0, AST_RTP_CISCO_DTMF}, "audio", "cisco-telephone-event"},
+ 	{{0, AST_RTP_CN}, "audio", "CN"},
+@@ -1711,6 +1712,7 @@
+ 	[34] = {1, AST_FORMAT_H263},
+ 	[97] = {1, AST_FORMAT_ILBC},
+ 	[98] = {1, AST_FORMAT_H263_PLUS},
++	[96] = {1, AST_FORMAT_AMRNB},
+ 	[99] = {1, AST_FORMAT_H264},
+ 	[101] = {0, AST_RTP_DTMF},
+ 	[102] = {1, AST_FORMAT_T140},	/* Real time text chat */
+--- asterisk-1.6.0-beta9/main/frame.c	2008-04-17 19:48:47.000000000 +0300
++++ asterisk-1.6.0-beta9-AMR//main/frame.c	2008-06-29 05:26:36.000000000 +0300
+@@ -112,6 +112,7 @@
+ 	{ AST_FORMAT_ILBC, "ilbc", 8000, "iLBC", 50, 30, 30, 30, 30 },                                         /*!< codec_ilbc.c */ /* inc=30ms - workaround */
+ 	{ AST_FORMAT_G726_AAL2, "g726aal2", 8000, "G.726 AAL2", 40, 10, 300, 10, 20 },                         /*!< codec_g726.c */
+ 	{ AST_FORMAT_G722, "g722", 16000, "G722", 80, 10, 150, 10, 20 },                                       /*!< codec_g722.c */
++	{ AST_FORMAT_AMRNB, "amr", 8000, "AMR NB", 32, 20, 300, 0, 20 },          /*!<  codec_amr.c */
+ 	{ AST_FORMAT_SLINEAR16, "slin16", 16000, "16 bit Signed Linear PCM (16kHz)", 320, 10, 70, 10, 20 },    /*!< Signed linear (16kHz) */
+ 	{ AST_FORMAT_JPEG, "jpeg", 0, "JPEG image"},                                                           /*!< See format_jpeg.c */
+ 	{ AST_FORMAT_PNG, "png", 0, "PNG image"},                                                              /*!< PNG Image format */
+@@ -626,7 +627,7 @@
+ 	ast_cli(a->fd, "--------------------------------------------------------------------------------\n");
+ 	if ((a->argc == 3) || (!strcasecmp(a->argv[3],"audio"))) {
+ 		found = 1;
+-		for (i=0;i<13;i++) {
++		for (i=0;i<14;i++) {
+ 			snprintf(hex,25,"(0x%x)",1<<i);
+ 			ast_cli(a->fd, "%11u (1 << %2d) %10s  audio   %8s   (%s)\n",1 << i,i,hex,ast_getformatname(1<<i),ast_codec2str(1<<i));
+ 		}
+@@ -1398,6 +1399,37 @@
+ 	return cnt;
+ }
+ 
++static int amr_samples(unsigned char *data, int datalen)
++{
++       short block_size[16]={ 12, 13, 15, 17, 19, 20, 26, 31, 5, 0, 0, 0, 0, 0, 0, 0 };
++       int samples = 0;
++
++       /* we asume RTP octed aligned format (RFC 4867 section 4.4)
++          skip first octed (CMR) */
++       datalen--;
++       data++;
++
++       while (datalen > 0) {
++               unsigned dec_mode = (data[0]>>3) & 0x000f;
++               unsigned psize = block_size[dec_mode];
++
++               if (psize)
++                       samples += 160;
++
++               if ( !(data[0]>>7) ) {
++                       /* this was the last ToC entry */
++                       break;
++               }
++
++               data++; /* Skip over the block. */
++               datalen --;
++               /* ast_verbose("Got AMR frame size %d inside ast_frame\n", psize); */
++       }
++       /* todo: how can we signal an error while decoding the frame structure? */
++       return samples;
++}
++
++
+ int ast_codec_get_samples(struct ast_frame *f)
+ {
+ 	int samples=0;
+@@ -1436,6 +1468,9 @@
+ 	case AST_FORMAT_G726_AAL2:
+ 		samples = f->datalen * 2;
+ 		break;
++	case AST_FORMAT_AMRNB:
++		samples = amr_samples(f->data, f->datalen);
++		break;
+ 	default:
+ 		ast_log(LOG_WARNING, "Unable to calculate samples for format %s\n", ast_getformatname(f->subclass));
+ 	}
+--- asterisk-1.6.0-beta9/codecs/Makefile	2008-03-26 19:15:06.000000000 +0200
++++ asterisk-1.6.0-beta9-AMR//codecs/Makefile	2008-06-29 05:30:52.000000000 +0300
+@@ -20,6 +20,7 @@
+ LIBILBC:=ilbc/libilbc.a
+ LIBLPC10:=lpc10/liblpc10.a
+ LIBG722:=g722/libg722.a
++LIBAMR:=amr/libamr.a
+ 
+ all: _all
+ 
+@@ -35,6 +36,7 @@
+ 	$(MAKE) -C lpc10 clean
+ 	$(MAKE) -C ilbc clean
+ 	$(MAKE) -C g722 clean
++	$(MAKE) -C amr clean
+ 
+ gsm/lib/libgsm.a:
+ 	@mkdir -p gsm/lib
+@@ -50,6 +52,12 @@
+ 
+ $(if $(filter codec_ilbc,$(EMBEDDED_MODS)),modules.link,codec_ilbc.so): $(LIBILBC)
+ 
++$(LIBAMR):
++	@$(MAKE) -C amr all
++
++$(if $(filter codec_amr,$(EMBEDDED_MODS)),modules.link,codec_amr.so): $(LIBAMR)
++
++
+ FORCE:
+ 
+ $(LIBG722): FORCE

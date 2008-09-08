@@ -1,4 +1,7 @@
-This patch adds AMR-NB support to Asterisk
+This patch adds AMR-NB support to Asterisk 1.4
+
+(for Asterisk 1.6 check out asterisk 1.6 branch and use the 
+asterisk-1.6-AMR.patch patch (provided by Ivelin Ivanov))
 
 1. create the asterisk directory
 
