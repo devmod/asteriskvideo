@@ -824,6 +824,11 @@ static int mp4_save(struct ast_channel *chan, void *data)
 				{
 					/* Create audio track */
 					audio = MP4AddAudioTrack(mp4, 8000, 0, MP4_ULAW_AUDIO_TYPE);
+					/* Set channel and sample properties */
+					/* !!!! this should be under "mdia.minf.stbl.stsd.ulaw.*" 
+					 * but should have to rewrite MP4AddAudioTrack also then !!!!*/
+					MP4SetTrackIntegerProperty(mp4, audio, "mdia.minf.stbl.stsd.mp4a.channels", 1);
+					MP4SetTrackIntegerProperty(mp4, audio, "mdia.minf.stbl.stsd.mp4a.sampleSize", 8);
 					/* Create audio hint track */
 					hintAudio = MP4AddHintTrack(mp4, audio);
 					/* Set payload type for hint track */
@@ -833,6 +838,11 @@ static int mp4_save(struct ast_channel *chan, void *data)
 				} else if (f->subclass & AST_FORMAT_ALAW) {
 					/* Create audio track */
 					audio = MP4AddAudioTrack(mp4, 8000, 0, MP4_ALAW_AUDIO_TYPE);
+					/* Set channel and sample properties */
+					/* !!!! this should be under "mdia.minf.stbl.stsd.alaw.*" 
+					 * but should have to rewrite MP4AddAudioTrack also then !!!!*/
+					MP4SetTrackIntegerProperty(mp4, audio, "mdia.minf.stbl.stsd.mp4a.channels", 1);
+					MP4SetTrackIntegerProperty(mp4, audio, "mdia.minf.stbl.stsd.mp4a.sampleSize", 8);
 					/* Create audio hint track */
 					hintAudio = MP4AddHintTrack(mp4, audio);
 					/* Set payload type for hint track */
