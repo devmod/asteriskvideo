@@ -473,6 +473,8 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			} else {
 				/* Next it's not first */
 				vt->first = 0;
+				/* Reset samles */
+				vt->samples = 0;
 			}
 			/* Send */
 			return send;
