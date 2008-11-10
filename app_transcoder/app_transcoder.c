@@ -581,7 +581,6 @@ static struct VideoTranscoder * VideoTranscoderCreate(struct ast_channel *channe
         vtc->encoderCtx->flags |= CODEC_FLAG_PASS1;                 //PASS1
         vtc->encoderCtx->flags &= ~CODEC_FLAG_H263P_UMV;            //unrestricted motion vector
         vtc->encoderCtx->flags &= ~CODEC_FLAG_4MV;                  //advanced prediction
-        vtc->encoderCtx->flags &= ~CODEC_FLAG_H263P_AIC;            //advanced intra coding*/
         vtc->encoderCtx->flags |= CODEC_FLAG_H263P_SLICE_STRUCT;
 	
 	/* Open encoder */
@@ -682,7 +681,6 @@ static void VideoTranscoderSetDecoder(struct VideoTranscoder *vtc,int codec)
         /* Set context parameters*/
         vtc->decoderCtx->workaround_bugs    = 1;
         vtc->decoderCtx->error_concealment  = FF_EC_GUESS_MVS | FF_EC_DEBLOCK;
-	vtc->decoderCtx->rtp_mode           = 1;
 	vtc->decoderCtx->flags |= CODEC_FLAG_PART;
 
         /* Open */
