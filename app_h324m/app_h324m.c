@@ -1484,6 +1484,18 @@ static int unload_module(void)
 	return res;
 }
 
+static int h324m_log_asterisk_callback(const char* fmt, va_list vl)
+{
+	char msg[1024];
+
+	vsnprintf(msg,1024,fmt,vl);
+
+	ast_log(LOG_DEBUG, msg);
+
+	return 1;
+}
+
+
 static int load_module(void)
 {
 	int res;
@@ -1498,6 +1510,8 @@ static int load_module(void)
 	
 	/* No loging by default */
 	H324MLoggerSetLevel(1);
+	/* Set logger function */
+	H324MLoggerSetCallback(h324m_log_asterisk_callback);
 
 	return 0;
 }
