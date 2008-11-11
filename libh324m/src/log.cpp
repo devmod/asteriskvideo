@@ -4,9 +4,16 @@
 
 int Logger::level = 0;
 
+static int (*h324m_logger_callback)  (const char *, va_list) = vprintf;
+
 void Logger::SetLevel(int level)
 {
 	Logger::level = level;
+}
+
+void Logger::SetCallback(int (*callback)  (const char *, va_list))
+{
+	h324m_logger_callback = callback;
 }
 
 void Logger::Debug(const char* msg,...)
@@ -17,7 +24,7 @@ void Logger::Debug(const char* msg,...)
 		//Set list
 		va_start(ap,msg);
 		//Output
-		vprintf(msg,ap);
+		h324m_logger_callback(msg,ap);
 		//End list
 		va_end(ap);
 	}
@@ -31,7 +38,7 @@ void Logger::Warning(const char* msg,...)
 		//Set list
 		va_start(ap,msg);
 		//Output
-		vprintf(msg,ap);
+		h324m_logger_callback(msg,ap);
 		//End list
 		va_end(ap);
 	}
@@ -45,7 +52,7 @@ void Logger::Log(const char* msg,...)
 		//Set list
 		va_start(ap,msg);
 		//Output
-		vprintf(msg,ap);
+		h324m_logger_callback(msg,ap);
 		//End list
 		va_end(ap);
 	}
@@ -59,7 +66,7 @@ void Logger::Error(const char* msg,...)
 		//Set list
 		va_start(ap,msg);
 		//Output
-		vprintf(msg,ap);
+		h324m_logger_callback(msg,ap);
 		//End list
 		va_end(ap);
 	}

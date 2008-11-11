@@ -21,7 +21,7 @@ public:
 	static void Log(const char* msg,...);
 	static void Error(const char* msg,...);
 	static void SetLevel(int level);
-
+	static void SetCallback(int (*callback)  (const char *, va_list));
 protected:
 	static int level;
 };

@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "H324MMediaChannel.h"
+#include "log.h"
 
 
 H324MMediaChannel::H324MMediaChannel(int jitter, int delay)
@@ -175,6 +176,9 @@ Frame* H324MMediaChannel::GetFrame()
 
 int H324MMediaChannel::SendFrame(Frame *frame)
 {
+	//Debug
+	Logger::Debug("-Sending Frame [%d,%d]\n",frame->type,frame->dataLength);
+
 	//Check sender
 	if (!sender)
 		//Exit
@@ -182,7 +186,7 @@ int H324MMediaChannel::SendFrame(Frame *frame)
 
 	//Initial sdu length
 	DWORD len = 0;
-    DWORD pos = 0;
+    	DWORD pos = 0;
 
 	//Sen up to max size
 	while (pos<frame->dataLength)
@@ -195,6 +199,8 @@ int H324MMediaChannel::SendFrame(Frame *frame)
 			//Send 160
 			len = 160;
 
+		//Debug
+		Logger::Debug("-Sending PDU [%d,%d,%d]\n",pos,len,frame->dataLength);
 		//Send
 		((H223AL2Sender*)sender)->SendPDU(frame->data+pos,len);
 		//Increase len

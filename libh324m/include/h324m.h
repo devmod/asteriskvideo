@@ -20,6 +20,7 @@ extern "C"
 void 	TIFFReverseBits(unsigned char* buffer,int length);
 
 void 	H324MLoggerSetLevel(int level);
+void    H324MLoggerSetCallback(int (*callback)  (const char *, va_list));
 
 void*	H324MSessionCreate(void);
 void	H324MSessionDestroy(void * id);

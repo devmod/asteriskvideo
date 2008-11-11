@@ -118,6 +118,8 @@ H223AL2Sender::~H223AL2Sender()
 		delete pdu;
 	//Reset queue
 	Reset();
+	//Delete logger
+	delete logger;
 }
 
 H223MuxSDU* H223AL2Sender::GetNextPDU()
@@ -157,11 +159,11 @@ int H223AL2Sender::SendPDU(BYTE *buffer,int len)
 	//Append crc
 	sdu->Push(crc.Calc());
 
-	//Push sdu into jitterBuffer
-	jitBuf.Push( sdu );
-
 	//Dump media
 	logger->DumpMediaOutput(buffer,len);
+
+	//Push sdu into jitterBuffer
+	jitBuf.Push( sdu );
 
 	//exit
 	return true;
