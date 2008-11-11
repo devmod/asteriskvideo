@@ -13,7 +13,7 @@ void H324MLoggerSetLevel(int level)
 	Logger::SetLevel(level);	
 }
 
-void H324mLoggerSetCallback(int (*callback)  (const char *, va_list))
+void H324MLoggerSetCallback(int (*callback)  (const char *, va_list))
 {
 	Logger::SetCallback(callback);
 }
