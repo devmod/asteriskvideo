@@ -55,6 +55,7 @@ private:
 	jitterBuffer jitBuf;
 	int minPackets;
 	int minDelay;
+	Logger *logger;	
 };
 
 #endif

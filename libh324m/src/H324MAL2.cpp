@@ -73,7 +73,7 @@ void H223AL2Receiver::SendClosingFlag()
 	crc.Add(data,dataLen-1);
 
 	//Dump media
-	logger->DumpMedia(data+useSN,dataLen-useSN-1);
+	logger->DumpMediaInput(data+useSN,dataLen-useSN-1);
 	
 	//Calc
 	if (data[dataLen-1]!=crc.Calc())
@@ -106,6 +106,8 @@ H223AL2Sender::H223AL2Sender(int segmentable,int useSequenceNumbers)
 	//Set jitter buffer parameters
 	minDelay = 0;
 	minPackets = 0;
+	//Create logger
+	logger = new FileLogger();
 }
 
 H223AL2Sender::~H223AL2Sender()
@@ -157,6 +159,9 @@ int H223AL2Sender::SendPDU(BYTE *buffer,int len)
 
 	//Push sdu into jitterBuffer
 	jitBuf.Push( sdu );
+
+	//Dump media
+	logger->DumpMediaOutput(buffer,len);
 
 	//exit
 	return true;

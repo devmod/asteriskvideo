@@ -10,7 +10,8 @@ public:
 	virtual void SetMuxInfo(const char*info,...) = 0;
 	virtual void SetDemuxByte(BYTE b) = 0;
 	virtual void SetDemuxInfo(int offset,const char*info,...) = 0;
-	virtual void DumpMedia(BYTE *data,DWORD len)=0;
+	virtual void DumpMediaInput(BYTE *data,DWORD len)=0;
+	virtual void DumpMediaOutput(BYTE *data,DWORD len)=0;
 	virtual void DumpInput(BYTE *data,DWORD len)=0;
 	virtual void DumpOutput(BYTE *data,DWORD len)=0;
 	virtual ~Logger() {}

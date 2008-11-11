@@ -179,12 +179,12 @@ void FileLogger::SetDemuxInfo(int offset,const char*info,...)
 	}
 }
 
-void FileLogger::DumpMedia(BYTE *data,DWORD len)
+void FileLogger::DumpMediaInput(BYTE *data,DWORD len)
 {
 	if (level>=5)
 	{
 		char name[256];
-		sprintf(name,"/tmp/media_%p.raw",this);
+		sprintf(name,"/tmp/media_in_%p.raw",this);
 		int fd = open(name,O_CREAT|O_WRONLY|O_APPEND, S_IRUSR | S_IWUSR );
 		if (fd!=-1)
 		{
@@ -192,6 +192,21 @@ void FileLogger::DumpMedia(BYTE *data,DWORD len)
 			close(fd);
 		}
         }
+}
+
+void FileLogger::DumpMediaOutput(BYTE *data,DWORD len)
+{
+	if (level>=5)
+	{
+		char name[256];
+		printf(name,"/tmp/media_out_%p.raw",this);
+		int fd = open(name,O_CREAT|O_WRONLY|O_APPEND, S_IRUSR | S_IWUSR );
+		if (fd!=-1)
+		{
+			write(fd,data,len);
+			close(fd);
+		}
+	}
 }
 
 void FileLogger::DumpInput(BYTE *data,DWORD len)
