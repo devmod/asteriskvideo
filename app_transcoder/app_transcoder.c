@@ -55,15 +55,15 @@ struct VideoTranscoder
         AVFrame         *decoderPic;
 	int		decoderOpened;
 
-	char*	pictures[2];
+	uint8_t		*pictures[2];
 	int	picIndex;
 	int	width;
 	int 	height;
 	int 	newPic;
 
-	char* 	frame;
-	unsigned int	frameSize;
-	unsigned int	frameLen;
+	uint8_t		*frame;
+	uint32_t	frameSize;
+	uint32_t	frameLen;
 
 	/* Encoder */
 	AVCodec         *encoder;
@@ -71,9 +71,9 @@ struct VideoTranscoder
         AVFrame         *encoderPic;
 	int		encoderOpened;
 	
-	char* 	buffer;
-	unsigned int	bufferSize;
-	unsigned int	bufferLen;
+	uint8_t		*buffer;
+	uint32_t	bufferSize;
+	uint32_t	bufferLen;
 	int 	mb;
 	int	mb_total;
 	int 	sent_bytes;
@@ -95,7 +95,7 @@ struct VideoTranscoder
 	struct SwsContext* resizeCtx;
 	int	resizeWidth;
 	int	resizeHeight;
-	char*	resizeBuffer;
+	uint8_t	*resizeBuffer;
 	int	resizeSrc[3];
 	int	resizeDst[3];
 	int	resizeFlags;
@@ -106,57 +106,64 @@ struct RFC2190H263HeadersBasic
         //F=0             F=1
         //P=0   I/P frame       I/P mode b
         //P=1   B frame         B fame mode C
-        unsigned int trb:9;
-        unsigned int tr:3;
-        unsigned int dbq:2;
-        unsigned int r:3;
-        unsigned int a:1;
-        unsigned int s:1;
-        unsigned int u:1;
-        unsigned int i:1;
-        unsigned int src:3;
-        unsigned int ebits:3;
-        unsigned int sbits:3;
-        unsigned int p:1;
-        unsigned int f:1;
+        uint32_t trb:9;
+        uint32_t tr:3;
+        uint32_t dbq:2;
+        uint32_t r:3;
+        uint32_t a:1;
+        uint32_t s:1;
+        uint32_t u:1;
+        uint32_t i:1;
+        uint32_t src:3;
+        uint32_t ebits:3;
+        uint32_t sbits:3;
+        uint32_t p:1;
+        uint32_t f:1;
 };
 
 
-void RtpCallback(struct AVCodecContext *avctx, void *data, int size, int mb_nb);
 void * VideoTranscoderEncode(void *param);
 
-static void SendVideoFrame(struct VideoTranscoder *vtc, void *data, unsigned int size, int first, int last)
+static void SendVideoFrame(struct VideoTranscoder *vtc, uint8_t *data, uint32_t size, int first, int last)
 {
 	struct ast_frame *send;
+	uint8_t *frameData = NULL;
 
 	/* Create frame */
 	send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 2 + size);
 
+	/* Debug */
+	ast_log(LOG_DEBUG,"Send video frame [%p,%d,%d,%d,0x%.2x,0x%.2x,0x%.2x,0x%.2x]\n",send,size,first,last,data[0],data[1],data[2],data[3]);
+
 	/* clean */
 	memset(send,0,sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 2 + size);
+
+	/* Set frame data */
+	send->data =((uint8_t*)send) + sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET;
+	frameData = send->data;
+	send->datalen = 0;
+
 
 	/* if it¡s first */
 	if (first)
 	{
-		/* No data*/
-		send->data = (void*)send + AST_FRIENDLY_OFFSET;
+		/* Set frame len*/
 		send->datalen = size;
 		/* Copy */
-		memcpy(send->data+2, data+2, size-2);
+		memcpy(frameData+2, data+2, size-2);
 		/* Set header */
-		((unsigned char*)(send->data))[0] = 0x04;
-		((unsigned char*)(send->data))[1] = 0x00; 
+		frameData[0] = 0x04;
+		frameData[1] = 0x00; 
 		/* Set timestamp */
 		send->samples = 90000/vtc->fps;
 	} else {
-		/* No data*/
-		send->data = (void*)send + AST_FRIENDLY_OFFSET;
-		send->datalen =  size + 2  ;
+		/* Set frame len */
+		send->datalen = size+2;
 		/* Copy */
-		memcpy(send->data+2, data, size);
+		memcpy(frameData+2, data, size);
 		/* Set header */
-		((unsigned char*)(send->data))[0] = 0x00;
-		((unsigned char*)(send->data))[1] = 0x00;
+		frameData[0] = 0x00;
+		frameData[1] = 0x00;
 		/* Set timestamp */
 		send->samples = 0;
 	}
@@ -167,10 +174,12 @@ static void SendVideoFrame(struct VideoTranscoder *vtc, void *data, unsigned int
 	send->subclass = AST_FORMAT_H263_PLUS | last;
 	/* Rest of values*/
 	send->src = "transcoder";
-	send->delivery.tv_usec = 0; //(vtc->sent_bytes*8000)/vtc->bitrate;
-	send->delivery.tv_sec = 0;
+	send->delivery = ast_tv(0, 0);
 	/* Don't free the frame outrside */
 	send->mallocd = 0;
+
+	/* Debug */
+	ast_log(LOG_DEBUG,"Writting video frame [%p,%p,0x%.2x,0x%.2x,0x%.2x,0x%.2x,%d]\n",frameData,send->data,frameData[0],frameData[1],frameData[2],frameData[3],send->samples);
 
 	/* Send */
 	//vtc->channel->tech->write_video(vtc->channel, send);
@@ -245,7 +254,7 @@ void * VideoTranscoderEncode(void *param)
 		if (vtc->newPic)
 		{
 			/* Get buyffer */
-			char* buffer =  vtc->pictures[vtc->picIndex];
+			uint8_t* buffer =  vtc->pictures[vtc->picIndex];
 
 			/* Change picture decoding index */
 			vtc->picIndex = !vtc->picIndex;
@@ -263,8 +272,8 @@ void * VideoTranscoderEncode(void *param)
 					continue;
 
 				/* src & dst */
-				unsigned char* src[3];
-				unsigned char* dst[3];
+				uint8_t* src[3];
+				uint8_t* dst[3];
 
 				/* Set input picture data */
 				int numPixels = vtc->width*vtc->height;
@@ -304,10 +313,14 @@ void * VideoTranscoderEncode(void *param)
 			/* Encode */
 			vtc->bufferLen = avcodec_encode_video(vtc->encoderCtx,vtc->buffer,vtc->bufferSize,vtc->encoderPic);
 
+			/* Debug */
+			ast_log(LOG_DEBUG,"Encoded frame [%d,0x%.2x,0x%.2x,0x%.2x,0x%.2x]\n",vtc->bufferLen,vtc->buffer[0],vtc->buffer[1],vtc->buffer[2],vtc->buffer[3]);
+			
+
 			int first = 1;
 			int last  = 0;
-			unsigned int sent  = 0;
-			unsigned int len   = 0;
+			uint32_t sent  = 0;
+			uint32_t len   = 0;
 			
 			/* Send */
 			while(sent<vtc->bufferLen)
@@ -485,16 +498,16 @@ static struct VideoTranscoder * VideoTranscoderCreate(struct ast_channel *channe
 	/* Malloc input frame */
 	vtc->frameSize	= 65535;
 	vtc->frameLen	= 0;
-	vtc->frame 	= (char *)malloc(65535);
+	vtc->frame 	= (uint8_t *)malloc(65535);
 
 	/* Malloc output frame */
 	vtc->bufferSize	= 65535;
 	vtc->bufferLen	= 0;
-	vtc->buffer 	= (char *)malloc(65535);
+	vtc->buffer 	= (uint8_t *)malloc(65535);
 
 	/* Malloc decodec pictures */
-	vtc->pictures[0] = (char *)malloc(1179648); /* Max YUV 1024x768 */
-	vtc->pictures[1] = (char *)malloc(1179648); /* 1204*768*1.5 */
+	vtc->pictures[0] = (uint8_t *)malloc(1179648); /* Max YUV 1024x768 */
+	vtc->pictures[1] = (uint8_t *)malloc(1179648); /* 1204*768*1.5 */
 
 	/* First input frame */
 	vtc->picIndex	= 0;
@@ -527,12 +540,6 @@ static struct VideoTranscoder * VideoTranscoderCreate(struct ast_channel *channe
 	vtc->encoderCtx->pix_fmt 	= PIX_FMT_YUV420P;
 	vtc->encoderCtx->width		= vtc->encoderWidth;
 	vtc->encoderCtx->height 	= vtc->encoderHeight;
-
-	/* Rtp mode */
-        //vtc->encoderCtx->rtp_mode           = 1;
-        //vtc->encoderCtx->rtp_payload_size   = 1400;
-        //vtc->encoderCtx->rtp_callback       = RtpCallback;
-        //vtc->encoderCtx->opaque             = vtc;
 
 	/* fps*/
 	if (vtc->fps>0)
@@ -612,7 +619,7 @@ static void VideoTranscoderCleanFrame(struct VideoTranscoder *vtc)
 
 static int VideoTranscoderDecodeFrame(struct VideoTranscoder *vtc)
 {
-	char *bufDecode;
+	uint8_t *bufDecode;
 	int got_picture;
 	int i;
 
@@ -691,18 +698,7 @@ static void VideoTranscoderSetDecoder(struct VideoTranscoder *vtc,int codec)
 }
 
 
-void RtpCallback(struct AVCodecContext *avctx, void *data, int size, int mb_nb)
-{
-	/* Get transcoder */
-	struct VideoTranscoder *vtc = (struct VideoTranscoder*) avctx->opaque;
-	/* Send */
-	//SendVideoFrame(vtc,data,size,!vtc->mb,0);
-	/* Inc */
-	vtc->sent_bytes += size;
-	vtc->mb+=mb_nb;
-}
-
-static unsigned int rfc2190_append(unsigned char *dest, unsigned int destLen, unsigned char *buffer, unsigned int bufferLen)
+static uint32_t rfc2190_append(uint8_t *dest, uint32_t destLen, uint8_t *buffer, uint32_t bufferLen)
 {
 
 	/* Check length */
@@ -711,14 +707,14 @@ static unsigned int rfc2190_append(unsigned char *dest, unsigned int destLen, un
 		return 0;
 
 	/* Get headers */
-	unsigned int x = ntohl(*(unsigned int *)buffer);
+	uint32_t x = ntohl(*(uint32_t *)buffer);
 
 	/* Set headers */
-	struct RFC2190H263HeadersBasic *headers = (struct RFC2190H263HeadersBasic *)x;
+	struct RFC2190H263HeadersBasic *headers = (struct RFC2190H263HeadersBasic *)&x;
 
 	/* Get ini */
-	unsigned char* in = buffer + sizeof(struct RFC2190H263HeadersBasic);
-	unsigned int  len = sizeof(struct RFC2190H263HeadersBasic);
+	uint8_t* in = buffer + sizeof(struct RFC2190H263HeadersBasic);
+	uint32_t  len = sizeof(struct RFC2190H263HeadersBasic);
 
 	/* If C type */
 	if (headers->f)
@@ -752,22 +748,25 @@ static unsigned int rfc2190_append(unsigned char *dest, unsigned int destLen, un
 	return len;
 }
 
-static unsigned int rfc2429_append(unsigned char *dest, unsigned int destLen, unsigned char *buffer, unsigned int bufferLen)
+static uint32_t rfc2429_append(uint8_t *dest, uint32_t destLen, uint8_t *buffer, uint32_t bufferLen)
 {
+	/* Debug */
+	ast_log(LOG_DEBUG,"RFC2429 appending [%d:0x%.2x,0x%.2x]\n",bufferLen,buffer[0],buffer[1]);
+
 	/* Check length */
 	if (bufferLen<2)
 		/* exit */
 		return 0;
 
 	 /* Get header */
-	unsigned char p = buffer[0] & 0x04;
-	unsigned char v = buffer[0] & 0x02;
-	unsigned char plen = ((buffer[0] & 0x1 ) << 5 ) | (buffer[1] >> 3);
-	unsigned char pebit = buffer[0] & 0x7;
+	uint8_t p = buffer[0] & 0x04;
+	uint8_t v = buffer[0] & 0x02;
+	uint8_t plen = ((buffer[0] & 0x1 ) << 5 ) | (buffer[1] >> 3);
+	uint8_t pebit = buffer[0] & 0x7;
 
 	/* Get ini */
-	unsigned char* in = buffer+2+plen;
-	unsigned int  len = bufferLen-2-plen;
+	uint8_t* in = buffer+2+plen;
+	uint32_t  len = bufferLen-2-plen;
 
 	/* Check */
 	if (v)
@@ -795,7 +794,7 @@ static unsigned int rfc2429_append(unsigned char *dest, unsigned int destLen, un
 	return len;
 }
 
-static unsigned int mpeg4_append(unsigned char *dest, unsigned int destLen, unsigned char *buffer, unsigned int bufferLen)
+static uint32_t mpeg4_append(uint8_t *dest, uint32_t destLen, uint8_t *buffer, uint32_t bufferLen)
 {
 	/* Just copy */
 	memcpy(dest+destLen,buffer,bufferLen);
@@ -803,8 +802,11 @@ static unsigned int mpeg4_append(unsigned char *dest, unsigned int destLen, unsi
 	return bufferLen;
 }
 
-static unsigned int VideoTranscoderWrite(struct VideoTranscoder *vtc, int codec, unsigned char *buffer, unsigned int bufferLen, int mark)
+static uint32_t VideoTranscoderWrite(struct VideoTranscoder *vtc, int codec, uint8_t *buffer, uint32_t bufferLen, int mark)
 {
+	/* Debug */
+	ast_log(LOG_DEBUG,"Received video [%x,%d,%d]\n",codec,bufferLen,mark);
+
 	/* If not enougth */
 	if (bufferLen + vtc->frameLen > vtc->frameSize);
 		/* Clean frame */
@@ -1080,7 +1082,8 @@ static int unload_module(void)
 
 	return res;
 }
-void av_log_asterisk_callback(void* ptr, int level, const char* fmt, va_list vl)
+
+static void av_log_asterisk_callback(void* ptr, int level, const char* fmt, va_list vl)
 {
 	char msg[1024];
 
@@ -1107,4 +1110,4 @@ static int load_module(void)
 	return ast_register_application(name_transcode, app_transcode, syn_transcode, des_transcode);
 }
 
-AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "H324M stack");
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Video transcoer application");
