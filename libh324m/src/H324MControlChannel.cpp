@@ -252,6 +252,7 @@ int H324MControlChannel::OnEvent(const H245Connection::Event &event)
 			return OnMultiplexTable((const H245MuxTable::Event &)event);
 		case H245Connection::e_LogicalChannel:
 			return OnLogicalChannel((const H245LogicalChannels::Event &)event);
+		case H245Connection::e_LogicalChannelRate:
 		case H245Connection::e_ModeRequest:
 		case H245Connection::e_RoundTripDelay:
 			break;
@@ -465,6 +466,9 @@ int H324MControlChannel::OnError(ControlProtocolSource source, const void *str)
 			break;
 		case H245Connection::e_LogicalChannel:
 			Logger::Debug("LogicalChannel error %s",(char *) str);
+			break;
+		case H245Connection::e_LogicalChannelRate:
+			Logger::Debug("LogicalChannelRate  error %s",(char *) str);
 			break;
 		case H245Connection::e_ModeRequest:
 			Logger::Debug("ModeRequest error %s",(char *) str);

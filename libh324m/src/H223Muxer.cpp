@@ -239,8 +239,8 @@ inline BYTE H223Muxer::Multiplex()
 					log->SetMuxInfo("endflg");
 				} else {
 					//Create the flag
-					buffer[0] = ~0xE1;
-					buffer[1] = ~0x4D;
+					buffer[0] = (BYTE)~0xE1;
+					buffer[1] = (BYTE)~0x4D;
 					//Log
 					log->SetMuxInfo("dneflg");
 				}
