@@ -51,6 +51,10 @@
 #define AST_FORMAT_AMRNB	(1 << 13)
 #endif
 
+#define PKT_PAYLOAD	1450
+#define PKT_SIZE 	(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + PKT_PAYLOAD)
+#define PKT_OFFSET	(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET)
+
 static const char *app_play = "mp4play";
 static const char *syn_play = "MP4 file playblack";
 static const char *des_play = "  mp4play(filename,[options]):  Play mp4 file to user. \n"
@@ -267,8 +271,8 @@ struct mp4rtp {
 
 static int mp4_rtp_read(struct mp4rtp *p)
 {
-#define BUFFERLEN (sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 1500)
-	unsigned char buffer[BUFFERLEN + 1];
+
+	unsigned char buffer[PKT_SIZE];
 	struct ast_frame *f = (struct ast_frame *) buffer;
 	int next = 0;
 	int last = 0;
@@ -300,11 +304,11 @@ static int mp4_rtp_read(struct mp4rtp *p)
 		last = 1;
 
 	/* Unset */
-	memset(f, 0, BUFFERLEN);
+	memset(f, 0, PKT_SIZE);
 
 	/* Let mp4 lib allocate memory */
-	f->data = (void*)f + AST_FRIENDLY_OFFSET;
-	f->datalen = 1500;
+	f->data = (unsigned char*)f + PKT_OFFSET;
+	f->datalen = PKT_PAYLOAD;
 	f->src = strdup(p->src);
 
 	/* Set type */

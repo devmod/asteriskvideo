@@ -46,6 +46,11 @@
 #define AST_FRAME_DIGITAL 13
 #endif
 
+#define PKT_PAYLOAD     1450
+#define PKT_SIZE        (sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + PKT_PAYLOAD)
+#define PKT_OFFSET      (sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET)
+
+
 static char *name_h324m_loopback = "h324m_loopback";
 static char *syn_h324m_loopback = "H324m loopback mode";
 static char *des_h324m_loopback = "  h324m_loopback([options]):  Establish H.324M connection and loopback media.\n"
@@ -238,9 +243,9 @@ struct video_creator
 	struct timeval tvnext;
 	unsigned int samples;
 	unsigned char first;
-	unsigned char buffer[1500];
+	unsigned char buffer[PKT_PAYLOAD];
 	unsigned int bufferLength;
-	unsigned char frame[sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 1500];
+	unsigned char frame[PKT_SIZE];
 };
 
 static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
@@ -261,10 +266,10 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 	send = (struct ast_frame *) vt->frame;
 
 	/* Clear */
-	memset(send,0,sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 1500);
+	memset(send,0,PKT_SIZE);
 
 	/* Set data */
-	send->data = (unsigned char*)send + AST_FRIENDLY_OFFSET + sizeof(struct ast_frame);
+	send->data = (unsigned char*)send + PKT_OFFSET;
 	data = send->data;
 
 	/* Depending on the type */
@@ -1214,9 +1219,9 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	/* Init session */
 	H324MSessionInit(id);
 	/* Create enpty packet */
-	send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 160 );
+	send = (struct ast_frame *) malloc(PKT_SIZE);
 	/* No data*/
-	send->data = (void*)send + AST_FRIENDLY_OFFSET;
+	send->data = (unsigned char*)send + PKT_OFFSET;
 	send->datalen = 160;
 	/* Set DTMF type */
 	send->frametype = AST_FRAME_VOICE;

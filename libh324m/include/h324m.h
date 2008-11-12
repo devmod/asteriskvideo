@@ -1,5 +1,6 @@
 #ifndef _H324M_H_
 #define _H324M_H_
+#include <stdarg.h>
 
 #define MEDIA_AUDIO 	0
 #define MEDIA_VIDEO 	1

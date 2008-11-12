@@ -56,6 +56,11 @@ static char *des_rtsp = "  rtsp(url):  Play url. \n";
 #define RTSP_PLAY 		4
 #define RTSP_RELEASED 		5
 
+#define PKT_PAYLOAD     1450
+#define PKT_SIZE        (sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + PKT_PAYLOAD)
+#define PKT_OFFSET      (sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET)
+
+
 static struct 
 {
         int format;
@@ -997,9 +1002,9 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	int  responseLen = 0;
 	int  contentLength = 0;
 	char *rtpBuffer;
-	char rtcpBuffer[1500];
-	int  rtpSize = 1500;
-	int  rtcpSize = 1500;
+	char rtcpBuffer[PKT_PAYLOAD];
+	int  rtpSize = PKT_PAYLOAD;
+	int  rtcpSize = PKT_PAYLOAD;
 	int  rtpLen = 0;
 	int  rtcpLen = 0;
 	char *session;
@@ -1072,10 +1077,10 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	}
 
 	/* malloc frame & data */
-	sendFrame = (struct ast_frame *) malloc(sizeof(struct ast_frame) + rtpSize);
+	sendFrame = (struct ast_frame *) malloc(PKT_SIZE);
 
 	/* Set data pointer */
-	rtpBuffer = (void*)sendFrame + AST_FRIENDLY_OFFSET;
+	rtpBuffer = (unsigned char*)sendFrame + PKT_OFFSET;
 
 	/* log */
 	ast_log(LOG_DEBUG,"-rtsp play loop [%d]\n",duration);

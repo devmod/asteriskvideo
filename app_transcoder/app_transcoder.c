@@ -44,6 +44,11 @@
 #define AST_FORMAT_MPEG4 	(1 << 22)
 #endif
 
+#define PKT_PAYLOAD     1450
+#define PKT_SIZE        (sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + PKT_PAYLOAD)
+#define PKT_OFFSET      (sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET)
+
+
 struct VideoTranscoder
 {
 	int end;
@@ -126,23 +131,29 @@ void * VideoTranscoderEncode(void *param);
 
 static void SendVideoFrame(struct VideoTranscoder *vtc, uint8_t *data, uint32_t size, int first, int last)
 {
-	struct ast_frame *send;
+	uint8_t frameBuffer[PKT_SIZE];
+	struct ast_frame *send = (struct ast_frame *) frameBuffer;
 	uint8_t *frameData = NULL;
-
-	/* Create frame */
-	send = (struct ast_frame *) malloc(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 2 + size);
 
 	/* Debug */
 	ast_log(LOG_DEBUG,"Send video frame [%p,%d,%d,%d,0x%.2x,0x%.2x,0x%.2x,0x%.2x]\n",send,size,first,last,data[0],data[1],data[2],data[3]);
 
+	/* Check size */
+	if (size+2>PKT_PAYLOAD)
+	{
+		/* Error */
+		ast_log(LOG_ERROR,"Send video frame too large [%d]\n",size);
+		/* Exit */
+		return ;
+	}
+
 	/* clean */
-	memset(send,0,sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + 2 + size);
+	memset(send,0,PKT_SIZE);
 
 	/* Set frame data */
-	send->data =((uint8_t*)send) + sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET;
+	send->data =((uint8_t*)send) + PKT_OFFSET;
 	frameData = send->data;
 	send->datalen = 0;
-
 
 	/* if it¡s first */
 	if (first)
@@ -184,9 +195,6 @@ static void SendVideoFrame(struct VideoTranscoder *vtc, uint8_t *data, uint32_t 
 	/* Send */
 	//vtc->channel->tech->write_video(vtc->channel, send);
 	ast_write(vtc->channel, send);
-
-	/* Free frame */
-	free(send);
 }
 
 static int VideoTranscoderSetResize(struct VideoTranscoder *vtc,int width,int height)
