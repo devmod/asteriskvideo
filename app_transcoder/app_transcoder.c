@@ -35,7 +35,7 @@
 #include <asterisk/pbx.h>
 #include <asterisk/module.h>
 #include <asterisk/causes.h>
-
+#include <asterisk/version.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 
@@ -47,6 +47,12 @@
 #define PKT_PAYLOAD     1450
 #define PKT_SIZE        (sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + PKT_PAYLOAD)
 #define PKT_OFFSET      (sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET)
+
+#if ASTERISK_VERSION_NUM>10600
+#define AST_FRAME_GET_BUFFER(fr)        ((unsigned char*)((fr)->data.ptr))
+#else
+#define AST_FRAME_GET_BUFFER(fr)        ((unsigned char*)((fr)->data))
+#endif
 
 
 struct VideoTranscoder
@@ -151,9 +157,9 @@ static void SendVideoFrame(struct VideoTranscoder *vtc, uint8_t *data, uint32_t 
 	memset(send,0,PKT_SIZE);
 
 	/* Set frame data */
-	send->data =((uint8_t*)send) + PKT_OFFSET;
-	frameData = send->data;
-	send->datalen = 0;
+	AST_FRAME_SET_BUFFER(send,send,PKT_OFFSET,0);
+	/* Get the frame pointer */
+	frameData = AST_FRAME_GET_BUFFER(send);
 
 	/* if it¡s first */
 	if (first)
@@ -188,9 +194,6 @@ static void SendVideoFrame(struct VideoTranscoder *vtc, uint8_t *data, uint32_t 
 	send->delivery = ast_tv(0, 0);
 	/* Don't free the frame outrside */
 	send->mallocd = 0;
-
-	/* Debug */
-	ast_log(LOG_DEBUG,"Writting video frame [%p,%p,0x%.2x,0x%.2x,0x%.2x,0x%.2x,%d]\n",frameData,send->data,frameData[0],frameData[1],frameData[2],frameData[3],send->samples);
 
 	/* Send */
 	//vtc->channel->tech->write_video(vtc->channel, send);
@@ -993,7 +996,7 @@ static int app_transcode(struct ast_channel *chan, void *data)
 				if (fwd)
 				{
 					/* Transcode */
-					VideoTranscoderWrite(fwd,f->subclass,f->data,f->datalen,f->subclass & 1);
+					VideoTranscoderWrite(fwd,f->subclass,AST_FRAME_GET_BUFFER(f),f->datalen,f->subclass & 1);
 					/* Delete frame */
 					ast_frfree(f);
 				} else {
@@ -1021,7 +1024,7 @@ static int app_transcode(struct ast_channel *chan, void *data)
 				if (rev)
 				{
 					/* Transcode */
-					VideoTranscoderWrite(rev,f->subclass,f->data,f->datalen,f->subclass & 1);
+					VideoTranscoderWrite(rev,f->subclass,AST_FRAME_GET_BUFFER(f),f->datalen,f->subclass & 1);
 					/* Delete frame */
 					ast_frfree(f);
 				} else {

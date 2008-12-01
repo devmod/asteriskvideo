@@ -1427,8 +1427,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 			unsigned int ts = ntohl(rtp->ts);
 			 
 			/* Set frame data */
-			sendFrame->data = rtpBuffer+ini;
-			sendFrame->datalen = rtpLen-ini;
+			AST_FRAME_SET_BUFFER(sendFrame,rtpBuffer,ini,rtpLen-ini);
 			sendFrame->src = strdup(src);
 
 			/* Depending on socket */

@@ -42,14 +42,22 @@
 #include <asterisk/channel.h>
 #include <asterisk/pbx.h>
 #include <asterisk/module.h>
-#include "asterisk/options.h"
-#include "asterisk/config.h"
-#include "asterisk/utils.h"
-#include "asterisk/app.h"
+#include <asterisk/options.h>
+#include <asterisk/config.h>
+#include <asterisk/utils.h>
+#include <asterisk/app.h>
+#include <asterisk/version.h>
 
 #ifndef AST_FORMAT_AMRNB
 #define AST_FORMAT_AMRNB	(1 << 13)
 #endif
+
+#if ASTERISK_VERSION_NUM>10600
+#define AST_FRAME_GET_BUFFER(fr)        ((unsigned char*)((fr)->data.ptr))
+#else
+#define AST_FRAME_GET_BUFFER(fr)        ((unsigned char*)((fr)->data))
+#endif
+
 
 #define PKT_PAYLOAD	1450
 #define PKT_SIZE 	(sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + PKT_PAYLOAD)
@@ -162,7 +170,7 @@ static int mp4_rtp_write_audio(struct mp4track *t, struct ast_frame *f, int payl
 
 	/* Save rtp specific payload header to hint */
 	if (payload > 0)
-		MP4AddRtpImmediateData(t->mp4, t->hint, f->data, payload);
+		MP4AddRtpImmediateData(t->mp4, t->hint, AST_FRAME_GET_BUFFER(f), payload);
 
 	/* Set which part of sample audio goes to this rtp packet */
 	MP4AddRtpSampleData(t->mp4, t->hint, t->sampleId, 0, f->datalen - payload);
@@ -171,7 +179,7 @@ static int mp4_rtp_write_audio(struct mp4track *t, struct ast_frame *f, int payl
 	MP4WriteRtpHint(t->mp4, t->hint, f->samples, 1);
 
 	/* Write audio */
-	MP4WriteSample(t->mp4, t->track, f->data + payload, f->datalen - payload, f->samples, 0, 0);
+	MP4WriteSample(t->mp4, t->track, AST_FRAME_GET_BUFFER(f) + payload, f->datalen - payload, f->samples, 0, 0);
 
 	return 0;
 }
@@ -220,7 +228,7 @@ static int mp4_rtp_write_video(struct mp4track *t, struct ast_frame *f, int payl
 
 	/* Save rtp specific payload header to hint */
 	if (payload > 0)
-		MP4AddRtpImmediateData(t->mp4, t->hint, f->data, payload);
+		MP4AddRtpImmediateData(t->mp4, t->hint, AST_FRAME_GET_BUFFER(f), payload);
 
 	/* If we have to prepend */
 	if (prependLength)
@@ -236,7 +244,7 @@ static int mp4_rtp_write_video(struct mp4track *t, struct ast_frame *f, int payl
 	MP4AddRtpSampleData(t->mp4, t->hint, t->sampleId, (u_int32_t) t->length, f->datalen - payload - skip);
 
 	/* Copy the video data to buffer */
-	memcpy(t->frame + t->length, (char*)f->data + payload + skip, f->datalen - payload - skip);
+	memcpy(t->frame + t->length, AST_FRAME_GET_BUFFER(f) + payload + skip, f->datalen - payload - skip);
 
 	/* Increase stored buffer length */
 	t->length += f->datalen - payload - skip;
@@ -277,6 +285,7 @@ static int mp4_rtp_read(struct mp4rtp *p)
 	int next = 0;
 	int last = 0;
 	int first = 0;
+	uint8_t* data;
 
 	/* If it's first packet of a frame */
 	if (!p->numHintSamples) {
@@ -307,8 +316,7 @@ static int mp4_rtp_read(struct mp4rtp *p)
 	memset(f, 0, PKT_SIZE);
 
 	/* Let mp4 lib allocate memory */
-	f->data = (unsigned char*)f + PKT_OFFSET;
-	f->datalen = PKT_PAYLOAD;
+	AST_FRAME_SET_BUFFER(f,f,PKT_OFFSET,PKT_PAYLOAD);
 	f->src = strdup(p->src);
 
 	/* Set type */
@@ -334,12 +342,15 @@ static int mp4_rtp_read(struct mp4rtp *p)
 		f->samples = p->frameSamples;
 	}
 
+	/* Get data pointer */
+	data = AST_FRAME_GET_BUFFER(f);
+
 	/* Read next rtp packet */
 	if (!MP4ReadRtpPacket(
 				p->mp4,				/* MP4FileHandle hFile */
 				p->hint,			/* MP4TrackId hintTrackId */
 				p->packetIndex++,		/* u_int16_t packetIndex */
-				(u_int8_t **) &f->data,		/* u_int8_t** ppBytes */
+				(u_int8_t **) &data,		/* u_int8_t** ppBytes */
 				(u_int32_t *) &f->datalen,	/* u_int32_t* pNumBytes */
 				0,				/* u_int32_t ssrc DEFAULT(0) */
 				0,				/* bool includeHeader DEFAULT(true) */
@@ -889,7 +900,7 @@ static int mp4_save(struct ast_channel *chan, void *data)
 			/* No skip and no add */
 			int skip = 0;
 			unsigned char *prependBuffer = NULL;
-			unsigned char *frame = (unsigned char *) (f->data);
+			unsigned char *frame = AST_FRAME_GET_BUFFER(f);
 			int prependLength = 0;
 			int intra = 0;
 			int first = 0;
