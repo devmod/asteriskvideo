@@ -52,21 +52,36 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #include "asterisk/logger.h"
 #include "asterisk/channel.h"
 #include "asterisk/utils.h"
+#include "asterisk/version.h"
 
 #include "amr/typedef.h"
 #include "amr/interf_enc.h"
 #include "amr/interf_dec.h"
 
-
 /* Sample frame data */
 #include "slin_amr_ex.h"
 #include "amr_slin_ex.h"
+
 
 #define SAMPLES_PER_SEC_NB   8000 /* 8kHz speech gives us 8000 samples per second */
 #define BUFFER_SAMPLES	     8000 /* maximum number of samples we will process at a go. */
 #define AMR_SAMPLES	     160
 #define AMR_MAX_FRAME_LEN    32
 #define AMR_MAX_FRAMES_NB (BUFFER_SAMPLES*1000)/(SAMPLES_PER_SEC_NB*20) /* each frame is 20ms, hence max frames = samples/samples_per_sec*/
+
+#if ASTERISK_VERSION_NUM>10600
+#define AST_FRAME_GET_BUFFER(fr)        	((unsigned char*)((fr)->data.ptr))
+#define AST_TRANSLATOR_GET_BUFFER_UC(pvt)       pvt->outbuf.uc
+#define AST_TRANSLATOR_GET_BUFFER_C(pvt)       	pvt->outbuf.c
+#define AST_TRANSLATOR_GET_BUFFER_16(pvt)       pvt->outbuf.i16
+static struct ast_flags codec_flag = {0};
+#define ast_config_load(filename)      		ast_config_load2(filename, AST_MODULE, codec_flag)
+#else
+#define AST_FRAME_GET_BUFFER(fr)        	((unsigned char*)((fr)->data))
+#define AST_TRANSLATOR_GET_BUFFER_UC(pvt)       ((unsigned char*)((pvt)->outbuf))
+#define AST_TRANSLATOR_GET_BUFFER_C(pvt)        ((char*)((pvt)->outbuf))
+#define AST_TRANSLATOR_GET_BUFFER_16(pvt)       ((int16_t *)((pvt)->outbuf))
+#endif
 
 static int dtx = 0;
 static enum Mode enc_mode = MR122; 
@@ -196,13 +211,12 @@ static struct ast_frame *lintoamr_sample(void)
 	static struct ast_frame f;
 	f.frametype = AST_FRAME_VOICE;
 	f.subclass = AST_FORMAT_SLINEAR;
-	f.datalen = sizeof(slin_amr_ex);
 	/* Assume 8000 Hz */
 	f.samples = sizeof(slin_amr_ex)/2;
 	f.mallocd = 0;
-	f.offset = 0;
 	f.src = __PRETTY_FUNCTION__;
-	f.data = slin_amr_ex;
+	/* Set buffer data */
+	AST_FRAME_SET_BUFFER(&f,slin_amr_ex,0, sizeof(slin_amr_ex));
 	return &f;
 }
 
@@ -211,13 +225,13 @@ static struct ast_frame *amrtolin_sample(void)
 	static struct ast_frame f;
 	f.frametype = AST_FRAME_VOICE;
 	f.subclass = AST_FORMAT_AMRNB;
-	f.datalen = sizeof(amr_slin_ex);
 	/* All frames are 20 ms long */
 	f.samples = AMR_SAMPLES;
 	f.mallocd = 0;
-	f.offset = 0;
 	f.src = __PRETTY_FUNCTION__;
-	f.data = amr_slin_ex;
+	/* Set buffer data */
+	AST_FRAME_SET_BUFFER(&f,amr_slin_ex,0, sizeof(amr_slin_ex));
+
 	return &f;
 }
 
@@ -226,9 +240,13 @@ static int amrtolin_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 {
 	struct amr_translator_pvt *tmp = pvt->pvt;
 	int x = 0, more_frames = 1, num_frames = 0;
-	int16_t *dst = (int16_t *)pvt->outbuf;
-	unsigned char *src = f->data, cmr, buffer[AMR_MAX_FRAME_LEN], toc_entries[AMR_MAX_FRAMES_NB];
+	int16_t *dst = NULL; 
+	unsigned char *src = NULL;
+	unsigned char cmr, buffer[AMR_MAX_FRAME_LEN], toc_entries[AMR_MAX_FRAMES_NB];
 	unsigned int pos; /* position in the bit stream. */
+
+	src = AST_FRAME_GET_BUFFER(f);
+	dst = AST_TRANSLATOR_GET_BUFFER_16(pvt);
 
 	cmr = (src[0]) >> 4;	
 	pos = octet_aligned ? 8 : 4;
@@ -296,7 +314,7 @@ static int lintoamr_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Out of buffer space\n");
 		return -1;
 	}
-	memcpy(tmp->buf + pvt->samples, f->data, f->datalen);
+	memcpy(tmp->buf + pvt->samples, AST_FRAME_GET_BUFFER(f), f->datalen);
 	pvt->samples += f->samples;
 	pvt->datalen += 2*f->samples;
 
@@ -350,8 +368,8 @@ static struct ast_frame *lintoamr_frameout(struct ast_trans_pvt *pvt)
     /* Finally, put the header and the speech together into the pvt->buffer */
 	/* ast_verbose("codec_amr: building buffer: pbits=%d, sbits=%d\n",pbits,sbits); */
 	
-	pack_bits((unsigned char *)pvt->outbuf, 0, tmp->pheader, pbits);
-	pack_bits((unsigned char *)pvt->outbuf, pbits, tmp->speech_bits, sbits);
+	pack_bits(AST_TRANSLATOR_GET_BUFFER_UC(pvt), 0, tmp->pheader, pbits);
+	pack_bits(AST_TRANSLATOR_GET_BUFFER_UC(pvt), pbits, tmp->speech_bits, sbits);
 	npad = 8 - ((sbits + pbits) % 8); /* Number of padding bits */
 	if (npad == 8) {
 		npad = 0;
@@ -365,7 +383,7 @@ static struct ast_frame *lintoamr_frameout(struct ast_trans_pvt *pvt)
 	}
 
 	if (npad) {
-		pack_bits((unsigned char *)pvt->outbuf, pbits+sbits, &xzero, npad); /* zero out the rest of the padding bits. */
+		pack_bits(AST_TRANSLATOR_GET_BUFFER_UC(pvt), pbits+sbits, &xzero, npad); /* zero out the rest of the padding bits. */
 	}
 	datalen = (sbits + pbits  + 7)/8; /* Round up to nearest octet. */
 	
