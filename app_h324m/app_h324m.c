@@ -507,9 +507,13 @@ static struct ast_frame* create_ast_frame(void *frame, struct video_creator *vt)
 			send->frametype = AST_FRAME_VIDEO;
 			/* Set codec value */
 			send->subclass = AST_FORMAT_H263_PLUS | mark;
+			/* Set samples for the first packet of the frame */
+			if (vt->first)
+			       	send->samples = vt->samples;
+			else
+				send->samples = 0;	
 			/* Rest of values*/
 			send->src = "h324m";
-			send->samples = vt->samples;
 			send->delivery.tv_usec = 0;
 			send->delivery.tv_sec = 0;
 			/* Don't free */
