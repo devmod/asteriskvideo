@@ -847,6 +847,9 @@ static int app_h324m_gw(struct ast_channel *chan, void *data)
 	/* Copy global variables from incoming channel to local channel */
 	ast_channel_inherit_variables(chan, pseudo);
 
+	/* Inherit datastores from a parent */
+	ast_channel_datastore_inherit(chan, pseudo);
+
 	/* Set caller id */
 	ast_set_callerid(pseudo, chan->cid.cid_num, chan->cid.cid_name, chan->cid.cid_num);
 
@@ -1162,6 +1165,9 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 	/* Copy global variables from incoming channel to local channel */
 	ast_channel_inherit_variables(chan, pseudo);
 
+	/* Inherit datastores from a parent */
+	ast_channel_datastore_inherit(chan, pseudo);
+
 	/* Set caller id */
 	ast_set_callerid(pseudo, chan->cid.cid_num, chan->cid.cid_name, chan->cid.cid_num);
 
@@ -1419,6 +1425,7 @@ static int app_h324m_gw_answer(struct ast_channel *chan, void *data)
 {
 	struct ast_frame *f;
 	struct ast_module_user *u;
+	int ret=0;
 
 	ast_log(LOG_DEBUG, ">h324m_gw_answer\n");
 
@@ -1431,7 +1438,7 @@ static int app_h324m_gw_answer(struct ast_channel *chan, void *data)
 	/* Check it's up */
 	if (chan->_state!=AST_STATE_UP)
 		/* Exit */
-		return -1;
+		goto hangup;
 
 	/* Wait for vidupdate*/
 	while (ast_waitfor(chan, -1)>-1) 
@@ -1455,13 +1462,13 @@ static int app_h324m_gw_answer(struct ast_channel *chan, void *data)
 					/* Free frame */
 					ast_frfree(f);
 					/* exit & Hang up */
-					return -1;
+					goto hangup;
 				case AST_CONTROL_VIDUPDATE:
 					ast_log(LOG_DEBUG, "<h324m_gw_answer on VIDUPDATE\n");
 					/* Free frame */
 					ast_frfree(f);
 					/* Exit & continue */
-					return 0;
+					goto end;
 				default:
 					break;
 			}
@@ -1470,10 +1477,18 @@ static int app_h324m_gw_answer(struct ast_channel *chan, void *data)
 		ast_frfree(f);
 	}
 
+hangup:
+	/* Hangup call */
+	ret = -1;
+end:
+	/* Log */
 	ast_log(LOG_DEBUG, "<h324m_gw_answer\n");
+
+	/* Remove user */
+	ast_module_user_remove(u);
 	
 	/* Exit */
-	return -1;
+	return ret;
 		
 }
 
