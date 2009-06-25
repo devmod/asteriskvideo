@@ -37,6 +37,7 @@
 #include <asterisk/channel.h>
 #include <asterisk/pbx.h>
 #include <asterisk/module.h>
+#include <asterisk/utils.h>
 
 #ifndef AST_FORMAT_AMRNB
 #define AST_FORMAT_AMRNB	(1 << 13)
@@ -212,6 +213,8 @@ struct RtspPlayer
 	int 	port;
 	char*	url;
 
+	char*	authorization;
+
 	int	audioRtp;
 	int	audioRtcp;
 	int	videoRtp;
@@ -237,6 +240,7 @@ static struct RtspPlayer* RtspPlayerCreate(void)
 	player->ip		= NULL;
 	player->port		= 0;
 	player->url		= NULL;
+	player->authorization	= NULL;
 	/* UDP */		
 	player->fd		= 0;
 	player->audioRtp	= 0;
@@ -259,8 +263,26 @@ static void RtspPlayerDestroy(struct RtspPlayer* player)
 	if (player->url) 	free(player->url);
 	if (player->session[0])	free(player->session[0]);
 	if (player->session[1])	free(player->session[1]);
+	if (player->authorization)	free(player->authorization);
 	/* free */
 	free(player);
+}
+static void RtspPlayerBasicAuthorization(struct RtspPlayer* player,char *username,char *password)
+{
+	char base64[256];
+	char clear[256];
+
+	/* Create authorization header */
+	player->authorization = malloc(128);
+
+	/* Get base 64 from username and password*/
+	sprintf(clear,"%s:%s",username,password);
+
+	/* Encode */
+	ast_base64encode(base64,clear,strlen(clear),256);
+
+	/* Set heather */
+	sprintf(player->authorization, "Authorization: Basic %s",base64);
 }
 
 static void GetUdpPorts(int *a,int *b,int *p,int *q)
@@ -430,9 +452,20 @@ static int RtspPlayerDescribe(struct RtspPlayer *player,const char *url)
 			"DESCRIBE rtsp://%s%s RTSP/1.0\r\n"
 			"CSeq: %d\r\n"
 			"Accept: application/sdp\r\n"
-			"User-Agent: app_rtsp\r\n"
-			"\r\n",
+			"User-Agent: app_rtsp\r\n",
 			player->ip,url,player->cseq);
+
+	/* If we are authorized */
+	if (player->authorization)
+	{
+		/* Append header */
+		strcat(request,player->authorization);
+		/* End line */
+		strcat(request,"\r\n");
+	} 
+
+	/* End request */
+	strcat(request,"\r\n");
 
 	/* Send request */
 	if (!SendRequest(player->fd,request,&player->end))
@@ -890,6 +923,15 @@ static int HasHeader(char *buffer,int bufferLen,char *header)
 	return (i-buffer)+len+2;
 }
 
+static int GetResponseCode(char *buffer,int bufferLen)
+{
+	/* check length */
+	if (bufferLen<12)
+		return -1;
+
+	return atoi(buffer+9);
+}
+
 static int GetHeaderValueInt(char *buffer,int bufferLen,char *header)
 {
 	int i;	 
@@ -988,7 +1030,7 @@ static int GetResponseLen(char *buffer)
 }
 
 
-static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
+static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char *username,char *password)
 {
 	struct ast_frame *f = NULL;
 	struct ast_frame *sendFrame = NULL;
@@ -999,6 +1041,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 	char buffer[16384];
 	int  bufferSize = 16383; /* One less for finall \0 */
 	int  bufferLen = 0;
+	int  responseCode = 0;
 	int  responseLen = 0;
 	int  contentLength = 0;
 	char *rtpBuffer;
@@ -1166,6 +1209,34 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 					/* Read into buffer */
 					if (!RecvResponse(player->fd,buffer,&bufferLen,bufferSize,&player->end))
 						break;
+
+					/* Check for response code */
+					responseCode = GetResponseCode(buffer,responseLen);
+					/* Check unathorized */
+					if (responseCode==401)
+					{
+						/* Check athentication method */
+						if (CheckHeaderValue(buffer,responseLen,"WWW-Authenticate","Basic realm=\"/\""))
+						{
+							/* Create authentication header */
+							RtspPlayerBasicAuthorization(player,username,password);
+							/* Send again the describe */
+							RtspPlayerDescribe(player,url);
+							/* Enter loop again */
+							break;
+						}
+
+					}
+
+					/* On any other erro code */
+					if (responseCode<200 || responseCode>299)
+					{
+						/* End */
+						player->end = 1;
+						/* Exit */
+						break;
+					}
+
 					/* If not reading content */
 					if (contentLength==0)
 					{
@@ -1183,6 +1254,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url)
 							ast_log(LOG_ERROR,"Content-Type unknown\n");
 							/* End */
 							player->end = 1;
+							/* Exit */
+							break;
 						}
 						/* Get new length */
 						bufferLen -= responseLen;
@@ -1705,6 +1778,8 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 	char *ip;
 	char *url;
 	char *i;
+	char *username;
+	char *password;
 	int  port;
 
 	/* Get data */
@@ -1719,6 +1794,31 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 
 	/* Increase url */
 	url = i + 3; 
+
+	/* Check for username and password */
+	if ((i=strstr(url,"@"))!=NULL)
+	{
+		/* Get user and password info */
+		username = strndup(url,i-url);
+		/* Remove form url */
+		url = i + 1;
+
+		/* Check for password */
+		if ((i=strstr(username,":"))!=NULL)
+		{
+			/* Get username */
+			i[0] = 0;
+			/* Get password */
+			password = i + 1;
+		} else {
+			/* No password */
+			password = NULL;
+		}
+	} else {
+		/* No uisername or password */
+		username = NULL;
+		password = NULL;
+	}
 
 	/* Get server part */
 	if ((i=strstr(url,"/"))!=NULL)
@@ -1764,7 +1864,7 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 			/* Default */
 			port = 554;
 		/* Play */
-		rtsp_play(chan,ip,port,url);
+		rtsp_play(chan,ip,port,url,username,password);
 
 	} else
 		ast_log(LOG_ERROR,"RTSP ERROR: Unknown protocol in uri %s\n",uri);
@@ -1774,6 +1874,10 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 
 	/* Free ip */
 	free(ip);
+
+	/* Free username */
+	if (username)
+		free(username);
 
 	/* Exit */
 	return 0;
