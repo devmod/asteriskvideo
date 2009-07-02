@@ -322,7 +322,10 @@ static void GetUdpPorts(int *a,int *b,int *p,int *q)
 		/* Create new socket */
 		*b = socket(PF_INET,SOCK_DGRAM,0); 
 		/* Get port */
-		sendAddr.sin_port = htons(0);
+		if (*p>0)
+			sendAddr.sin_port = htons(*p+1);
+		else
+			sendAddr.sin_port = htons(0);
 		bind(*b,(struct sockaddr *)&sendAddr,sizeof(struct sockaddr_in));
 		len = sizeof(struct sockaddr_in);
 		getsockname(*b,(struct sockaddr *)&sendAddr,&len);
@@ -1211,12 +1214,15 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char
 						break;
 
 					/* Check for response code */
-					responseCode = GetResponseCode(buffer,responseLen);
+					responseCode = GetResponseCode(buffer,bufferLen);
+
+					ast_log(LOG_DEBUG,"-Describe response code [%d]\n",responseCode);
+
 					/* Check unathorized */
 					if (responseCode==401)
 					{
 						/* Check athentication method */
-						if (CheckHeaderValue(buffer,responseLen,"WWW-Authenticate","Basic realm=\"/\""))
+						if (CheckHeaderValue(buffer,bufferLen,"WWW-Authenticate","Basic realm=\"/\""))
 						{
 							/* Create authentication header */
 							RtspPlayerBasicAuthorization(player,username,password);
@@ -1224,8 +1230,14 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char
 							RtspPlayerDescribe(player,url);
 							/* Enter loop again */
 							break;
+						} else {
+							/* Error */
+							ast_log(LOG_ERROR,"-No Authenticate header found\n");	
+							/* End */
+							player->end = 1;
+							/* Exit */
+							break;
 						}
-
 					}
 
 					/* On any other erro code */
