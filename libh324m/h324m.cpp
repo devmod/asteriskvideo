@@ -5,12 +5,19 @@ extern "C"
 
 #include "src/H324MSession.h"
 
+static bool _reverseBits = true;
+
 extern "C" 
 {
 
 void H324MLoggerSetLevel(int level)
 {
 	Logger::SetLevel(level);	
+}
+
+void H324MSetReverseBits(int reverse)
+{
+        _reverseBits = (bool) reverse;
 }
 
 void H324MLoggerSetCallback(int (*callback)  (const char *, va_list))
@@ -45,14 +52,14 @@ int  H324MSessionEnd(void * id)
 
 int  H324MSessionRead(void * id,unsigned char *buffer,int len)
 { 
-	TIFFReverseBits(buffer,len);
+	if (_reverseBits) TIFFReverseBits(buffer,len);
 	return ((H324MSession*)id)->Read(buffer,len); 
 }
 
 int  H324MSessionWrite(void * id,unsigned char *buffer,int len)
 { 	
 	int ret = ((H324MSession*)id)->Write(buffer,len); 
-	TIFFReverseBits(buffer,len);
+	if (_reverseBits) TIFFReverseBits(buffer,len);
 	return ret;
 }
 

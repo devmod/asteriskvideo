@@ -19,7 +19,7 @@ extern "C"
 {
 #endif
 void 	TIFFReverseBits(unsigned char* buffer,int length);
-
+void    H324MSetReverseBits(int reverse);
 void 	H324MLoggerSetLevel(int level);
 void    H324MLoggerSetCallback(int (*callback)  (const char *, va_list));
 
