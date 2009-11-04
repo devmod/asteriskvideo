@@ -47,6 +47,10 @@
 #define AST_FRAME_DIGITAL 13
 #endif
 
+#define DEFAULT_BOARDCODEC "both"
+static char *config = "h324m.conf";
+static char boardcodec[20] = DEFAULT_BOARDCODEC;
+
 #define PKT_PAYLOAD     1450
 #define PKT_SIZE        (sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET + PKT_PAYLOAD)
 #define PKT_OFFSET      (sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET)
@@ -138,6 +142,104 @@ static char debug_usage[] =
 "        4 - Debug messages\n"
 "        5 - File dumps\n";
 
+/* Configuration file */
+static int load_config(void)
+{
+  struct ast_config *cfg;
+  struct ast_variable *var;
+  char *tmp;
+  int level, reverse;
+
+  cfg = (void *)ast_config_load(config);
+  if (!cfg)
+  {
+    ast_log(LOG_WARNING,
+      "Unable to load config for h324m : %s\n", config);
+    return -1;
+  }
+
+  var = (void *)ast_variable_browse(cfg, "general");
+  if (!var)
+  {
+    ast_log(LOG_WARNING, "Nothing configured for h324m.\n");
+    /* nothing configured */
+    return 0;
+  }
+
+  tmp = (void *)ast_variable_retrieve(cfg, "general", "debug");
+  if (tmp)
+  {
+    if (sscanf(tmp, "%d", &level) < 0)
+    {
+      ast_log(LOG_WARNING, "Invalid debug.\n");
+      level = 1;
+    }
+    if((level < 0) || (level > 9))
+    {
+      ast_log(LOG_WARNING, "Invalid debug (>max).\n");
+      level = 1;
+      level = 1;
+    }
+    else
+    {
+        H324MLoggerSetLevel(level);
+    }
+  }
+  else
+  {
+    level = 1;
+  }
+
+
+  tmp = (void *)ast_variable_retrieve(cfg, "general", "boardcodec");
+  if ((tmp) && (strlen(tmp) < 9))
+  {
+    if (!strcmp(tmp, "alaw"))
+      strcpy(boardcodec, tmp);
+    else if (!strcmp(tmp, "ulaw"))
+      strcpy(boardcodec, tmp);
+    else if (!strcmp(tmp, "both"))
+      strcpy(boardcodec, tmp);
+    else
+    {
+      if (level > 0)
+      ast_verbose(VERBOSE_PREFIX_3 "Bad board law, set to %s.\n",
+          DEFAULT_BOARDCODEC);
+      strcpy(boardcodec, DEFAULT_BOARDCODEC);
+    }
+  }
+  else
+  {
+    strcpy(boardcodec, DEFAULT_BOARDCODEC);
+  }
+
+
+   tmp = (void *)ast_variable_retrieve(cfg, "h245", "reversebits");
+   if (tmp)
+   {
+      if (sscanf(tmp, "%d", &reverse) >=1 )
+      {
+          ast_verbose(VERBOSE_PREFIX_3 "H245 reverse bits : %s\n",
+                        (reverse == 0)?"no":"yes");
+          H324MSetReverseBits(reverse);
+      }
+      else
+      {
+          ast_log(LOG_WARNING, "Invalid reverse bit flag %s. Bits will be reversed.\n", tmp);
+      }
+   }
+   ast_config_destroy(cfg);
+
+  if (level > 0)
+  {
+      ast_verbose(VERBOSE_PREFIX_3 "Debug level  : %d\n", level);
+      ast_verbose(VERBOSE_PREFIX_3 "Board codec  : %s\n", boardcodec);
+  }
+
+  return 0;
+}
+
+
 #if ASTERISK_VERSION_NUM>10600
 static char *h324m_do_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
@@ -215,6 +317,28 @@ static int h324m_do_debug(int fd, int argc, char *argv[])
 
 static struct ast_cli_entry  cli_debug =
 	{ { "h324m", "debug", "level" }, h324m_do_debug, "Set app_h324m debug log level", debug_usage };
+
+/* Reload configuration */
+static int h324m_do_reload(int fd, int argc, char **argv)
+{
+  if (argc != 2)
+    return RESULT_SHOWUSAGE;
+
+  ast_cli(fd, "Reloading h324 stack configuration\n");
+  load_config();
+
+  return RESULT_SUCCESS;
+}
+
+static char usage_reload[] =
+  "Usage: h324m reload \n"
+  "       Reloads h324m stack configuration h324m.conf\n";
+
+static struct ast_cli_entry cli_reload = {
+  {"h324m", "reload", NULL}, h324m_do_reload,
+  "Reload h324m stack configuration", usage_reload, NULL
+};
+
 #endif
 
 /*
@@ -606,7 +730,7 @@ static int init_h324m_packetizer(struct h324m_packetizer *pak,struct ast_frame* 
 				unsigned char p = pak->framedata[0] & 0x04;
 				unsigned char v = pak->framedata[0] & 0x02;
 				unsigned char plen = ((pak->framedata[0] & 0x1 ) << 5 ) | (pak->framedata[1] >> 3);
-				unsigned char pebit = pak->framedata[0] & 0x7;
+				/* unsigned char pebit = pak->framedata[0] & 0x7; */
 				/* skip header*/
 				pak->framedata += 2+plen;
 				pak->framelength -= 2+plen;
@@ -1536,6 +1660,9 @@ static int unload_module(void)
 {
 	int res;
 
+        ast_cli_unregister(&cli_debug);
+	ast_cli_unregister(&cli_reload);
+
 	res = ast_unregister_application(name_h324m_loopback);
 	res &= ast_unregister_application(name_h324m_gw);
 	res &= ast_unregister_application(name_h324m_call);
@@ -1572,12 +1699,13 @@ static int load_module(void)
 	res &= ast_register_application(name_video_loopback, app_video_loopback, syn_video_loopback, des_video_loopback);
 
 	ast_cli_register(&cli_debug);
-	
+	ast_cli_register(&cli_reload);
+
 	/* No loging by default */
 	H324MLoggerSetLevel(1);
 	/* Set logger function */
 	H324MLoggerSetCallback(h324m_log_asterisk_callback);
-
+	load_config();
 	return 0;
 }
 
