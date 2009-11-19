@@ -200,6 +200,69 @@ struct RtpHeader
     unsigned int csrc[1];     /* optional CSRC list */
 };
 
+struct MediaStats
+{
+	unsigned int count;
+	unsigned int minSN;
+	unsigned int maxSN;
+	unsigned int lastTS;
+	unsigned int ssrc;
+	struct timeval time;
+};
+
+void MediaStatsReset(struct MediaStats *stats)
+{
+	stats->count 	= 0;
+	stats->minSN 	= 0;
+	stats->maxSN 	= 0;
+	stats->lastTS	= 0;
+	stats->time 	= ast_tvnow();
+}
+
+void MediaStatsUpdate(struct MediaStats *stats,unsigned int ssrc,unsigned int sn,unsigned int ts)
+{
+	stats->ssrc = ssrc;
+	stats->count++;
+	if (!stats->minSN)
+		stats->minSN = sn;
+	if (stats->maxSN<sn)
+		stats->maxSN = sn;
+	stats->lastTS = ts;
+}
+
+void MediaStatsRR(struct MediaStats *stats, struct Rtcp *rtcp)
+{
+	/* Set pointer as ssrc */
+	rtcp->r.rr.ssrc = htonl(stats);
+
+	/* data source being reported */
+	rtcp->r.rr.rr[0].ssrc		= htonl(stats->ssrc);
+
+	/* fraction lost since last SR/RR */
+	if (stats->maxSN-stats->minSN>0)
+		rtcp->r.rr.rr[0].fraction	= (signed)(255*stats->count/(stats->maxSN-stats->minSN)); 
+	else
+		rtcp->r.rr.rr[0].fraction       = 0xFF;
+
+	/* cumulative number of packets lost (signed!) */
+	rtcp->r.rr.rr[0].lost		= htonl((signed int)(stats->maxSN-stats->minSN-stats->count));
+
+	/* extended last sequence number received */
+	rtcp->r.rr.rr[0].last_seq	= htonl(stats->maxSN);
+
+	/* interarrival jitter */
+	rtcp->r.rr.rr[0].jitter		= htonl(0xFF);
+
+	/* last SR packet from this source */	
+	rtcp->r.rr.rr[0].lsr		= htonl(stats->lastTS);
+
+	/* delay since last SR packet */
+	rtcp->r.rr.rr[0].dlsr		= htonl(ast_tvdiff_ms(stats->time,ast_tvnow()));
+
+	/* Length */
+	rtcp->common.length = 32;
+}
+
 struct RtspPlayer
 {
 	int	fd;
@@ -224,6 +287,9 @@ struct RtspPlayer
 	int	audioRtcpPort;
 	int	videoRtpPort;
 	int	videoRtcpPort;
+
+	struct 	MediaStats audioStats;
+	struct	MediaStats videoStats;
 };
 
 static struct RtspPlayer* RtspPlayerCreate(void)
@@ -408,6 +474,86 @@ static int RtspPlayerAddSession(struct RtspPlayer *player,char *session)
 	/* exit */
 	return player->numSessions;
 	
+
+}
+
+static void RrspPlayerSetAudioTransport(struct RtspPlayer *player,const char* transport)
+{
+	char *i;
+	int port;
+	struct sockaddr_in addr;
+
+	/* Find server port values */
+	if (!(i=strstr(transport,"server_port=")))
+	{
+		/* Log */
+		ast_log(LOG_DEBUG,"Not server found in transport [%s]\n",transport);
+		/* Exit */
+		return;
+	}
+
+	/* Get to the rtcp port */
+	if (!(i=strstr(i,"-")))
+	{
+		/* Log */
+		ast_log(LOG_DEBUG,"Not rtcp found in transport  [%s]\n",transport);
+		/* exit */
+		return;
+	}	
+
+	/* Get port number */
+	port = atoi(i+1);
+
+	/* Connect rtcp socket */
+	memset(&addr, 0, sizeof(struct sockaddr_in));
+	addr.sin_family      	= AF_INET;
+	addr.sin_addr.s_addr 	= inet_addr(player->ip);
+	addr.sin_port	 	= htons(port);
+
+	/* Connect */
+	if (!connect(player->audioRtcp,(struct sockaddr *)&addr,sizeof(addr)))
+		/* Log */
+		ast_log(LOG_DEBUG,"Could not bound rtcp port [%s,%d,%d]\n", player->ip,port,errno);
+
+}
+
+static void RrspPlayerSetVideoTransport(struct RtspPlayer *player,const char* transport)
+{
+	char *i;
+	int port;
+	struct sockaddr_in addr;
+
+	/* Find server port values */
+	if (!(i=strstr(transport,"server_port=")))
+	{
+		/* Log */
+		ast_log(LOG_DEBUG,"Not server found in transport [%s]\n",transport);
+		/* Exit */
+		return;
+	}
+
+	/* Get to the rtcp port */
+	if (!(i=strstr(i,"-")))
+	{
+		/* Log */
+		ast_log(LOG_DEBUG,"Not rtcp found in transport  [%s]\n",transport);
+		/* exit */
+		return;
+	}	
+
+	/* Get port number */
+	port = atoi(i+1);
+
+	/* Connect rtcp socket */
+	memset(&addr, 0, sizeof(struct sockaddr_in));
+	addr.sin_family      	= AF_INET;
+	addr.sin_addr.s_addr 	= inet_addr(player->ip);
+	addr.sin_port	 	= htons(port);
+
+	/* Connect */
+	if (!connect(player->videoRtcp,(struct sockaddr *)&addr,sizeof(addr)))
+		/* Log */
+		ast_log(LOG_DEBUG,"Could not boud rtcp port [%s,%d,%d]\n", player->ip,port,errno);
 
 }
 static void RtspPlayerClose(struct RtspPlayer *player)
@@ -1054,6 +1200,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char
 	int  rtpLen = 0;
 	int  rtcpLen = 0;
 	char *session;
+	char *transport;
 	char *range;
 	char *j;
 	char src[128];
@@ -1394,6 +1541,20 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char
 					}
 					/* Append session to player */
 					RtspPlayerAddSession(player,session);
+					/* Get transport value to obtain rtcp ports */
+					if ((transport=GetHeaderValue(buffer,responseLen,"Transport")) == 0)
+					{
+						/* log */
+						ast_log(LOG_ERROR,"No transport [%s]\n",buffer);
+						/* Uh? */
+						player->end = 1;
+						/* break */
+						break;
+					}
+					/* Process transport */
+					RrspPlayerSetAudioTransport(player,transport);
+					/* Free string */
+					free(transport);
 					/* Get new length */
 					bufferLen -= responseLen;
 					/* Move data to begining */
@@ -1435,8 +1596,23 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char
 						/* break */
 						break;
 					}
+					
 					/* Append session to player */
 					RtspPlayerAddSession(player,session);
+					/* Get transport value to obtain rtcp ports */
+					if ((transport=GetHeaderValue(buffer,responseLen,"Transport")) == 0)
+					{
+						/* log */
+						ast_log(LOG_ERROR,"No transport [%s]\n",buffer);
+						/* Uh? */
+						player->end = 1;
+						/* break */
+						break;
+					}
+					/* Process transport */
+					RrspPlayerSetVideoTransport(player,transport);
+					/* Free string */
+					free(transport);
 					/* Get new length */
 					bufferLen -= responseLen;
 					/* Move data to begining */
@@ -1480,6 +1656,9 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char
 					bufferLen -= responseLen;
 					/* Move data to begining */
 					memcpy(buffer,buffer+responseLen,bufferLen);
+					/* Init media stats */
+					MediaStatsReset(&player->audioStats);
+					MediaStatsReset(&player->videoStats);
 					break;
 			}
 		} else if ((outfd==player->audioRtp) ||  (outfd==player->videoRtp) ) {
@@ -1529,6 +1708,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char
 					sendFrame->samples = 160;
 				/* Save ts */
 				lastAudio = ts;
+				/* Set stats */
+				MediaStatsUpdate(&player->audioStats,ts,ntohs(rtp->seq),ntohl(rtp->ssrc));
 			} else {
 				/* Set type */
 				sendFrame->frametype = AST_FRAME_VIDEO;
@@ -1544,6 +1725,8 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char
 				lastVideo = ts;
 				/* Set mark */
 				sendFrame->subclass |= rtp->m;
+				/* Set stats */
+				MediaStatsUpdate(&player->videoStats,ts,ntohs(rtp->seq),ntohl(rtp->ssrc));
 			}
 
 			/* Rest */
@@ -1579,7 +1762,27 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char
 					break;
 				}
 			}
-
+			/* Send corresponding report */
+			if (outfd==player->audioRtcp) {
+				struct Rtcp rtcp;
+				/* Create rtcp packet */
+				MediaStatsRR(&player->audioStats,&rtcp);
+				/* Reset media */
+				MediaStatsReset(&player->audioStats);
+				/* Send packet */
+     				send(player->audioRtcp, &rtcp, sizeof(rtcp), 0);
+				/* log */
+				ast_log(LOG_DEBUG,"-Sent rtcp audio report [%d]\n",errno); 
+			} else {
+				/* Create rtcp packet */
+				MediaStatsRR(&player->videoStats,&rtcp);
+				/* Reset media */
+				MediaStatsReset(&player->videoStats);
+				/* Send packet */
+     				send(player->videoRtcp, &rtcp, sizeof(rtcp), 0);
+				/* log */
+				ast_log(LOG_DEBUG,"-Sent rtcp video report [%d]\n",errno); 
+			}
 		} else if (player->state!=RTSP_PLAY) {
 			/* log */
 			ast_log(LOG_ERROR,"-timedout and not conected [%d]",outfd);
