@@ -1083,7 +1083,7 @@ static uint32_t rfc2429_append(uint8_t *dest, uint32_t destLen, uint8_t *buffer,
 static const uint8_t sync_bytes[] = { 0, 0, 0, 1 };
 
 
-static uint32_t h264_append(uint8_t *dest, uint32_t destLen, uint8_t *buffer, uint32_t bufferLen)
+static uint32_t h264_append(uint8_t *dest, uint32_t destLen, uint32_t destSize, uint8_t *buffer, uint32_t bufferLen)
 {
 	uint8_t nal_unit_type;
 	unsigned int header_len;
@@ -1110,7 +1110,7 @@ static uint32_t h264_append(uint8_t *dest, uint32_t destLen, uint8_t *buffer, ui
 	/* at least one byte header with type */
 	header_len = 1;
 
-	ast_log(LOG_DEBUG, "h264 receiving %d bytes nal unit type %d", payload_len, nal_unit_type);
+	ast_log(LOG_DEBUG, "h264 receiving %d bytes nal unit type %d\n", payload_len, nal_unit_type);
 
 	switch (nal_unit_type) 
 	{
@@ -1122,26 +1122,49 @@ static uint32_t h264_append(uint8_t *dest, uint32_t destLen, uint8_t *buffer, ui
 		case 25:
 			/* STAP-B		Single-time aggregation packet		 5.7.1 */
 			/* 2 byte extra header for DON */
-			header_len += 2;
-			/* fallthrough */
+			/** Not supported */
+			return 0;	
 		case 24:
 		{
-			/* strip headers */
-			payload += header_len;
-			payload_len -= header_len;
+			/**
+			   Figure 7 presents an example of an RTP packet that contains an STAP-
+			   A.  The STAP contains two single-time aggregation units, labeled as 1
+			   and 2 in the figure.
 
-			/**rtph264depay->wait_start = FALSE;*/
+			       0                   1                   2                   3
+			       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+			      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			      |                          RTP Header                           |
+			      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			      |STAP-A NAL HDR |         NALU 1 Size           | NALU 1 HDR    |
+			      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			      |                         NALU 1 Data                           |
+			      :                                                               :
+			      +               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			      |               | NALU 2 Size                   | NALU 2 HDR    |
+			      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			      |                         NALU 2 Data                           |
+			      :                                                               :
+			      |                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			      |                               :...OPTIONAL RTP padding        |
+			      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
+			      Figure 7.  An example of an RTP packet including an STAP-A and two
+					 single-time aggregation units
+			*/
+			ast_log(LOG_DEBUG, "STAP-A NAL\n");
+
+			/* Skip STAP-A NAL HDR */
+			payload++;
+			payload_len--;
+			
 			/* STAP-A Single-time aggregation packet 5.7.1 */
 			while (payload_len > 2) 
 			{
-				/*                      1					
-				 *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 
-				 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-				 * |  ALU Size                     |
-				 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-				 */
+				/* Get NALU size */
 				nalu_size = (payload[0] << 8) | payload[1];
+
+				ast_log(LOG_DEBUG, "STAP-A NAL of size %d %d\n", nalu_size, payload_len);
 
 				/* strip NALU size */
 				payload += 2;
@@ -1152,9 +1175,12 @@ static uint32_t h264_append(uint8_t *dest, uint32_t destLen, uint8_t *buffer, ui
 
 				outsize += nalu_size + sizeof (sync_bytes);
 
-				// Check size
-				if (outsize>destLen)
+				/* Check size */
+				if (outsize + destLen >destSize)
+				{	
+					ast_log(LOG_DEBUG, "Frame to small to add NAL [%d,%d,%d]\n",outsize,destLen,destSize);
 					return 0;
+				}
 
 				memcpy (outdata, sync_bytes, sizeof (sync_bytes));
 				outdata += sizeof (sync_bytes);
@@ -1197,15 +1223,10 @@ static uint32_t h264_append(uint8_t *dest, uint32_t destLen, uint8_t *buffer, ui
 
 			ast_log(LOG_DEBUG, "S %d, E %d", S, E);
 
-			/*if (rtph264depay->wait_start && !S)*/
-				/*goto waiting_start;*/
-
 			if (S) 
 			{
 				/* NAL unit starts here */
 				uint8_t nal_header;
-
-				/*rtph264depay->wait_start = FALSE;*/
 
 				/* reconstruct NAL header */
 				nal_header = (payload[0] & 0xe0) | (payload[1] & 0x1f);
@@ -1302,7 +1323,7 @@ static uint32_t VideoTranscoderWrite(struct VideoTranscoder *vtc, int codec, uin
 		/* Check codec */
 		VideoTranscoderSetDecoder(vtc,CODEC_ID_H264);
 		/* Depacketize */
-		vtc->frameLen += h264_append(vtc->frame,vtc->frameLen,buffer,bufferLen);
+		vtc->frameLen += h264_append(vtc->frame,vtc->frameLen,vtc->frameSize,buffer,bufferLen);
 
 	} else if (codec & AST_FORMAT_MPEG4) {
 		/* Check codec */
