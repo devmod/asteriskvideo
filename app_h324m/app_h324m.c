@@ -1394,23 +1394,6 @@ static int app_h324m_call(struct ast_channel *chan, void *data)
 
 	/* Init session */
 	H324MSessionInit(id);
-	/* Create enpty packet */
-	send = (struct ast_frame *) malloc(PKT_SIZE);
-	/* Set frame data buffer */
-	AST_FRAME_SET_BUFFER(send,send,PKT_OFFSET,160);
-	/* Set DTMF type */
-	send->frametype = AST_FRAME_VOICE;
-	/* Set DTMF value */
-	send->subclass = pseudo->rawwriteformat;
-	/* Rest of values*/
-	send->src = 0;
-	send->samples = 160;
-	send->delivery.tv_usec = 0;
-	send->delivery.tv_sec = 0;
-	/* We will free the frame */
-	send->mallocd = 0;
-	/* Send */
-	ast_write(pseudo,send);
 
 	/* Wait for data avaiable on any channel */
 	while (!reason && (where = ast_waitfor_n(channels, 2, &ms)) != NULL) 
