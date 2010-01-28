@@ -1402,36 +1402,69 @@ static int app_transcode(struct ast_channel *chan, void *data)
 		/* if fail goto clean */
 		goto clean_pseudo;
 
-	/* while not setup */
-	while (pseudo->_state!=AST_STATE_UP) {
-		/* Wait for data */
-		if (ast_waitfor(pseudo, 0)<0)
-			/* error, timeout, or done */
-			break;
-		/* Read frame */
-		f = ast_read(pseudo);
-		/* If not frame */
-		if (!f)
-			/* done */ 
-			break;
-		/* If it's a control frame */
-		if (f->frametype == AST_FRAME_CONTROL) {
-			/* Dependinf on the event */
-			switch (f->subclass) {
-				case AST_CONTROL_RINGING:       
-					break;
-				case AST_CONTROL_BUSY:
-				case AST_CONTROL_CONGESTION:
-					/* Save cause */
-					reason = pseudo->hangupcause;
-					/* exit */
-					goto hangup_pseudo;
-					break;
-				case AST_CONTROL_ANSWER:
-					/* Set UP*/
-					reason = 0;	
-					break;
+        /* Set up array */
+        channels[0] = chan;
+        channels[1] = pseudo;
+
+        /* No timeout */
+        ms = -1;
+
+        /* while not setup */
+        while (pseudo->_state!=AST_STATE_UP)
+        {
+                /* Wait for data */
+                if ((where = ast_waitfor_n(channels, 2, &ms))<0)
+                        /* error, timeout, or done */
+                        break;
+                /* Read frame */
+                f = ast_read(where);
+                /* If not frame */
+                if (!f)
+                        /* done */
+                        break;
+                /* Check channel */
+                if (where==pseudo)
+                {
+
+			/* If it's a control frame */
+			if (f->frametype == AST_FRAME_CONTROL) 
+			{
+				/* Dependinf on the event */
+				switch (f->subclass) {
+					case AST_CONTROL_RINGING:       
+						break;
+					case AST_CONTROL_BUSY:
+					case AST_CONTROL_CONGESTION:
+                                                /* Delete frame */
+                                                ast_frfree(f);
+						/* Save cause */
+						reason = pseudo->hangupcause;
+						/* exit */
+						goto hangup_pseudo;
+						break;
+					case AST_CONTROL_ANSWER:
+						/* Set UP*/
+						reason = 0;	
+						break;
+				}
 			}
+                } else {
+                        /* If it's a control frame */
+                        if (f->frametype == AST_FRAME_CONTROL)
+                        {
+                                /* Depending on the event */
+                                switch (f->subclass)
+                                {
+                                        case AST_CONTROL_HANGUP:
+                                                /* Delete frame */
+                                                ast_frfree(f);
+                                                /* Save cause */
+                                                reason = pseudo->hangupcause;
+                                                /* exit */
+                                                goto hangup_pseudo;
+                                                break;
+                                }
+                        }
 		}
 		/* Delete frame */
 		ast_frfree(f);
