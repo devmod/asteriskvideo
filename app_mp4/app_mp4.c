@@ -14,14 +14,6 @@
  * at the top of the source tree.
  */
 
-/*
- * Changelog:
- *
- *  15-01-2006
- *  	Code cleanup and ast_module_user_add added.
- *  	Thanxs Denis Smirnov.
- */
-
 /*! \file
  *
  * \brief MP4 application -- save and play mp4 files
