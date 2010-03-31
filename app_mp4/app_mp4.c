@@ -277,6 +277,140 @@ struct mp4rtp {
 
 };
 
+static void mp4_send_h264_sei(struct mp4rtp *p)
+{
+	unsigned char buffer[PKT_SIZE];
+        struct ast_frame *f = (struct ast_frame *) buffer;
+	uint8_t **sequenceHeader;
+	uint8_t **pictureHeader;
+	uint32_t *pictureHeaderSize;
+	uint32_t *sequenceHeaderSize;
+	uint32_t i;
+	uint8_t* data;
+	uint32_t dataLen;
+
+	/* Get SEI information */
+	MP4GetTrackH264SeqPictHeaders(p->mp4, p->track, &sequenceHeader, &sequenceHeaderSize, &pictureHeader, &pictureHeaderSize);
+
+	/* Unset */
+	memset(f, 0, PKT_SIZE);
+
+	/* Let mp4 lib allocate memory */
+	AST_FRAME_SET_BUFFER(f,f,PKT_OFFSET,PKT_PAYLOAD);
+	f->src = strdup(p->src);
+
+	/* Set type */
+	f->frametype = p->frameType;
+	f->subclass = p->frameSubClass;
+
+	f->delivery.tv_usec = 0;
+	f->delivery.tv_sec = 0;
+	/* Don't free the frame outside */
+	f->mallocd = 0;
+
+	/* Get data pointer */
+	data = AST_FRAME_GET_BUFFER(f);
+	/* Reset length */
+	dataLen = 0;
+
+	/* Send sequence headers */
+	i=0;
+
+	/* Check we have sequence header */
+	if (sequenceHeader)
+		/* Loop array */
+		while(sequenceHeader[i] && sequenceHeaderSize[i])
+		{
+			/* Check if it can be handled in a single packeti */
+			if (sequenceHeaderSize[i]<1400)
+			{
+				/* If there is not enought length */
+				if (dataLen+sequenceHeaderSize[i]>1400)
+				{
+					/* Set data length */
+					f->datalen = dataLen;
+					/* Write frame */
+					ast_write(p->chan, f);
+					/* Reset data */
+					dataLen = 0;
+				}
+				/* Copy data */
+				memcpy(data+dataLen,sequenceHeader[i],sequenceHeaderSize[i]);	
+				/* Increase pointer */
+				dataLen+=sequenceHeaderSize[i];
+			}
+			/* Free memory */
+			free(sequenceHeader[i]);
+			/* Next header */
+			i++;
+		}
+
+	/* If there is still data */
+	if (dataLen>0)
+	{
+		/* Set data length */
+		f->datalen = dataLen;
+		/* Write frame */
+		ast_write(p->chan, f);
+		/* Reset data */
+		dataLen = 0;
+	}
+
+	/* Send picture headers */
+	i=0;
+
+	/* Check we have picture header */
+	if (pictureHeader)
+		/* Loop array */
+		while(pictureHeader[i] && pictureHeaderSize[i])
+		{
+			/* Check if it can be handled in a single packeti */
+			if (pictureHeaderSize[i]<1400)
+			{
+				/* If there is not enought length */
+				if (dataLen+pictureHeaderSize[i]>1400)
+				{
+					/* Set data length */
+					f->datalen = dataLen;
+					/* Write frame */
+					ast_write(p->chan, f);
+					/* Reset data */
+					dataLen = 0;
+				}
+				/* Copy data */
+				memcpy(data+dataLen,pictureHeader[i],pictureHeaderSize[i]);	
+				/* Increase pointer */
+				dataLen+=pictureHeaderSize[i];
+			}
+			/* Free memory */
+			free(pictureHeader[i]);
+			/* Next header */
+			i++;
+		}
+
+	/* If there is still data */
+	if (dataLen>0)
+	{
+		/* Set data length */
+		f->datalen = dataLen;
+		/* Write frame */
+		ast_write(p->chan, f);
+		/* Reset data */
+		dataLen = 0;
+	}
+
+	/* Free data */
+	if (pictureHeader)
+		free(pictureHeader);
+	if (sequenceHeader)
+		free(sequenceHeader);
+	if (sequenceHeaderSize)
+		free(sequenceHeaderSize);
+	if (pictureHeaderSize)
+		free(pictureHeaderSize);
+
+}
+
 static int mp4_rtp_read(struct mp4rtp *p)
 {
 
@@ -306,6 +440,11 @@ static int mp4_rtp_read(struct mp4rtp *p)
 
 		/* Set first flag */
 		first = 1;
+
+		/* Check if it is H264 and it is a Sync frame*/
+		if (p->frameSubClass==AST_FORMAT_H264 && MP4GetSampleSync(p->mp4,p->track,p->sampleId))
+			/* Send SEI info */
+			mp4_send_h264_sei(p);
 	}
 
 	/* if it's the last */
@@ -504,6 +643,7 @@ static int mp4_play(struct ast_channel *chan, void *data)
 	/* If not valid */
 	if (mp4 == MP4_INVALID_FILE_HANDLE)
 	{
+		ast_log(LOG_WARNING, "Invalid file handle for %s\n",(char *) args.filename);
 		/* exit */
 		res = -1;
 		goto clean;
