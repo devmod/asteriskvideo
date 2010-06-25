@@ -1928,7 +1928,7 @@ rtsp_play_end:
 	RtspPlayerDestroy(player);
 
 	/* log */
-	ast_log(LOG_WARNING,"<rtsp_play");
+	ast_log(LOG_WARNING,"<rtsp_play\n");
 
 	/* Exit */	
 	return res;
@@ -2104,6 +2104,7 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 	char *username;
 	char *password;
 	int  port;
+	int  res=0;
 
 	/* Get data */
 	uri = (char*)data;
@@ -2179,7 +2180,7 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 			/* Default */
 			port = 80;
 		/* Play */
-		rtsp_tunnel(chan,ip,port,url);
+		res = rtsp_tunnel(chan,ip,port,url);
 
 	} else if (strncmp(uri,"rtsp",4)==0) {
 		/* if no port */
@@ -2187,7 +2188,7 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 			/* Default */
 			port = 554;
 		/* Play */
-		rtsp_play(chan,ip,port,url,username,password);
+		res = rtsp_play(chan,ip,port,url,username,password);
 
 	} else
 		ast_log(LOG_ERROR,"RTSP ERROR: Unknown protocol in uri %s\n",uri);
@@ -2203,7 +2204,7 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 		free(username);
 
 	/* Exit */
-	return 0;
+	return res;
 }
 
 
