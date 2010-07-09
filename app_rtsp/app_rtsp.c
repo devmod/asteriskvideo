@@ -38,6 +38,7 @@
 #include <asterisk/pbx.h>
 #include <asterisk/module.h>
 #include <asterisk/utils.h>
+#include <asterisk/translate.h>
 
 #ifndef AST_FORMAT_AMRNB
 #define AST_FORMAT_AMRNB	(1 << 13)
@@ -869,6 +870,7 @@ struct SDPMedia
 {
 	struct SDPFormat** formats;
 	int num;
+	int all;
 };
 
 struct SDPContent
@@ -903,6 +905,9 @@ static struct SDPMedia* CreateMedia(char *buffer,int bufferLen)
 
 	/* Allocate */
 	media->formats = (struct SDPFormat**) malloc(media->num);
+
+	/* Set all formats to nothing */
+	media->all = 0;
 
 	/* For each format */
 	for (i=0;i<media->num;i++)
@@ -1022,6 +1027,8 @@ static struct SDPContent* CreateSDP(char *buffer,int bufferLen)
 					media->formats[n]->format = mimeTypes[f].format;
 					/* Set payload */
 					media->formats[n]->payload = atoi(i+9);
+					/* Append to all formats */
+					media->all |= media->formats[n]->format;
 					/* Exit */
 					break;
 				}
@@ -1491,15 +1498,26 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char
 						break;
 					}
 
+					ast_log(LOG_DEBUG,"-Finding compatible codecs [%x]\n", chan->nativeformats);
+
 					/* Get best audio track */
 					if (sdp->audio)
+					{
+						/* Avoid ovverwriten */
+						int best = chan->nativeformats | AST_FORMAT_AMRNB;
+
+						/* Get best codec format for audio */
+						ast_translator_best_choice(&best, &sdp->audio->all);
+
+						ast_log(LOG_DEBUG,"-Best codec for audio [%x]\n", best);
+
 						/* Get first matching format */
 						for (i=0;i<sdp->audio->num;i++)
 						{
 							/* log */
-							ast_log(LOG_DEBUG,"-audio [%d,%d,%s]\n", sdp->audio->formats[i]->format, sdp->audio->formats[i]->payload ,sdp->audio->formats[i]->control);
+							ast_log(LOG_DEBUG,"-audio [%x,%d,%s]\n", sdp->audio->formats[i]->format, sdp->audio->formats[i]->payload ,sdp->audio->formats[i]->control);
 							/* if we have that */
-							if (sdp->audio->formats[i]->format & chan->nativeformats)
+							if (sdp->audio->formats[i]->format == best)
 							{
 								/* Store type */
 								audioType = sdp->audio->formats[i]->payload;
@@ -1507,10 +1525,13 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char
 								audioFormat = sdp->audio->formats[i]->format;
 								/* Store control */
 								audioControl = sdp->audio->formats[i]->control;
+								/* Found best codec */
+								ast_log(LOG_DEBUG,"-Found best audio codec\n");
 								/* Got a valid one */
 								break;
 							}
 						}
+					}
 
 					/* Get best video track */
 					if (sdp->video)
@@ -1518,7 +1539,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char
 						for (i=0;i<sdp->video->num;i++)
 						{
 							/* log */
-							ast_log(LOG_DEBUG,"-video [%d,%d,%s]\n", sdp->video->formats[i]->format, sdp->video->formats[i]->payload ,sdp->video->formats[i]->control);
+							ast_log(LOG_DEBUG,"-video [%x,%d,%s]\n", sdp->video->formats[i]->format, sdp->video->formats[i]->payload ,sdp->video->formats[i]->control);
 							/* if we have that */
 							if (sdp->video->formats[i]->format & chan->nativeformats)
 							{
@@ -1528,13 +1549,19 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char
 								videoFormat = sdp->video->formats[i]->format;
 								/* Store control */
 								videoControl = sdp->video->formats[i]->control;
+								/* Found best codec */
+								ast_log(LOG_DEBUG,"Found best video codec\n");
 								/* Got a valid one */
 								break;
 							}
 						}
 
+					/* Log formats */
+					ast_log(LOG_DEBUG,"-Set write format [%x,%x,%x]\n", audioFormat | videoFormat, audioFormat, videoFormat);
+
 					/* Set write format */
 					ast_set_write_format(chan, audioFormat | videoFormat);	
+
 
 					/* if audio track */
 					if (audioControl)

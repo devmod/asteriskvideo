@@ -1375,17 +1375,24 @@ static int app_transcode(struct ast_channel *chan, void *data)
 	if (!(b=strchr(a+1,'|')))
 		return 0;
 
+	/* Lock module */
+	u = ast_module_user_add(chan);
+
 	/* Set local params */
 	fwdParams = strndup((char*)data,a-(char*)data);
 	local 	  = strndup(a+1,b-a-1);
 	revParams = strndup(b+1,strlen((char*)data)-(b-(char*)data)-1);
 
-	/* Lock module */
-	u = ast_module_user_add(chan);
+	/* Log */
+	ast_log(LOG_WARNING,">Transcoding [%s,%s,%s,%x]\n",fwdParams,local,revParams,chan->nativeformats);
+
+	/* Create contexts */
+	fwd = VideoTranscoderCreate(pseudo,fwdParams);
+	rev = VideoTranscoderCreate(chan,revParams);
 
 	/* Request new channel */
-	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_MPEG4 | AST_FORMAT_H263_PLUS | AST_FORMAT_H264 | chan->rawwriteformat, local, &reason);
- 
+	pseudo = ast_request("Local", AST_FORMAT_H263 | AST_FORMAT_MPEG4 | AST_FORMAT_H263_PLUS | AST_FORMAT_H264 | chan->nativeformats, local, &reason);
+
 	/* If somthing has gone wrong */
 	if (!pseudo)
 		/* goto end */
@@ -1475,14 +1482,6 @@ static int app_transcode(struct ast_channel *chan, void *data)
 		/* goto end */
 		goto clean_pseudo; 
 
-	/* Log */
-	ast_log(LOG_WARNING,">Transcoding [%s,%s,%s]\n",fwdParams,local,revParams);
-
-	/* Create contexts */
-	fwd = VideoTranscoderCreate(pseudo,fwdParams);
-	rev = VideoTranscoderCreate(chan,revParams);
-
-
 	/* Answer channel */
 	ast_answer(chan);
 
@@ -1562,7 +1561,19 @@ static int app_transcode(struct ast_channel *chan, void *data)
 	}
 
 	/* Log */
-	ast_log(LOG_WARNING,"-end loop");
+	ast_log(LOG_WARNING,"-End transcoding loop");
+
+hangup_pseudo:
+	/* Hangup pseudo channel if needed */
+	ast_log(LOG_WARNING,"-Hanging up pseudo channel\n");
+	ast_softhangup(pseudo, reason);
+
+clean_pseudo:
+	/* Destroy pseudo channel */
+	ast_hangup(pseudo);
+end:
+	/* Log */
+	ast_log(LOG_WARNING,"<Transcoding\n");
 
 	/* Destroy transcoders */
 	if (fwd)
@@ -1570,25 +1581,10 @@ static int app_transcode(struct ast_channel *chan, void *data)
 	if (rev)
 		VideoTranscoderDestroy(rev);
 
-	ast_log(LOG_WARNING,"-Hanging up \n");
-
-hangup_pseudo:
-	/* Hangup pseudo channel if needed */
-	ast_softhangup(pseudo, reason);
-
-clean_pseudo:
-	/* Destroy pseudo channel */
-	ast_hangup(pseudo);
-
-	/* Log */
-	ast_log(LOG_WARNING,"<Transcoding\n");
-
-end:
 	/* Free params */
 	free(fwdParams);
 	free(local);
 	free(revParams);
-
 
 	/* Unlock module*/
 	ast_module_user_remove(u);
