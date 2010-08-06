@@ -282,7 +282,9 @@ struct RtspPlayer
 
 	char*	ip;
 	int 	port;
+	char*	hostport;
 	char*	url;
+	int	isIPv6;
 
 	char*	authorization;
 
@@ -312,6 +314,8 @@ static struct RtspPlayer* RtspPlayerCreate(void)
 	player->state 		= RTSP_NONE;
 	player->end		= 0;
 	player->ip		= NULL;
+	player->hostport	= NULL;
+	player->isIPv6		= 0;
 	player->port		= 0;
 	player->url		= NULL;
 	player->authorization	= NULL;
@@ -334,6 +338,7 @@ static void RtspPlayerDestroy(struct RtspPlayer* player)
 {
 	/* free members*/
 	if (player->ip) 	free(player->ip);
+	if (player->hostport) 	free(player->hostport);
 	if (player->url) 	free(player->url);
 	if (player->session[0])	free(player->session[0]);
 	if (player->session[1])	free(player->session[1]);
@@ -359,29 +364,57 @@ static void RtspPlayerBasicAuthorization(struct RtspPlayer* player,char *usernam
 	sprintf(player->authorization, "Authorization: Basic %s",base64);
 }
 
-static void GetUdpPorts(int *a,int *b,int *p,int *q)
+static void GetUdpPorts(int *a,int *b,int *p,int *q,int isIPv6)
 {
-	struct sockaddr_in sendAddr;
+	struct sockaddr *sendAddr;
+	int size;
 	int len;
+	int PF;
+	int *port;
 
-	/* empty addres */
-	memset(&sendAddr,0,sizeof(struct sockaddr_in));
-
-	sendAddr.sin_family = AF_INET;
+	/* If it is ipv6 */
+	if (isIPv6)
+	{
+		/* Set size*/
+		size = sizeof(struct sockaddr_in6);
+		/*Create address */
+		sendAddr = (struct sockaddr *)malloc(size);
+		/* empty addres */
+		memset(&sendAddr,0,size);
+		/*Set family */
+		((struct sockaddr_in6*)sendAddr)->sin6_family = AF_INET6;
+		/* Set PF */
+		PF = PF_INET6;
+		/* Get port */
+		port = ((struct sockaddr_in6 *)sendAddr)->sin6_port;
+	} else {
+		/* Set size*/
+		size = sizeof(struct sockaddr_in);
+		/*Create address */
+		sendAddr = (struct sockaddr *)malloc(size);
+		/* empty addres */
+		memset(&sendAddr,0,size);
+		/*Set family */
+		((struct sockaddr_in *)sendAddr)->sin_family = AF_INET;
+		/* Set PF */
+		PF = PF_INET;
+		/* Get port */
+		port = ((struct sockaddr_in *)sendAddr)->sin_port;
+	}
 
 	/* Create sockets */
-	*a = socket(PF_INET,SOCK_DGRAM,0);
-	bind(*a,(struct sockaddr *)&sendAddr,sizeof(struct sockaddr_in));
-	*b = socket(PF_INET,SOCK_DGRAM,0);
-	bind(*b,(struct sockaddr *)&sendAddr,sizeof(struct sockaddr_in));
+	*a = socket(PF,SOCK_DGRAM,0);
+	bind(*a,sendAddr,size);
+	*b = socket(PF,SOCK_DGRAM,0);
+	bind(*b,sendAddr,size);
 
 	/* Get socket ports */
-	len = sizeof(struct sockaddr_in);
-	getsockname(*a,(struct sockaddr *)&sendAddr,&len);
-	*p = ntohs(sendAddr.sin_port);
-	len = sizeof(struct sockaddr_in);
-	getsockname(*b,(struct sockaddr *)&sendAddr,&len);
-	*q = ntohs(sendAddr.sin_port);
+	len = size;
+	getsockname(*a,sendAddr,&len);
+	*p = ntohs(*port);
+	len = size;
+	getsockname(*b,sendAddr,&len);
+	*q = ntohs(*port);
 
 	ast_log(LOG_DEBUG,"-GetUdpPorts [%d,%d]\n",*p,*q);
 
@@ -394,19 +427,22 @@ static void GetUdpPorts(int *a,int *b,int *p,int *q)
 		*a = *b;
 		*p = *q;
 		/* Create new socket */
-		*b = socket(PF_INET,SOCK_DGRAM,0); 
+		*b = socket(PF,SOCK_DGRAM,0); 
 		/* Get port */
 		if (*p>0)
-			sendAddr.sin_port = htons(*p+1);
+			*port = htons(*p+1);
 		else
-			sendAddr.sin_port = htons(0);
-		bind(*b,(struct sockaddr *)&sendAddr,sizeof(struct sockaddr_in));
-		len = sizeof(struct sockaddr_in);
-		getsockname(*b,(struct sockaddr *)&sendAddr,&len);
-		*q = ntohs(sendAddr.sin_port);
+			*port = htons(0);
+		bind(*b,sendAddr,size);
+		len = size;
+		getsockname(*b,sendAddr,&len);
+		*q = ntohs(*port);
 
 		ast_log(LOG_DEBUG,"-GetUdpPorts [%d,%d]\n",*p,*q);
 	}
+
+	/* Free Address*/
+	free(sendAddr);
 }
 static void SetNonBlocking(int fd)
 {
@@ -417,18 +453,64 @@ static void SetNonBlocking(int fd)
 	fcntl(fd,F_SETFD,flags | O_NONBLOCK);
 }
 
-static int RtspPlayerConnect(struct RtspPlayer *player, const char *ip, int port)
+static struct sockaddr* GetIPAddr(const char *ip, int port,int isIPv6,int *size,int *PF)
 {
-	struct sockaddr_in sendAddr;
+	struct sockaddr * sendAddr;
+
+	/* If it is ipv6 */
+	if (isIPv6)
+	{
+		/* Set size*/
+		*size = sizeof(struct sockaddr_in6);
+		/*Create address */
+		sendAddr = (struct sockaddr *)malloc(size);
+		/* empty addres */
+		memset(sendAddr,0,*size);
+		/* Set PF */
+		*PF = PF_INET6;
+		/*Set family */
+		((struct sockaddr_in6 *)sendAddr)->sin6_family = AF_INET6;
+		/* Set Address */
+		inet_pton(AF_INET6,ip,&((struct sockaddr_in6*)sendAddr)->sin6_addr);
+		/* Set port */
+		((struct sockaddr_in6 *)sendAddr)->sin6_port = htons(port);
+	} else {
+		/* Set size*/
+		*size = sizeof(struct sockaddr_in);
+		/*Create address */
+		sendAddr = (struct sockaddr *)malloc(size);
+		/* empty addres */
+		memset(sendAddr,0,*size);
+		/*Set family */
+		((struct sockaddr_in*)sendAddr)->sin_family = AF_INET;
+		/* Set PF */
+		*PF = PF_INET;
+		/* Set Address */
+		((struct sockaddr_in*)sendAddr)->sin_addr.s_addr = inet_addr(ip);
+		/* Set port */
+		((struct sockaddr_in *)sendAddr)->sin_port = htons(port);
+	}
+
+	return sendAddr;
+}
+
+static int RtspPlayerConnect(struct RtspPlayer *player, const char *ip, int port,int isIPv6)
+{
+	struct sockaddr * sendAddr;
+	int size;
+	int PF;
+
+	/* Get send address */
+	sendAddr = GetIPAddr(ip,port,isIPv6,&size,&PF);
 
 	/* open socket */
-	player->fd = socket(PF_INET,SOCK_STREAM,0);
+	player->fd = socket(PF,SOCK_STREAM,0);
 
 	/* Open audio ports */
-	GetUdpPorts(&player->audioRtp,&player->audioRtcp,&player->audioRtpPort,&player->audioRtcpPort);
+	GetUdpPorts(&player->audioRtp,&player->audioRtcp,&player->audioRtpPort,&player->audioRtcpPort,isIPv6);
 
 	/* Open video ports */
-	GetUdpPorts(&player->videoRtp,&player->videoRtcp,&player->videoRtpPort,&player->videoRtcpPort);
+	GetUdpPorts(&player->videoRtp,&player->videoRtcp,&player->videoRtpPort,&player->videoRtcpPort,isIPv6);
 
 	/* Set non blocking */
 	SetNonBlocking(player->fd);
@@ -437,23 +519,40 @@ static int RtspPlayerConnect(struct RtspPlayer *player, const char *ip, int port
 	SetNonBlocking(player->videoRtp);
 	SetNonBlocking(player->videoRtcp);
 
-	/* empty addres */
-	memset(&sendAddr,0,sizeof(struct sockaddr_in));
-
-	/* Set data */
-	sendAddr.sin_family	 = AF_INET;
-	sendAddr.sin_addr.s_addr = INADDR_ANY;
-	sendAddr.sin_addr.s_addr = inet_addr(ip);
-	sendAddr.sin_port	 = htons(port);
-
 	/* Connect */
-	if (connect(player->fd,(struct sockaddr *)&sendAddr,sizeof(sendAddr))<0)
+	if (connect(player->fd,sendAddr,size)<0)
+	{
+		/* Free mem */
+		free(sendAddr);
 		/* Exit */
 		return 0;
+	}
+
+	/* Set ip v6 */
+	player->isIPv6 = isIPv6;
 
 	/* copy ip & port*/
 	player->ip 	= strdup(ip);
 	player->port 	= port;
+
+	/* create hostport */
+	player->hostport = (char*)malloc(strlen(ip)+8);
+
+	/* If it is ipv6 */
+	if (isIPv6)
+		/* In brakcets */	
+		sprintf(player->hostport,"[%s]",player->ip);
+	else
+		/* normal*/
+		strcpy(player->hostport,player->ip);
+
+	/* If not standard port */
+	if (port!=554)
+		/* Append iot */
+		sprintf(player->hostport,"%s:%d",player->hostport,player->port);
+
+	/* Free mem */
+	free(sendAddr);
 
 	/* conected */
 	return 1;
@@ -495,7 +594,9 @@ static void RrspPlayerSetAudioTransport(struct RtspPlayer *player,const char* tr
 {
 	char *i;
 	int port;
-	struct sockaddr_in addr;
+	struct sockaddr * addr;
+	int size;
+	int PF;
 
 	/* Find server port values */
 	if (!(i=strstr(transport,"server_port=")))
@@ -518,16 +619,16 @@ static void RrspPlayerSetAudioTransport(struct RtspPlayer *player,const char* tr
 	/* Get port number */
 	port = atoi(i+1);
 
-	/* Connect rtcp socket */
-	memset(&addr, 0, sizeof(struct sockaddr_in));
-	addr.sin_family      	= AF_INET;
-	addr.sin_addr.s_addr 	= inet_addr(player->ip);
-	addr.sin_port	 	= htons(port);
+	/* Get send address */
+	addr = GetIPAddr(player->ip,port,player->isIPv6,&size,&PF);
 
 	/* Connect */
-	if (connect(player->audioRtcp,(struct sockaddr *)&addr,sizeof(addr))<0)
+	if (connect(player->audioRtcp,addr,size)<0)
 		/* Log */
 		ast_log(LOG_DEBUG,"Could not connect audio rtcp port [%s,%d,%d].%s\n", player->ip,port,errno,strerror(errno));
+
+	/* Free Addr */
+	free(addr);
 
 }
 
@@ -535,7 +636,9 @@ static void RrspPlayerSetVideoTransport(struct RtspPlayer *player,const char* tr
 {
 	char *i;
 	int port;
-	struct sockaddr_in addr;
+	struct sockaddr * addr;
+	int size;
+	int PF;
 
 	/* Find server port values */
 	if (!(i=strstr(transport,"server_port=")))
@@ -558,17 +661,16 @@ static void RrspPlayerSetVideoTransport(struct RtspPlayer *player,const char* tr
 	/* Get port number */
 	port = atoi(i+1);
 
-	/* Connect rtcp socket */
-	memset(&addr, 0, sizeof(struct sockaddr_in));
-	addr.sin_family      	= AF_INET;
-	addr.sin_addr.s_addr 	= inet_addr(player->ip);
-	addr.sin_port	 	= htons(port);
+	/* Get send address */
+	addr = GetIPAddr(player->ip,port,player->isIPv6,&size,&PF);
 
 	/* Connect */
-	if (connect(player->videoRtcp,(struct sockaddr *)&addr,sizeof(addr))<0)
+	if (connect(player->videoRtcp,addr,size)<0)
 		/* Log */
 		ast_log(LOG_DEBUG,"Could not connect video rtcp port [%s,%d,%d].%s\n", player->ip,port,errno,strerror(errno));
 
+	/* Free Addr */
+	free(addr);
 }
 static void RtspPlayerClose(struct RtspPlayer *player)
 {
@@ -615,7 +717,7 @@ static int RtspPlayerOptions(struct RtspPlayer *player,const char *url)
                         "CSeq: %d\r\n"
                         "Session: %s\r\n"
                         "User-Agent: app_rtsp\r\n",
-                        player->ip,url,player->cseq,player->session[player->numSessions-1]);
+                        player->hostport,url,player->cseq,player->session[player->numSessions-1]);
 
         /* End request */
         strcat(request,"\r\n");
@@ -646,7 +748,7 @@ static int RtspPlayerDescribe(struct RtspPlayer *player,const char *url)
 			"CSeq: %d\r\n"
 			"Accept: application/sdp\r\n"
 			"User-Agent: app_rtsp\r\n",
-			player->ip,url,player->cseq);
+			player->hostport,url,player->cseq);
 
 	/* If we are authorized */
 	if (player->authorization)
@@ -712,7 +814,7 @@ static int RtspPlayerSetupAudio(struct RtspPlayer* player,const char *url)
 				"Transport: RTP/AVP;unicast;client_port=%d-%d\r\n"
 				"User-Agent: app_rtsp\r\n"
 				"\r\n",
-				player->ip,player->url,url,player->cseq,sessionheader,player->audioRtpPort,player->audioRtcpPort);
+				player->hostport,player->url,url,player->cseq,sessionheader,player->audioRtpPort,player->audioRtcpPort);
 	}
 
 	/* Send request */
@@ -764,7 +866,7 @@ static int RtspPlayerSetupVideo(struct RtspPlayer* player,const char *url)
 				"Transport: RTP/AVP;unicast;client_port=%d-%d\r\n"
 				"User-Agent: app_rtsp\r\n"
 				"\r\n",
-				player->ip,player->url,url,player->cseq,sessionheader,player->videoRtpPort,player->videoRtcpPort);
+				player->hostport,player->url,url,player->cseq,sessionheader,player->videoRtpPort,player->videoRtcpPort);
 	}
 
 	/* Send request */
@@ -802,7 +904,7 @@ static int RtspPlayerPlay(struct RtspPlayer* player)
 				"Session: %s\r\n"
 				"User-Agent: app_rtsp\r\n"
 				"\r\n",
-				player->ip,player->url,player->cseq,player->session[i]);
+				player->hostport,player->url,player->cseq,player->session[i]);
 
 		/* Send request */
 		if (!SendRequest(player->fd,request,&player->end))
@@ -840,7 +942,7 @@ static int RtspPlayerTeardown(struct RtspPlayer* player)
 				"Session: %s\r\n"
 				"User-Agent: app_rtsp\r\n"
 				"\r\n",
-				player->ip,player->url,player->cseq,player->session[i]);
+				player->hostport,player->url,player->cseq,player->session[i]);
 		/* Send request */
 		if (!SendRequest(player->fd,request,&player->end))
 			/* exit */
@@ -1229,7 +1331,7 @@ static int GetResponseLen(char *buffer)
 }
 
 
-static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char *username,char *password)
+static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char *username,char *password,int isIPv6)
 {
 	struct ast_frame *f = NULL;
 	struct ast_frame *sendFrame = NULL;
@@ -1296,7 +1398,7 @@ static int rtsp_play(struct ast_channel *chan,char *ip, int port, char *url,char
 	}
 
 	/* Connect player */
-	if (!RtspPlayerConnect(player,ip,port))
+	if (!RtspPlayerConnect(player,ip,port,isIPv6))
 	{
 		/* log */
 		ast_log(LOG_ERROR,"Couldn't connect to %s:%d\n",ip,port);
@@ -2130,8 +2232,9 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 	char *i;
 	char *username;
 	char *password;
-	int  port;
+	int  port=0;
 	int  res=0;
+	int  isIPv6=0;
 
 	/* Get data */
 	uri = (char*)data;
@@ -2185,16 +2288,30 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 		url = "/";
 	}
 
-	/* Get port */
-	if ((i=strstr(ip,":"))!=NULL)
+	/* Check if it is ipv6 */
+	if (ip[0]=='[')
 	{
-		/* Get port */
-		port = atoi(i+1);
+		/* Is ipv6*/
+		isIPv6 = 1;
+		/* Skip first */
+		ip++;
+		/* Find closing bracket */
+		i=strstr(ip,"]");
 		/* Remove from server */
-		i[0] = 0;
+		i[0]=0;
+		/* check if there is a port after */
+		if (i[1]==':')
+			/* Get port */
+			port = atoi(i+2);
 	} else {
-		/* No port */
-		port = 0;
+		/* Get port */
+		if ((i=strstr(ip,":"))!=NULL)
+		{
+			/* Get port */
+			port = atoi(i+1);
+			/* Remove from server */
+			i[0] = 0;
+		}
 	}
 
 	/* Lock module */
@@ -2215,7 +2332,7 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 			/* Default */
 			port = 554;
 		/* Play */
-		res = rtsp_play(chan,ip,port,url,username,password);
+		res = rtsp_play(chan,ip,port,url,username,password,isIPv6);
 
 	} else
 		ast_log(LOG_ERROR,"RTSP ERROR: Unknown protocol in uri %s\n",uri);
