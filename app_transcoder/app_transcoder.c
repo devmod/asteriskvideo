@@ -1413,6 +1413,10 @@ static int app_transcode(struct ast_channel *chan, void *data)
         channels[0] = chan;
         channels[1] = pseudo;
 
+#ifdef HAVE_EPOLL
+	ast_poll_channel_add(chan,pseudo);
+#endif
+
         /* No timeout */
         ms = -1;
 
@@ -1485,10 +1489,6 @@ static int app_transcode(struct ast_channel *chan, void *data)
 	/* Answer channel */
 	ast_answer(chan);
 
-	/* Set up array */
-	channels[0] = chan;
-	channels[1] = pseudo;
-
 	/* No timeout */
 	ms = -1;
 
@@ -1560,6 +1560,7 @@ static int app_transcode(struct ast_channel *chan, void *data)
 		}
 	}
 
+
 	/* Log */
 	ast_log(LOG_WARNING,"-End transcoding loop");
 
@@ -1571,6 +1572,11 @@ hangup_pseudo:
 clean_pseudo:
 	/* Destroy pseudo channel */
 	ast_hangup(pseudo);
+
+#ifdef HAVE_EPOLL
+	ast_poll_channel_del(chan,pseudo);
+#endif
+
 end:
 	/* Log */
 	ast_log(LOG_WARNING,"<Transcoding\n");
