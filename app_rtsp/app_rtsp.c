@@ -212,7 +212,7 @@ struct MediaStats
 	struct timeval time;
 };
 
-void MediaStatsReset(struct MediaStats *stats)
+static void MediaStatsReset(struct MediaStats *stats)
 {
 	stats->count 	= 0;
 	stats->minSN 	= 0;
@@ -221,7 +221,7 @@ void MediaStatsReset(struct MediaStats *stats)
 	stats->time 	= ast_tvnow();
 }
 
-void MediaStatsUpdate(struct MediaStats *stats,unsigned int ts,unsigned int sn,unsigned int ssrc)
+static void MediaStatsUpdate(struct MediaStats *stats,unsigned int ts,unsigned int sn,unsigned int ssrc)
 {
 	stats->ssrc = ssrc;
 	stats->count++;
@@ -232,7 +232,7 @@ void MediaStatsUpdate(struct MediaStats *stats,unsigned int ts,unsigned int sn,u
 	stats->lastTS = ts;
 }
 
-void MediaStatsRR(struct MediaStats *stats, struct Rtcp *rtcp)
+static void MediaStatsRR(struct MediaStats *stats, struct Rtcp *rtcp)
 {
 	/* Set pointer as ssrc */
 	rtcp->r.rr.ssrc = htonl(stats);
@@ -370,7 +370,7 @@ static void GetUdpPorts(int *a,int *b,int *p,int *q,int isIPv6)
 	int size;
 	int len;
 	int PF;
-	int *port;
+	unsigned short *port;
 
 	/* If it is ipv6 */
 	if (isIPv6)
@@ -380,26 +380,26 @@ static void GetUdpPorts(int *a,int *b,int *p,int *q,int isIPv6)
 		/*Create address */
 		sendAddr = (struct sockaddr *)malloc(size);
 		/* empty addres */
-		memset(&sendAddr,0,size);
+		memset(sendAddr,0,size);
 		/*Set family */
 		((struct sockaddr_in6*)sendAddr)->sin6_family = AF_INET6;
 		/* Set PF */
 		PF = PF_INET6;
 		/* Get port */
-		port = ((struct sockaddr_in6 *)sendAddr)->sin6_port;
+		port = &(((struct sockaddr_in6 *)sendAddr)->sin6_port);
 	} else {
 		/* Set size*/
 		size = sizeof(struct sockaddr_in);
 		/*Create address */
 		sendAddr = (struct sockaddr *)malloc(size);
 		/* empty addres */
-		memset(&sendAddr,0,size);
+		memset(sendAddr,0,size);
 		/*Set family */
 		((struct sockaddr_in *)sendAddr)->sin_family = AF_INET;
 		/* Set PF */
 		PF = PF_INET;
 		/* Get port */
-		port = ((struct sockaddr_in *)sendAddr)->sin_port;
+		port = &(((struct sockaddr_in *)sendAddr)->sin_port);
 	}
 
 	/* Create sockets */
@@ -463,7 +463,7 @@ static struct sockaddr* GetIPAddr(const char *ip, int port,int isIPv6,int *size,
 		/* Set size*/
 		*size = sizeof(struct sockaddr_in6);
 		/*Create address */
-		sendAddr = (struct sockaddr *)malloc(size);
+		sendAddr = (struct sockaddr *)malloc(*size);
 		/* empty addres */
 		memset(sendAddr,0,*size);
 		/* Set PF */
@@ -478,7 +478,7 @@ static struct sockaddr* GetIPAddr(const char *ip, int port,int isIPv6,int *size,
 		/* Set size*/
 		*size = sizeof(struct sockaddr_in);
 		/*Create address */
-		sendAddr = (struct sockaddr *)malloc(size);
+		sendAddr = (struct sockaddr *)malloc(*size);
 		/* empty addres */
 		memset(sendAddr,0,*size);
 		/*Set family */
@@ -2196,7 +2196,7 @@ static int rtsp_tunnel(struct ast_channel *chan,char *ip, int port, char *url)
 							/* Get new length */
 							bufferLen -= contentLength;
 							/* Move data to begining */
-							memcpy(buffer,i,bufferLen);
+							memcpy(buffer,buffer+contentLength,bufferLen);
 							/* Reset content */
 							contentLength = 0;
 						} else
@@ -2228,6 +2228,7 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 	struct ast_module_user *u;
 	char *uri;
 	char *ip;
+	char *hostport;
 	char *url;
 	char *i;
 	char *username;
@@ -2278,15 +2279,18 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 	if ((i=strstr(url,"/"))!=NULL)
 	{
 		/* Assign server */
-		ip = strndup(url,i-url);
+		hostport = strndup(url,i-url);
 		/* Get url */
 		url = i;
 	} else {
 		/* all is server */
 		ip = strdup(url);
 		/* Get root */	
-		url = "/";
+		hostport = "/";
 	}
+
+	/* Get the ip */
+	ip = hostport;
 
 	/* Check if it is ipv6 */
 	if (ip[0]=='[')
@@ -2341,7 +2345,7 @@ static int app_rtsp(struct ast_channel *chan, void *data)
 	ast_module_user_remove(u);
 
 	/* Free ip */
-	free(ip);
+	free(hostport);
 
 	/* Free username */
 	if (username)
